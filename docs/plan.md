@@ -1,6 +1,7 @@
 # Mismo DJ Node.js Backend - Detailed Implementation Plan
 
 ## Project Overview
+
 Build a Node.js backend server that manages a multi-directory music library with duplicate detection, file operations, library scanning, and coordination with Python analysis server.
 
 ---
@@ -8,12 +9,14 @@ Build a Node.js backend server that manages a multi-directory music library with
 ## Phase 1: Project Setup & Core Infrastructure (Days 1-3)
 
 ### Day 1: Project Initialization
+
 - [ ] Initialize npm project
   - Create `package.json` with project metadata
   - Set up TypeScript configuration (recommended) or use plain JavaScript
   - Configure ESLint and Prettier for code quality
 
 - [ ] Install core dependencies
+
   ```bash
   # Database
   npm install better-sqlite3
@@ -42,6 +45,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   ```
 
 - [ ] Create project structure
+
   ```
   nodejs-backend/
   ├── src/
@@ -65,6 +69,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Configure paths, ports, URLs
 
 ### Day 2: Database Setup
+
 - [ ] Implement database connection service (`src/config/database.js`)
   - Initialize SQLite connection with `better-sqlite3`
   - Enable foreign key constraints
@@ -88,6 +93,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Error handling wrapper
 
 ### Day 3: Core Express Server & Basic API
+
 - [ ] Set up Express server (`src/server.js`)
   - Initialize Express app
   - Configure middleware (CORS, body-parser, etc.)
@@ -107,6 +113,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Validation middleware factory
 
 - [ ] Implement settings API (`src/routes/settings.js`)
+
   ```javascript
   GET    /api/settings          - Get all settings
   GET    /api/settings/:key     - Get single setting
@@ -124,7 +131,9 @@ Build a Node.js backend server that manages a multi-directory music library with
 ## Phase 2: Library Directory Management (Days 4-7) ✅ COMPLETE
 
 ### Day 4: Library Directory CRUD ✅
+
 - [x] Create library directories route (`src/routes/libraryDirectory.routes.js`) ✅
+
   ```javascript
   GET    /api/library/directories           - List all library directories ✅
   POST   /api/library/directories           - Add new library directory ✅
@@ -143,6 +152,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - **NOTE**: Statistics endpoint not exposed yet (can be added later)
 
 ### Day 5: File Scanner Implementation ✅
+
 - [x] Create file scanner service (`src/services/scanner.service.js`) ✅
   - Recursive directory traversal ✅
   - File pattern matching (glob patterns) ✅
@@ -169,6 +179,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - **NOTE**: Currently hashing full file (audio-only hashing is TODO for better duplicate detection)
 
 ### Day 6: Hybrid Scanning Strategy ✅
+
 - [x] Implement hybrid scanner workflow ✅
   - **Fast Scan**: Quick file check, minimal metadata ✅
   - **Full Scan**: Complete metadata extraction ✅
@@ -188,6 +199,7 @@ Build a Node.js backend server that manages a multi-directory music library with
     - Update database with results (coming in Phase 5)
 
 - [x] Add scan endpoint (`src/routes/scan.routes.js`) ✅
+
   ```javascript
   POST   /api/scan/library/:id         - Start scan ✅
   GET    /api/scan/library/:id/status  - Get scan status ✅
@@ -206,6 +218,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - **NOTE**: Priority-based queue not implemented (not critical for MVP)
 
 ### Day 7: File Watcher ⏸️ DEFERRED
+
 - [ ] Create file watcher service (`src/services/fileWatcher.js`)
   - Use `chokidar` to watch library directories
   - Detect new files → auto-import
@@ -228,7 +241,9 @@ Build a Node.js backend server that manages a multi-directory music library with
 ## Phase 3: Track Management & Duplicate Detection (Days 8-11)
 
 ### Day 8: Track CRUD API
+
 - [ ] Create tracks route (`src/routes/tracks.js`)
+
   ```javascript
   GET    /api/tracks              - List all tracks (paginated, filtered)
   GET    /api/tracks/:id          - Get single track
@@ -257,6 +272,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   ```
 
 ### Day 9: Duplicate Detection
+
 - [ ] Create duplicate detector service (`src/services/duplicateDetector.js`)
   - Check if file hash exists in `duplicate_groups`
   - If exists: assign track to existing group
@@ -265,6 +281,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Batch duplicate detection for existing library
 
 - [ ] Implement duplicate management routes (`src/routes/duplicates.js`)
+
   ```javascript
   GET    /api/duplicates                   - List all duplicate groups
   GET    /api/duplicates/:id              - Get duplicate group with tracks
@@ -280,6 +297,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Log resolution actions
 
 ### Day 10: File Operations
+
 - [ ] Create file operations service (`src/services/fileOperations.js`)
   - **Move track**: Move file to new location
     - Validate destination path
@@ -303,6 +321,7 @@ Build a Node.js backend server that manages a multi-directory music library with
     - Log operation
 
 - [ ] Add file operation routes
+
   ```javascript
   POST   /api/tracks/:id/move
   POST   /api/tracks/:id/rename
@@ -317,6 +336,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Send WebSocket progress updates
 
 ### Day 11: Directory Browser & Missing Media
+
 - [ ] Create directory browser service (`src/services/directoryBrowser.js`)
   - Browse subdirectories within library directory
   - List folders and tracks at each level
@@ -325,6 +345,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Use relative_path for queries
 
 - [ ] Add directory browsing endpoint
+
   ```javascript
   GET /api/library/directories/:id/browse?path=subfolder/artist
   ```
@@ -351,7 +372,9 @@ Build a Node.js backend server that manages a multi-directory music library with
 ## Phase 4: Playlist Management (Days 12-13)
 
 ### Day 12: Playlist CRUD
+
 - [ ] Create playlists route (`src/routes/playlists.js`)
+
   ```javascript
   GET    /api/playlists                      - List all playlists
   GET    /api/playlists/:id                  - Get playlist with tracks
@@ -367,7 +390,9 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Playlist statistics (duration, track count)
 
 ### Day 13: Playlist Track Management
+
 - [ ] Add playlist track routes
+
   ```javascript
   POST   /api/playlists/:id/tracks           - Add tracks to playlist
   DELETE /api/playlists/:id/tracks/:trackId  - Remove track from playlist
@@ -392,6 +417,7 @@ Build a Node.js backend server that manages a multi-directory music library with
 ## Phase 5: Analysis Integration (Days 14-16)
 
 ### Day 14: Python Server Communication
+
 - [ ] Create Python client service (`src/services/pythonClient.js`)
   - HTTP client for Python analysis server
   - Send analysis requests
@@ -411,7 +437,9 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Handle Python server unavailability gracefully
 
 ### Day 15: Analysis Endpoints
+
 - [ ] Create analysis routes (`src/routes/analysis.js`)
+
   ```javascript
   POST   /api/analysis/request         - Request analysis for track
   GET    /api/analysis/status/:jobId   - Get analysis status
@@ -435,6 +463,7 @@ Build a Node.js backend server that manages a multi-directory music library with
     - Mark job as complete
 
 ### Day 16: Progressive Analysis Updates
+
 - [ ] Handle multi-stage analysis
   - **Stage 1: Basic** (~5-10s)
     - BPM, key, mode, time signature
@@ -474,6 +503,7 @@ Build a Node.js backend server that manages a multi-directory music library with
 ## Phase 6: WebSocket Real-Time Updates (Days 17-18)
 
 ### Day 17: WebSocket Server Setup
+
 - [ ] Create WebSocket server (`src/websocket/server.js`)
   - Initialize WebSocket server with `ws`
   - Handle client connections
@@ -489,48 +519,53 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Rate limiting
 
 ### Day 18: Implement All WebSocket Events
+
 - [ ] Track events
+
   ```javascript
-  track:added
-  track:updated
-  track:deleted
-  track:moved
-  track:missing
-  track:restored
+  track: added;
+  track: updated;
+  track: deleted;
+  track: moved;
+  track: missing;
+  track: restored;
   ```
 
 - [ ] Library events
+
   ```javascript
-  library:directory:added
-  library:directory:updated
-  library:directory:removed
-  library:directory:scan:started
-  library:directory:scan:progress
-  library:directory:scan:complete
-  library:media:connected
-  library:media:disconnected
+  library: directory: added;
+  library: directory: updated;
+  library: directory: removed;
+  library: directory: scan: started;
+  library: directory: scan: progress;
+  library: directory: scan: complete;
+  library: media: connected;
+  library: media: disconnected;
   ```
 
 - [ ] Analysis events
+
   ```javascript
-  analysis:started
-  analysis:progress
-  analysis:complete
-  analysis:failed
+  analysis: started;
+  analysis: progress;
+  analysis: complete;
+  analysis: failed;
   ```
 
 - [ ] Duplicate events
+
   ```javascript
-  duplicate:detected
-  duplicate:resolved
+  duplicate: detected;
+  duplicate: resolved;
   ```
 
 - [ ] File operation events
   ```javascript
-  file_operation:started
-  file_operation:progress
-  file_operation:complete
-  file_operation:failed
+  file_operation: started;
+  file_operation: progress;
+  file_operation: complete;
+  file_operation: failed;
   ```
 
 ---
@@ -538,6 +573,7 @@ Build a Node.js backend server that manages a multi-directory music library with
 ## Phase 7: Audio Engine Integration (Days 19-20)
 
 ### Day 19: C++ Communication Interface
+
 - [ ] Decide on communication method
   - **Option A**: HTTP REST (simplest)
   - **Option B**: Unix Socket (lower latency)
@@ -556,7 +592,9 @@ Build a Node.js backend server that manages a multi-directory music library with
   ```
 
 ### Day 20: Waveform Management
+
 - [ ] Implement waveform routes
+
   ```javascript
   GET  /api/tracks/:id/waveform?zoom=0   - Get waveform at zoom level
   POST /api/tracks/:id/waveform          - Generate/update waveform
@@ -573,6 +611,7 @@ Build a Node.js backend server that manages a multi-directory music library with
 ## Phase 8: Testing & Quality Assurance (Days 21-24)
 
 ### Day 21: Unit Tests
+
 - [ ] Set up Jest testing framework
 - [ ] Write unit tests for services
   - Database service tests
@@ -583,6 +622,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Playlist service tests
 
 ### Day 22: Integration Tests
+
 - [ ] Write integration tests
   - Full library scan workflow
   - Duplicate detection workflow
@@ -598,6 +638,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Concurrent operations
 
 ### Day 23: Performance Testing
+
 - [ ] Load testing
   - Test with large library (10k+ tracks)
   - Concurrent scan performance
@@ -612,6 +653,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Profile and fix bottlenecks
 
 ### Day 24: Security Audit
+
 - [ ] Security review
   - Path traversal prevention
   - SQL injection prevention (use prepared statements)
@@ -626,6 +668,7 @@ Build a Node.js backend server that manages a multi-directory music library with
 ## Phase 9: Documentation & Polish (Days 25-26)
 
 ### Day 25: API Documentation
+
 - [ ] Create comprehensive API documentation
   - All endpoints with examples
   - Request/response formats
@@ -641,6 +684,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Deployment guide
 
 ### Day 26: Code Cleanup & README
+
 - [ ] Code cleanup
   - Remove unused code
   - Consistent code style
@@ -657,6 +701,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Troubleshooting
 
 - [ ] Create `.env.example` with all settings
+
   ```env
   # Server
   PORT=3000
@@ -694,6 +739,7 @@ Build a Node.js backend server that manages a multi-directory music library with
 ## Phase 10: Deployment & Integration (Days 27-28)
 
 ### Day 27: Deployment Preparation
+
 - [ ] Create production configuration
 - [ ] Set up database backups
 - [ ] Configure logging for production
@@ -701,6 +747,7 @@ Build a Node.js backend server that manages a multi-directory music library with
 - [ ] Set up monitoring and health checks
 
 ### Day 28: Integration Testing
+
 - [ ] Test integration with C++ audio engine
 - [ ] Test integration with Python analysis server
 - [ ] Test with real music library
@@ -713,6 +760,7 @@ Build a Node.js backend server that manages a multi-directory music library with
 ## Deliverables Checklist
 
 ### Code
+
 - [ ] Fully functional Node.js backend server
 - [ ] All API endpoints implemented
 - [ ] WebSocket server with real-time updates
@@ -720,6 +768,7 @@ Build a Node.js backend server that manages a multi-directory music library with
 - [ ] Comprehensive test suite
 
 ### Documentation
+
 - [ ] API documentation
 - [ ] Architecture documentation
 - [ ] Database schema documentation
@@ -727,6 +776,7 @@ Build a Node.js backend server that manages a multi-directory music library with
 - [ ] Configuration guide
 
 ### Quality
+
 - [ ] Unit test coverage > 80%
 - [ ] Integration tests passing
 - [ ] No security vulnerabilities
@@ -738,6 +788,7 @@ Build a Node.js backend server that manages a multi-directory music library with
 ## Risk Mitigation
 
 ### Technical Risks
+
 1. **Large Library Performance**: Mitigated by hybrid scanning, pagination, indexing
 2. **File Hash Calculation**: Mitigated by background processing, caching
 3. **Python Server Downtime**: Mitigated by queue persistence, retry logic
@@ -745,6 +796,7 @@ Build a Node.js backend server that manages a multi-directory music library with
 5. **Concurrent File Operations**: Mitigated by operation queue, locking
 
 ### Development Risks
+
 1. **Scope Creep**: Stick to design document, defer nice-to-have features
 2. **Timeline Slippage**: Prioritize core features, test incrementally
 3. **Integration Issues**: Early integration testing, clear contracts
@@ -798,20 +850,6 @@ Build a Node.js backend server that manages a multi-directory music library with
 
 ---
 
-## Next Immediate Steps
+# Future features
 
-1. Review and approve this plan
-2. Set up development environment
-3. Initialize npm project
-4. Create project structure
-5. Start with Phase 1, Day 1 tasks
-
-
-
-we were adding these corrections to our plan - 
-a few corrections - 
-waveform is generated by the analysis python server and received from it (phase 5), this info can then be sent to the client to be shown
-we should have a retry for the analysis queue, and also have a limit of how many can be sent at the same time
-no need for phase 7 - at least at this stage the nodejs server does not need to connect to the audio engine
-no need for migration startegy for the schema - we are starting from scratch so the current schema is the 1st one
-xxHash seems like a valid choice - change the design to use it - make sure we only hash the audio data and not any metadata in the file
+- Allow client to ask for quick analysis of a file - when a file is loaded into a deck

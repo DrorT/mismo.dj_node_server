@@ -70,10 +70,17 @@ app.get('/health', (req, res) => {
 import settingsRoutes from './routes/settings.routes.js';
 import libraryDirectoryRoutes from './routes/libraryDirectory.routes.js';
 import scanRoutes from './routes/scan.routes.js';
+import watcherRoutes from './routes/watcher.routes.js';
 
 app.use('/api/settings', settingsRoutes);
 app.use('/api/library/directories', libraryDirectoryRoutes);
 app.use('/api/scan', scanRoutes);
+app.use('/api/watcher', watcherRoutes);
+
+// Import services for startup scan and file watching
+import * as libraryDirService from './services/libraryDirectory.service.js';
+import * as scannerService from './services/scanner.service.js';
+import * as watcherService from './services/watcher.service.js';
 
 // ============================================================================
 // Error Handling
@@ -108,23 +115,91 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================================================
+// Startup Scan
+// ============================================================================
+
+/**
+ * Scan all active library directories on startup
+ * This helps keep the database synchronized with the file system
+ */
+async function performStartupScan() {
+  try {
+    logger.info('Starting automatic scan of active library directories...');
+
+    // Get all active and available directories
+    const directories = libraryDirService.getAllDirectories({
+      is_active: true,
+      is_available: true,
+    });
+
+    if (directories.length === 0) {
+      logger.info('No active library directories found to scan');
+      return;
+    }
+
+    logger.info(`Found ${directories.length} active library directories to scan`);
+
+    // Start scanning each directory (non-blocking)
+    for (const dir of directories) {
+      logger.info(`Initiating scan for: ${dir.name} (${dir.path})`);
+
+      // Start scan in background (don't await)
+      scannerService.scanLibraryDirectory(dir.id, {
+        strategy: 'hybrid', // Use hybrid strategy for balance of speed and accuracy
+        priority: 'low',    // Low priority for startup scans
+      }).then(results => {
+        logger.info(`Startup scan completed for ${dir.name}: ${results.tracksAdded} added, ${results.tracksUpdated} updated`);
+      }).catch(error => {
+        logger.error(`Startup scan failed for ${dir.name}:`, error);
+      });
+    }
+
+    logger.info('Startup scans initiated (running in background)');
+  } catch (error) {
+    logger.error('Error during startup scan:', error);
+  }
+}
+
+// ============================================================================
 // Server Startup
 // ============================================================================
 
 const server = app.listen(config.server.port, config.server.host, () => {
   logger.info(`Server running on http://${config.server.host}:${config.server.port}`);
   logger.info(`Environment: ${config.server.env}`);
+
+  // Perform startup scan and initialize file watchers after server is ready
+  setTimeout(() => {
+    performStartupScan();
+
+    // Start file watchers after startup scan completes
+    setTimeout(() => {
+      try {
+        watcherService.watchAllDirectories();
+      } catch (error) {
+        logger.error('Failed to start file watchers:', error);
+      }
+    }, 2000); // Wait 2 seconds for scans to start
+  }, 1000); // Wait 1 second to ensure server is fully ready
 });
 
 // ============================================================================
 // Graceful Shutdown
 // ============================================================================
 
-function gracefulShutdown(signal) {
+async function gracefulShutdown(signal) {
   logger.info(`${signal} received, starting graceful shutdown...`);
 
-  server.close(() => {
+  server.close(async () => {
     logger.info('HTTP server closed');
+
+    // Stop file watchers
+    try {
+      await watcherService.unwatchAllDirectories();
+      logger.info('File watchers stopped');
+    } catch (error) {
+      logger.error('Error stopping file watchers:', error);
+    }
 
     // Close database connection
     closeDatabase();

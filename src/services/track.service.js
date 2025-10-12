@@ -196,7 +196,12 @@ export function upsertTrack(trackData) {
       for (const field of updateableFields) {
         if (trackData[field] !== undefined) {
           fields.push(`${field} = ?`);
-          params.push(trackData[field]);
+          // Convert boolean to integer for SQLite
+          let value = trackData[field];
+          if (field === 'is_missing' && typeof value === 'boolean') {
+            value = value ? 1 : 0;
+          }
+          params.push(value);
         }
       }
 
@@ -225,7 +230,7 @@ export function upsertTrack(trackData) {
         trackData.file_hash,
         trackData.library_directory_id || null,
         trackData.relative_path || null,
-        trackData.is_missing || 0,
+        trackData.is_missing ? 1 : 0,  // Convert boolean to integer
         trackData.title || null,
         trackData.artist || null,
         trackData.album || null,
