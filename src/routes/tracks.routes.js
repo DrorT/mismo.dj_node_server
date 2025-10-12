@@ -1,5 +1,6 @@
 import express from 'express';
 import * as trackService from '../services/track.service.js';
+import * as fileOpsService from '../services/fileOperations.service.js';
 import logger from '../utils/logger.js';
 import { validate, schemas } from '../utils/validators.js';
 
@@ -337,6 +338,126 @@ router.post('/:id/mark-found', validate(schemas.trackId, 'params'), async (req, 
     res.status(500).json({
       success: false,
       error: 'Failed to mark track as found',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/tracks/:id/move
+ * Move track file to new location
+ *
+ * Body:
+ * {
+ *   "destination_path": "/path/to/new/location/file.mp3",
+ *   "library_directory_id": 2 (optional)
+ * }
+ */
+router.post('/:id/move', validate(schemas.trackId, 'params'), validate(schemas.fileMove, 'body'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { destination_path, library_directory_id } = req.body;
+
+    const updatedTrack = await fileOpsService.moveTrack(
+      parseInt(id),
+      destination_path,
+      library_directory_id ? parseInt(library_directory_id) : null
+    );
+
+    res.json({
+      success: true,
+      data: updatedTrack,
+      message: 'Track moved successfully',
+    });
+  } catch (error) {
+    logger.error(`Error moving track ${req.params.id}:`, error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to move track',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/tracks/:id/rename
+ * Rename track file
+ *
+ * Body:
+ * {
+ *   "new_name": "new-filename.mp3"
+ * }
+ */
+router.post('/:id/rename', validate(schemas.trackId, 'params'), validate(schemas.fileRename, 'body'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { new_name } = req.body;
+
+    const updatedTrack = await fileOpsService.renameTrack(parseInt(id), new_name);
+
+    res.json({
+      success: true,
+      data: updatedTrack,
+      message: 'Track renamed successfully',
+    });
+  } catch (error) {
+    logger.error(`Error renaming track ${req.params.id}:`, error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to rename track',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * DELETE /api/tracks/:id/file
+ * Delete track file from disk
+ * Requires confirmation in body: { "confirm": true }
+ */
+router.delete('/:id/file', validate(schemas.trackId, 'params'), validate(schemas.fileDelete, 'body'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { confirm } = req.body;
+
+    const result = await fileOpsService.deleteTrack(parseInt(id), confirm, {
+      deleteFile: true,
+      removeFromPlaylists: true,
+    });
+
+    res.json({
+      success: true,
+      data: result,
+      message: 'Track deleted successfully',
+    });
+  } catch (error) {
+    logger.error(`Error deleting track file ${req.params.id}:`, error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete track',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/tracks/:id/verify
+ * Verify track file exists and is accessible
+ */
+router.get('/:id/verify', validate(schemas.trackId, 'params'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await fileOpsService.verifyTrackFile(parseInt(id));
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    logger.error(`Error verifying track ${req.params.id}:`, error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to verify track',
       message: error.message,
     });
   }

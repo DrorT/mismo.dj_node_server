@@ -224,6 +224,14 @@ export const schemas = {
     color_tag: Joi.string().allow('', null),
     energy_level: Joi.number().integer().min(0).max(10).allow(null),
   }),
+
+  // Duplicate resolution
+  resolveDuplicates: Joi.object({
+    canonicalTrackId: Joi.number().integer().positive().required(),
+    deleteFiles: Joi.boolean().default(false),
+    keepMetadata: Joi.boolean().default(true),
+    updatePlaylists: Joi.boolean().default(true),
+  }),
 };
 
 /**

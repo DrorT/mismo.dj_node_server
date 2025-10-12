@@ -274,14 +274,14 @@ Build a Node.js backend server that manages a multi-directory music library with
 
 ### Day 9: Duplicate Detection
 
-- [ ] Create duplicate detector service (`src/services/duplicateDetector.js`)
-  - Check if file hash exists in `duplicate_groups`
-  - If exists: assign track to existing group
-  - If new and first occurrence: create new group
-  - Auto-detect duplicates during import
-  - Batch duplicate detection for existing library
+- [x] Create duplicate detector service (`src/services/duplicateDetector.js`)
+  - Check if file hash exists in `duplicate_groups` ✅
+  - If exists: assign track to existing group ✅
+  - If new and first occurrence: create new group ✅
+  - Auto-detect duplicates during import ✅
+  - Batch duplicate detection for existing library ✅
 
-- [ ] Implement duplicate management routes (`src/routes/duplicates.js`)
+- [x Implement duplicate management routes (`src/routes/duplicates.js`)
 
   ```javascript
   GET    /api/duplicates                   - List all duplicate groups
@@ -290,7 +290,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   POST   /api/duplicates/scan             - Scan entire library for duplicates
   ```
 
-- [ ] Create duplicate resolution logic
+- [x] Create duplicate resolution logic
   - Select canonical track (best quality, preferred location)
   - Merge metadata from duplicates
   - Update playlists to reference canonical track
@@ -299,8 +299,8 @@ Build a Node.js backend server that manages a multi-directory music library with
 
 ### Day 10: File Operations
 
-- [ ] Create file operations service (`src/services/fileOperations.js`)
-  - **Move track**: Move file to new location
+- [x] Create file operations service (`src/services/fileOperations.js`)
+  - **Move track**: Move file to new location ✅
     - Validate destination path
     - Check disk space
     - Execute file move
@@ -308,20 +308,20 @@ Build a Node.js backend server that manages a multi-directory music library with
     - Log operation
     - Rollback on failure
 
-  - **Rename track**: Rename file
+  - **Rename track**: Rename file ✅
     - Validate new filename
     - Execute file rename
     - Update database
     - Log operation
 
-  - **Delete track**: Delete file from disk
+  - **Delete track**: Delete file from disk ✅
     - Require confirmation flag
     - Execute file delete
     - Remove from database or mark as deleted
     - Remove from playlists
     - Log operation
 
-- [ ] Add file operation routes
+- [x] Add file operation routes
 
   ```javascript
   POST   /api/tracks/:id/move
@@ -329,7 +329,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   DELETE /api/tracks/:id/file
   ```
 
-- [ ] Implement file operation queue
+- [x] Implement file operation queue
   - Queue operations to prevent conflicts
   - Process one operation at a time per file
   - Retry failed operations
