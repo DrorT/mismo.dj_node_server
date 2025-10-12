@@ -1,0 +1,57 @@
+{
+  "name": "mismo.dj_app_server",
+  "version": "1.0.0",
+  "description": "Node.js backend server for Mismo DJ - Multi-directory music library with duplicate detection, file operations, and analysis integration",
+  "main": "src/server.js",
+  "type": "module",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+    "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+    "lint": "eslint src/**/*.js",
+    "lint:fix": "eslint src/**/*.js --fix"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DrorT/mismo.dj_node_server.git"
+  },
+  "keywords": [
+    "dj",
+    "music-library",
+    "audio-analysis",
+    "duplicate-detection",
+    "music-metadata"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DrorT/mismo.dj_node_server/issues"
+  },
+  "homepage": "https://github.com/DrorT/mismo.dj_node_server#readme",
+  "dependencies": {
+    "axios": "^1.12.2",
+    "better-sqlite3": "^12.4.1",
+    "chokidar": "^4.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^5.1.0",
+    "fs-extra": "^11.3.2",
+    "glob": "^11.0.3",
+    "joi": "^18.0.1",
+    "music-metadata": "^11.9.0",
+    "winston": "^3.18.3",
+    "ws": "^8.18.3",
+    "xxhash-addon": "^2.0.3"
+  },
+  "devDependencies": {
+    "eslint": "^9.37.0",
+    "jest": "^30.2.0",
+    "nodemon": "^3.1.10",
+    "prettier": "^3.6.2"
+  }
+}

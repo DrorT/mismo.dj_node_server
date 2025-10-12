@@ -356,34 +356,38 @@ BEGIN
     WHERE id = OLD.library_directory_id;
 END;
 
-CREATE TRIGGER IF NOT EXISTS update_library_stats_on_track_update
+-- Update old library directory stats when track is updated
+CREATE TRIGGER IF NOT EXISTS update_library_stats_on_track_update_old
 AFTER UPDATE OF library_directory_id, is_missing ON tracks
+WHEN OLD.library_directory_id IS NOT NULL
 BEGIN
-    -- Update old directory
-    UPDATE library_directories 
+    UPDATE library_directories
     SET total_tracks = (
-        SELECT COUNT(*) FROM tracks 
+        SELECT COUNT(*) FROM tracks
         WHERE library_directory_id = OLD.library_directory_id AND is_missing = 0
     ),
     total_missing = (
-        SELECT COUNT(*) FROM tracks 
+        SELECT COUNT(*) FROM tracks
         WHERE library_directory_id = OLD.library_directory_id AND is_missing = 1
     )
     WHERE id = OLD.library_directory_id;
-    
-    -- Update new directory if changed
-    IF NEW.library_directory_id != OLD.library_directory_id THEN
-        UPDATE library_directories 
-        SET total_tracks = (
-            SELECT COUNT(*) FROM tracks 
-            WHERE library_directory_id = NEW.library_directory_id AND is_missing = 0
-        ),
-        total_missing = (
-            SELECT COUNT(*) FROM tracks 
-            WHERE library_directory_id = NEW.library_directory_id AND is_missing = 1
-        )
-        WHERE id = NEW.library_directory_id;
-    END IF;
+END;
+
+-- Update new library directory stats when track directory changes
+CREATE TRIGGER IF NOT EXISTS update_library_stats_on_track_update_new
+AFTER UPDATE OF library_directory_id, is_missing ON tracks
+WHEN NEW.library_directory_id IS NOT NULL AND NEW.library_directory_id != OLD.library_directory_id
+BEGIN
+    UPDATE library_directories
+    SET total_tracks = (
+        SELECT COUNT(*) FROM tracks
+        WHERE library_directory_id = NEW.library_directory_id AND is_missing = 0
+    ),
+    total_missing = (
+        SELECT COUNT(*) FROM tracks
+        WHERE library_directory_id = NEW.library_directory_id AND is_missing = 1
+    )
+    WHERE id = NEW.library_directory_id;
 END;
 
 -- Update duplicate group statistics
