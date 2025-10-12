@@ -126,12 +126,48 @@ GET /health
 
 Returns server health status.
 
+### Settings API ✅
+```
+GET    /api/settings              # List all settings
+GET    /api/settings/:key         # Get single setting
+PUT    /api/settings/:key         # Update setting
+PUT    /api/settings              # Bulk update settings
+DELETE /api/settings/:key         # Delete setting
+```
+
+### Library Directories API ✅
+```
+GET    /api/library/directories                    # List all directories
+GET    /api/library/directories/:id                # Get directory by ID
+POST   /api/library/directories                    # Add new directory
+PUT    /api/library/directories/:id                # Update directory
+DELETE /api/library/directories/:id                # Delete directory
+POST   /api/library/directories/:id/check-availability  # Check if path exists
+```
+
+### Scanner API ✅
+```
+POST   /api/scan/library/:id                       # Start scan
+GET    /api/scan/library/:id/status                # Get scan status
+GET    /api/scan/active                            # List active scans
+DELETE /api/scan/library/:id                       # Cancel scan
+```
+
 ### Coming Soon
-- Library directories management (`/api/library/directories`)
-- Track management (`/api/tracks`)
+- Track management API (`/api/tracks`)
 - Playlist management (`/api/playlists`)
-- Analysis endpoints (`/api/analysis`)
-- Settings endpoints (`/api/settings`)
+- Duplicate detection (`/api/duplicates`)
+- Analysis integration (`/api/analysis`)
+- WebSocket for real-time updates
+
+## Testing
+
+See [TESTING.md](TESTING.md) for detailed testing instructions.
+
+**Quick Test:**
+1. Start the server: `npm start`
+2. Open `test-phase2.html` in your browser
+3. Test all Phase 2 features interactively
 
 Full API documentation will be available in [docs/API.md](docs/API.md).
 
@@ -161,15 +197,25 @@ See [docs/schema.sql](docs/schema.sql) for the complete schema.
 - [x] Configuration management
 - [x] Request validation
 
-### Next Steps
+### Phase 2 Status ✅
 
-- [ ] Implement Settings API
-- [ ] Library directory management
-- [ ] File scanner service
-- [ ] Track management
-- [ ] Duplicate detection
-- [ ] Analysis integration
-- [ ] WebSocket real-time updates
+- [x] Settings API (complete CRUD)
+- [x] Library directory service & API
+- [x] Metadata extraction service
+- [x] Audio file hash service (xxHash64)
+- [x] Track service (database operations)
+- [x] File scanner with 3 strategies (fast/full/hybrid)
+- [x] Scan progress tracking
+- [x] Interactive HTML test page
+
+### Next Steps (Phase 3)
+
+- [ ] WebSocket server for real-time updates
+- [ ] File watcher service (chokidar)
+- [ ] Track API routes
+- [ ] Duplicate detection engine
+- [ ] Python analysis server integration
+- [ ] Playlist management
 
 See [docs/plan.md](docs/plan.md) for the complete development plan.
 

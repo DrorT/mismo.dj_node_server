@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mismo DJ - Phase 2 API Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .status-bar {
+            background: white;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ccc;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #10b981;
+        }
+
+        .status-dot.error {
+            background: #ef4444;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .api-url {
+            font-family: monospace;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+        }
+
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 500;
+        }
+
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e5e7eb;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.secondary {
+            background: #6b7280;
+        }
+
+        button.danger {
+            background: #ef4444;
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f3f4f6;
+            border-radius: 6px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .result.success {
+            background: #d1fae5;
+            border-left: 4px solid #10b981;
+        }
+
+        .result.error {
+            background: #fee2e2;
+            border-left: 4px solid #ef4444;
+        }
+
+        .data-list {
+            list-style: none;
+            margin-top: 10px;
+        }
+
+        .data-item {
+            background: #f9fafb;
+            padding: 10px;
+            margin-bottom: 8px;
+            border-radius: 6px;
+            border-left: 3px solid #667eea;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .data-item:hover {
+            background: #f3f4f6;
+        }
+
+        .data-item strong {
+            color: #667eea;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .badge.active {
+            background: #d1fae5;
+            color: #065f46;
+        }
+
+        .badge.inactive {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+        .badge.scanning {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e5e7eb;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            transition: width 0.3s;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            background: none;
+            border: none;
+            color: #6b7280;
+            cursor: pointer;
+            font-weight: 600;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            width: auto;
+            margin-top: 0;
+        }
+
+        .tab.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .button-group button {
+            flex: 1;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .stat-box {
+            background: #f9fafb;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.85em;
+            color: #6b7280;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Mismo DJ - Phase 2 API Test</h1>
+
+        <div class="status-bar">
+            <div class="status-indicator">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Checking connection...</span>
+            </div>
+            <div class="api-url" id="apiUrl">http://localhost:3000</div>
+        </div>
+
+        <div class="grid">
+            <!-- Settings Card -->
+            <div class="card">
+                <h2>⚙️ Settings API</h2>
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab('settings', 'get')">Get Settings</button>
+                    <button class="tab" onclick="switchTab('settings', 'update')">Update Setting</button>
+                </div>
+
+                <div id="settings-get" class="tab-content active">
+                    <div class="form-group">
+                        <label>Category Filter (optional)</label>
+                        <select id="settingsCategory">
+                            <option value="">All Categories</option>
+                            <option value="library">Library</option>
+                            <option value="analysis">Analysis</option>
+                            <option value="audio">Audio</option>
+                            <option value="performance">Performance</option>
+                            <option value="ui">UI</option>
+                            <option value="maintenance">Maintenance</option>
+                        </select>
+                    </div>
+                    <button onclick="getSettings()">Get Settings</button>
+                    <ul id="settingsList" class="data-list"></ul>
+                </div>
+
+                <div id="settings-update" class="tab-content">
+                    <div class="form-group">
+                        <label>Setting Key</label>
+                        <input type="text" id="settingKey" placeholder="e.g., max_concurrent_scans">
+                    </div>
+                    <div class="form-group">
+                        <label>Value</label>
+                        <input type="text" id="settingValue" placeholder="e.g., 3">
+                    </div>
+                    <div class="form-group">
+                        <label>Type</label>
+                        <select id="settingType">
+                            <option value="string">String</option>
+                            <option value="int">Integer</option>
+                            <option value="float">Float</option>
+                            <option value="bool">Boolean</option>
+                            <option value="json">JSON</option>
+                        </select>
+                    </div>
+                    <button onclick="updateSetting()">Update Setting</button>
+                </div>
+
+                <div id="settingsResult" class="result" style="display: none;"></div>
+            </div>
+
+            <!-- Library Directories Card -->
+            <div class="card">
+                <h2>📁 Library Directories</h2>
+                <div class="tabs">
+                    <button class="tab active" onclick="switchTab('library', 'list')">List</button>
+                    <button class="tab" onclick="switchTab('library', 'add')">Add</button>
+                </div>
+
+                <div id="library-list" class="tab-content active">
+                    <button onclick="getLibraryDirectories()">Refresh Directories</button>
+                    <ul id="libraryList" class="data-list"></ul>
+                </div>
+
+                <div id="library-add" class="tab-content">
+                    <div class="form-group">
+                        <label>Directory Path</label>
+                        <input type="text" id="libraryPath" placeholder="/path/to/music">
+                    </div>
+                    <div class="form-group">
+                        <label>Name (optional)</label>
+                        <input type="text" id="libraryName" placeholder="My Music Collection">
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="libraryActive" checked>
+                        <label for="libraryActive" style="margin: 0;">Active</label>
+                    </div>
+                    <div class="form-group checkbox-group">
+                        <input type="checkbox" id="libraryRecursive" checked>
+                        <label for="libraryRecursive" style="margin: 0;">Recursive Scan</label>
+                    </div>
+                    <button onclick="addLibraryDirectory()">Add Directory</button>
+                </div>
+
+                <div id="libraryResult" class="result" style="display: none;"></div>
+            </div>
+
+            <!-- Scanner Card -->
+            <div class="card">
+                <h2>🔍 File Scanner</h2>
+                <div class="form-group">
+                    <label>Library Directory ID</label>
+                    <input type="number" id="scanLibraryId" placeholder="1">
+                </div>
+                <div class="form-group">
+                    <label>Scan Strategy</label>
+                    <select id="scanStrategy">
+                        <option value="hybrid">Hybrid (Recommended)</option>
+                        <option value="fast">Fast (Quick check)</option>
+                        <option value="full">Full (Complete scan)</option>
+                    </select>
+                </div>
+                <div class="button-group">
+                    <button onclick="startScan()">Start Scan</button>
+                    <button class="secondary" onclick="getScanStatus()">Check Status</button>
+                </div>
+                <button class="danger" onclick="cancelScan()">Cancel Scan</button>
+
+                <div id="scanProgress" style="display: none; margin-top: 15px;">
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="scanProgressFill" style="width: 0%"></div>
+                    </div>
+                    <div id="scanInfo" style="margin-top: 10px; font-size: 0.9em; color: #666;"></div>
+                </div>
+
+                <div id="scanResult" class="result" style="display: none;"></div>
+            </div>
+
+            <!-- Test Data Generator -->
+            <div class="card">
+                <h2>🧪 Test Data Generator</h2>
+                <p style="margin-bottom: 15px; color: #666; font-size: 0.9em;">
+                    Generate test music files and directories for testing the scanner
+                </p>
+                <div class="form-group">
+                    <label>Test Directory Path</label>
+                    <input type="text" id="testDirPath" value="./test-music">
+                </div>
+                <div class="form-group">
+                    <label>Number of Files</label>
+                    <input type="number" id="testFileCount" value="5" min="1" max="100">
+                </div>
+                <button onclick="generateTestFiles()">Generate Test Files</button>
+                <div id="testGenResult" class="result" style="display: none;"></div>
+            </div>
+
+            <!-- Active Scans Monitor -->
+            <div class="card">
+                <h2>📊 Active Scans Monitor</h2>
+                <button onclick="getActiveScans()">Refresh Active Scans</button>
+                <div id="activeScansContainer"></div>
+            </div>
+
+            <!-- Statistics Card -->
+            <div class="card">
+                <h2>📈 Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-value" id="statDirectories">0</div>
+                        <div class="stat-label">Directories</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="statSettings">0</div>
+                        <div class="stat-label">Settings</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="statScans">0</div>
+                        <div class="stat-label">Active Scans</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-value" id="statRequests">0</div>
+                        <div class="stat-label">API Requests</div>
+                    </div>
+                </div>
+                <button onclick="refreshStats()" style="margin-top: 15px;">Refresh Stats</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000';
+        let requestCount = 0;
+
+        // Tab switching
+        function switchTab(section, tab) {
+            const tabs = document.querySelectorAll(`#${section}-${tab}`).length > 0 ?
+                document.querySelectorAll(`[id^="${section}-"]`) : [];
+
+            tabs.forEach(content => {
+                content.style.display = 'none';
+                content.classList.remove('active');
+            });
+
+            const tabButtons = event.target.parentElement.querySelectorAll('.tab');
+            tabButtons.forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+
+            const content = document.getElementById(`${section}-${tab}`);
+            if (content) {
+                content.style.display = 'block';
+                content.classList.add('active');
+            }
+        }
+
+        // API Helper
+        async function apiRequest(endpoint, options = {}) {
+            requestCount++;
+            document.getElementById('statRequests').textContent = requestCount;
+
+            try {
+                const response = await fetch(`${API_BASE}${endpoint}`, {
+                    ...options,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...options.headers,
+                    },
+                });
+
+                const data = await response.json();
+                return { ok: response.ok, status: response.status, data };
+            } catch (error) {
+                return { ok: false, error: error.message };
+            }
+        }
+
+        function showResult(elementId, data, success = true) {
+            const element = document.getElementById(elementId);
+            element.style.display = 'block';
+            element.className = `result ${success ? 'success' : 'error'}`;
+            element.textContent = JSON.stringify(data, null, 2);
+        }
+
+        // Check server status
+        async function checkStatus() {
+            const result = await apiRequest('/health');
+            const statusDot = document.getElementById('statusDot');
+            const statusText = document.getElementById('statusText');
+
+            if (result.ok) {
+                statusDot.className = 'status-dot connected';
+                statusText.textContent = `Connected - ${result.data.environment}`;
+            } else {
+                statusDot.className = 'status-dot error';
+                statusText.textContent = 'Server Offline';
+            }
+        }
+
+        // Settings API
+        async function getSettings() {
+            const category = document.getElementById('settingsCategory').value;
+            const endpoint = category ? `/api/settings?category=${category}` : '/api/settings';
+
+            const result = await apiRequest(endpoint);
+
+            if (result.ok) {
+                const list = document.getElementById('settingsList');
+                list.innerHTML = '';
+
+                result.data.data.forEach(setting => {
+                    const li = document.createElement('li');
+                    li.className = 'data-item';
+                    li.innerHTML = `
+                        <strong>${setting.key}</strong>: ${setting.value}
+                        <span class="badge">${setting.type}</span>
+                        ${setting.category ? `<span class="badge">${setting.category}</span>` : ''}
+                    `;
+                    li.onclick = () => showResult('settingsResult', setting);
+                    list.appendChild(li);
+                });
+
+                document.getElementById('statSettings').textContent = result.data.count;
+            } else {
+                showResult('settingsResult', result, false);
+            }
+        }
+
+        async function updateSetting() {
+            const key = document.getElementById('settingKey').value;
+            const value = document.getElementById('settingValue').value;
+            const type = document.getElementById('settingType').value;
+
+            if (!key || !value) {
+                alert('Please fill in all fields');
+                return;
+            }
+
+            const result = await apiRequest(`/api/settings/${key}`, {
+                method: 'PUT',
+                body: JSON.stringify({ value, type }),
+            });
+
+            showResult('settingsResult', result.data, result.ok);
+        }
+
+        // Library Directories API
+        async function getLibraryDirectories() {
+            const result = await apiRequest('/api/library/directories');
+
+            if (result.ok) {
+                const list = document.getElementById('libraryList');
+                list.innerHTML = '';
+
+                result.data.data.forEach(dir => {
+                    const li = document.createElement('li');
+                    li.className = 'data-item';
+                    li.innerHTML = `
+                        <strong>${dir.name || dir.path}</strong>
+                        <span class="badge ${dir.is_active ? 'active' : 'inactive'}">
+                            ${dir.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                        <span class="badge ${dir.scan_status === 'scanning' ? 'scanning' : ''}">
+                            ${dir.scan_status}
+                        </span>
+                        <br>
+                        <small style="color: #666;">ID: ${dir.id} | Path: ${dir.path}</small>
+                        <br>
+                        <small style="color: #666;">Tracks: ${dir.total_tracks} | Missing: ${dir.total_missing}</small>
+                        <div class="button-group" style="margin-top: 10px;">
+                            <button onclick="deleteLibraryDirectory(${dir.id}, event)" class="danger" style="padding: 6px 12px; font-size: 12px;">Delete</button>
+                        </div>
+                    `;
+                    li.onclick = (e) => {
+                        if (e.target.tagName !== 'BUTTON') {
+                            showResult('libraryResult', dir);
+                        }
+                    };
+                    list.appendChild(li);
+                });
+
+                document.getElementById('statDirectories').textContent = result.data.count;
+            } else {
+                showResult('libraryResult', result, false);
+            }
+        }
+
+        async function addLibraryDirectory() {
+            const path = document.getElementById('libraryPath').value;
+            const name = document.getElementById('libraryName').value;
+            const is_active = document.getElementById('libraryActive').checked;
+            const recursive_scan = document.getElementById('libraryRecursive').checked;
+
+            if (!path) {
+                alert('Please enter a directory path');
+                return;
+            }
+
+            const result = await apiRequest('/api/library/directories', {
+                method: 'POST',
+                body: JSON.stringify({ path, name, is_active, recursive_scan }),
+            });
+
+            showResult('libraryResult', result.data, result.ok);
+
+            if (result.ok) {
+                getLibraryDirectories();
+                document.getElementById('libraryPath').value = '';
+                document.getElementById('libraryName').value = '';
+            }
+        }
+
+        async function deleteLibraryDirectory(id, event) {
+            event.stopPropagation();
+
+            if (!confirm('Are you sure you want to delete this library directory?')) {
+                return;
+            }
+
+            const result = await apiRequest(`/api/library/directories/${id}`, {
+                method: 'DELETE',
+            });
+
+            showResult('libraryResult', result.data, result.ok);
+
+            if (result.ok) {
+                getLibraryDirectories();
+            }
+        }
+
+        // Scanner API
+        async function startScan() {
+            const libraryId = document.getElementById('scanLibraryId').value;
+            const strategy = document.getElementById('scanStrategy').value;
+
+            if (!libraryId) {
+                alert('Please enter a library directory ID');
+                return;
+            }
+
+            const result = await apiRequest(`/api/scan/library/${libraryId}`, {
+                method: 'POST',
+                body: JSON.stringify({ strategy }),
+            });
+
+            showResult('scanResult', result.data, result.ok);
+
+            if (result.ok) {
+                document.getElementById('scanProgress').style.display = 'block';
+                monitorScan(libraryId);
+            }
+        }
+
+        async function getScanStatus() {
+            const libraryId = document.getElementById('scanLibraryId').value;
+
+            if (!libraryId) {
+                alert('Please enter a library directory ID');
+                return;
+            }
+
+            const result = await apiRequest(`/api/scan/library/${libraryId}/status`);
+            showResult('scanResult', result.data, result.ok);
+
+            if (result.ok && result.data.data.scanning) {
+                document.getElementById('scanProgress').style.display = 'block';
+                updateScanProgress(result.data.data);
+            }
+        }
+
+        async function cancelScan() {
+            const libraryId = document.getElementById('scanLibraryId').value;
+
+            if (!libraryId) {
+                alert('Please enter a library directory ID');
+                return;
+            }
+
+            const result = await apiRequest(`/api/scan/library/${libraryId}`, {
+                method: 'DELETE',
+            });
+
+            showResult('scanResult', result.data, result.ok);
+            document.getElementById('scanProgress').style.display = 'none';
+        }
+
+        let scanMonitorInterval = null;
+
+        function monitorScan(libraryId) {
+            if (scanMonitorInterval) {
+                clearInterval(scanMonitorInterval);
+            }
+
+            scanMonitorInterval = setInterval(async () => {
+                const result = await apiRequest(`/api/scan/library/${libraryId}/status`);
+
+                if (result.ok && result.data.data.scanning) {
+                    updateScanProgress(result.data.data);
+                } else {
+                    clearInterval(scanMonitorInterval);
+                    scanMonitorInterval = null;
+                    document.getElementById('scanProgress').style.display = 'none';
+                    getLibraryDirectories();
+                }
+            }, 1000);
+        }
+
+        function updateScanProgress(scanData) {
+            const progress = scanData.filesFound > 0 ?
+                (scanData.filesProcessed / scanData.filesFound * 100) : 0;
+
+            document.getElementById('scanProgressFill').style.width = progress + '%';
+            document.getElementById('scanInfo').innerHTML = `
+                <strong>${scanData.strategy}</strong> scan in progress<br>
+                Files: ${scanData.filesProcessed} / ${scanData.filesFound}<br>
+                Added: ${scanData.tracksAdded} | Updated: ${scanData.tracksUpdated}
+            `;
+        }
+
+        // Active Scans
+        async function getActiveScans() {
+            const result = await apiRequest('/api/scan/active');
+
+            if (result.ok) {
+                const container = document.getElementById('activeScansContainer');
+                document.getElementById('statScans').textContent = result.data.count;
+
+                if (result.data.count === 0) {
+                    container.innerHTML = '<p style="color: #666; margin-top: 10px;">No active scans</p>';
+                } else {
+                    container.innerHTML = '<ul class="data-list"></ul>';
+                    const list = container.querySelector('ul');
+
+                    result.data.data.forEach(scan => {
+                        const li = document.createElement('li');
+                        li.className = 'data-item';
+                        const progress = scan.filesFound > 0 ?
+                            (scan.filesProcessed / scan.filesFound * 100).toFixed(1) : 0;
+
+                        li.innerHTML = `
+                            <strong>Library ${scan.libraryDirectoryId}</strong>
+                            <span class="badge scanning">${scan.strategy}</span>
+                            <br>
+                            <small>Progress: ${progress}% (${scan.filesProcessed}/${scan.filesFound})</small>
+                            <div class="progress-bar" style="margin-top: 8px;">
+                                <div class="progress-fill" style="width: ${progress}%"></div>
+                            </div>
+                        `;
+                        list.appendChild(li);
+                    });
+                }
+            }
+        }
+
+        // Test Data Generator
+        async function generateTestFiles() {
+            const path = document.getElementById('testDirPath').value;
+            const count = parseInt(document.getElementById('testFileCount').value);
+
+            showResult('testGenResult', {
+                message: `Generating ${count} test files in ${path}...`,
+                note: 'This feature requires server-side implementation'
+            });
+
+            // This would normally call an API endpoint that creates test files
+            // For now, just show instructions
+            setTimeout(() => {
+                showResult('testGenResult', {
+                    instructions: [
+                        `1. Create directory: mkdir -p ${path}`,
+                        `2. Create empty MP3 files for testing:`,
+                        `   for i in {1..${count}}; do touch "${path}/test-song-$i.mp3"; done`,
+                        `3. Add the directory via the Library Directories tab`,
+                        `4. Run a scan on the new library directory`
+                    ]
+                });
+            }, 1000);
+        }
+
+        // Refresh Statistics
+        async function refreshStats() {
+            await checkStatus();
+            await getSettings();
+            await getLibraryDirectories();
+            await getActiveScans();
+        }
+
+        // Initialize
+        window.onload = () => {
+            checkStatus();
+            refreshStats();
+
+            // Auto-refresh every 5 seconds
+            setInterval(() => {
+                if (!document.hidden) {
+                    checkStatus();
+                    getActiveScans();
+                }
+            }, 5000);
+        };
+    </script>
+</body>
+</html>

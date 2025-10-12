@@ -138,15 +138,15 @@ export function createDirectory(data) {
     const result = stmt.run(
       dirData.path,
       dirData.name,
-      dirData.is_active,
-      dirData.is_removable,
-      dirData.is_available,
+      dirData.is_active ? 1 : 0,
+      dirData.is_removable ? 1 : 0,
+      dirData.is_available ? 1 : 0,
       dirData.priority,
-      dirData.recursive_scan,
+      dirData.recursive_scan ? 1 : 0,
       dirData.max_depth,
       dirData.scan_patterns,
       dirData.exclude_patterns,
-      dirData.follow_symlinks
+      dirData.follow_symlinks ? 1 : 0
     );
 
     logger.info(`Library directory created: ${dirData.name} (${dirData.path})`);

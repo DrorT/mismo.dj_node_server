@@ -26,8 +26,13 @@ export function validate(schema, property = 'body') {
       });
     }
 
-    // Replace with validated value
-    req[property] = value;
+    // Store validated value in a different property for query params (readonly in Express 5)
+    if (property === 'query' || property === 'params') {
+      req.validated = req.validated || {};
+      req.validated[property] = value;
+    } else {
+      req[property] = value;
+    }
     next();
   };
 }

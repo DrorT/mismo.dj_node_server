@@ -1,36 +1,55 @@
-import xxhashAddon from 'xxhash-addon';
-const { XXHash64 } = xxhashAddon;
+import xxhash from 'xxhash-wasm';
 import fs from 'fs';
 import logger from '../utils/logger.js';
 
 /**
  * Hash Service
  * Generates hashes for audio files for duplicate detection
- * Uses xxHash for fast hashing of audio data (ignoring metadata)
+ * Uses xxHash (WebAssembly) for fast hashing - no native dependencies!
  */
 
 const HASH_CHUNK_SIZE = 64 * 1024; // 64KB chunks
+
+// Initialize xxhash-wasm (lazy initialization)
+let hasherInstance = null;
+async function getHasher() {
+  if (!hasherInstance) {
+    const h64 = await xxhash();
+    hasherInstance = h64.h64;
+  }
+  return hasherInstance;
+}
 
 /**
  * Calculate xxHash for entire file
  * @param {string} filePath - Path to file
  * @returns {Promise<string>} Hex hash string
  */
-export function calculateFileHash(filePath) {
+export async function calculateFileHash(filePath) {
+  const hasher = await getHasher();
+
   return new Promise((resolve, reject) => {
     try {
-      const hasher = new XXHash64(0); // seed = 0
       const stream = fs.createReadStream(filePath, {
         highWaterMark: HASH_CHUNK_SIZE,
       });
 
+      const chunks = [];
+
       stream.on('data', chunk => {
-        hasher.update(chunk);
+        chunks.push(chunk);
       });
 
       stream.on('end', () => {
-        const hash = hasher.digest('hex');
-        resolve(hash);
+        try {
+          // Concatenate all chunks
+          const buffer = Buffer.concat(chunks);
+          // Calculate hash
+          const hash = hasher(buffer).toString(16);
+          resolve(hash);
+        } catch (error) {
+          reject(error);
+        }
       });
 
       stream.on('error', error => {
@@ -49,22 +68,30 @@ export function calculateFileHash(filePath) {
  * @param {number} skipBytes - Bytes to skip from start (metadata)
  * @returns {Promise<string>} Hex hash string
  */
-export function calculateAudioHash(filePath, skipBytes = 0) {
+export async function calculateAudioHash(filePath, skipBytes = 0) {
+  const hasher = await getHasher();
+
   return new Promise((resolve, reject) => {
     try {
-      const hasher = new XXHash64(0);
       const stream = fs.createReadStream(filePath, {
         start: skipBytes,
         highWaterMark: HASH_CHUNK_SIZE,
       });
 
+      const chunks = [];
+
       stream.on('data', chunk => {
-        hasher.update(chunk);
+        chunks.push(chunk);
       });
 
       stream.on('end', () => {
-        const hash = hasher.digest('hex');
-        resolve(hash);
+        try {
+          const buffer = Buffer.concat(chunks);
+          const hash = hasher(buffer).toString(16);
+          resolve(hash);
+        } catch (error) {
+          reject(error);
+        }
       });
 
       stream.on('error', error => {
@@ -83,22 +110,30 @@ export function calculateAudioHash(filePath, skipBytes = 0) {
  * @param {number} bytes - Number of bytes to hash (default 1MB)
  * @returns {Promise<string>} Hex hash string
  */
-export function calculateQuickHash(filePath, bytes = 1024 * 1024) {
+export async function calculateQuickHash(filePath, bytes = 1024 * 1024) {
+  const hasher = await getHasher();
+
   return new Promise((resolve, reject) => {
     try {
-      const hasher = new XXHash64(0);
       const stream = fs.createReadStream(filePath, {
         end: bytes - 1,
         highWaterMark: HASH_CHUNK_SIZE,
       });
 
+      const chunks = [];
+
       stream.on('data', chunk => {
-        hasher.update(chunk);
+        chunks.push(chunk);
       });
 
       stream.on('end', () => {
-        const hash = hasher.digest('hex');
-        resolve(hash);
+        try {
+          const buffer = Buffer.concat(chunks);
+          const hash = hasher(buffer).toString(16);
+          resolve(hash);
+        } catch (error) {
+          reject(error);
+        }
       });
 
       stream.on('error', error => {
@@ -186,12 +221,13 @@ export function estimateHashTime(fileSize, bytesPerSecond = 100 * 1024 * 1024) {
  */
 export function getHashAlgorithmInfo() {
   return {
-    algorithm: 'xxHash64',
+    algorithm: 'xxHash64 (WebAssembly)',
     digestSize: 64,
     performance: 'Very fast (GB/s)',
     collision: 'Low probability',
     cryptographic: false,
     useCase: 'Duplicate detection, integrity checks',
+    implementation: 'xxhash-wasm (no native dependencies)',
   };
 }
 
