@@ -34,8 +34,8 @@ Build a Node.js backend server that manages a multi-directory music library with
   # HTTP client
   npm install axios
 
-  # File hashing (xxHash for fast duplicate detection)
-  npm install xxhash-addon
+  # File hashing (xxHash for fast duplicate detection) - not used replace with wasm xxhash
+  # npm install xxhash-addon
 
   # Utilities
   npm install dotenv winston joi
@@ -174,9 +174,10 @@ Build a Node.js backend server that manages a multi-directory music library with
 - [x] Create file hash service (`src/services/hash.service.js`) ✅
   - Calculate audio content hash using xxHash (WebAssembly) ✅
   - Full file hashing ✅
+  - Audio-only hashing (excludes metadata for duplicate detection) ✅
   - Quick hash for fast screening ✅
   - Batch processing support ✅
-  - **NOTE**: Currently hashing full file (audio-only hashing is TODO for better duplicate detection)
+  - Format-specific metadata skipping (MP3 ID3v2/v1, FLAC, etc.) ✅
 
 ### Day 6: Hybrid Scanning Strategy ✅
 
@@ -253,12 +254,12 @@ Build a Node.js backend server that manages a multi-directory music library with
   GET    /api/tracks/search       - Search tracks
   ```
 
-- [ ] Implement track service (`src/services/trackService.js`)
-  - CRUD operations
-  - Pagination support
-  - Advanced filtering (artist, genre, BPM range, key, etc.)
-  - Search functionality (full-text search)
-  - Sorting options
+- [x] Implement track service (`src/services/trackService.js`) ✅
+  - CRUD operations ✅
+  - Pagination support ✅
+  - Advanced filtering (artist, genre, BPM range, key, etc.) ✅
+  - Search functionality (full-text search) ✅
+  - Sorting options ✅
 
 - [ ] Add track query filters
   ```javascript
