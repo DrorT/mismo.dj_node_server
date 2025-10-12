@@ -14,7 +14,8 @@
     "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "lint": "eslint src/**/*.js",
-    "lint:fix": "eslint src/**/*.js --fix"
+    "lint:fix": "eslint src/**/*.js --fix",
+    "serve:test": "python3 -m http.server 8080"
   },
   "repository": {
     "type": "git",
@@ -29,6 +30,10 @@
   ],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=24.0.0",
+    "npm": ">=10.0.0"
+  },
   "bugs": {
     "url": "https://github.com/DrorT/mismo.dj_node_server/issues"
   },
@@ -46,7 +51,7 @@
     "music-metadata": "^11.9.0",
     "winston": "^3.18.3",
     "ws": "^8.18.3",
-    "xxhash-addon": "^2.0.3"
+    "xxhash-wasm": "^1.1.0"
   },
   "devDependencies": {
     "eslint": "^9.37.0",
