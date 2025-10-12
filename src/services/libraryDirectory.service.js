@@ -2,6 +2,7 @@ import { getDatabase } from '../config/database.js';
 import logger from '../utils/logger.js';
 import fs from 'fs-extra';
 import path from 'path';
+import analysisServerService from './analysisServer.service.js';
 
 /**
  * Library Directory Service
@@ -189,6 +190,11 @@ export function createDirectory(data) {
 
     logger.info(`Library directory created: ${dirData.name} (${dirData.path})`);
 
+    // Notify analysis server to update allowed paths
+    analysisServerService.updateAllowedPaths().catch(err => {
+      logger.warn('Failed to update analysis server allowed paths:', err);
+    });
+
     return getDirectoryById(result.lastInsertRowid);
   } catch (error) {
     logger.error('Error creating library directory:', error);
@@ -319,6 +325,12 @@ export function deleteDirectory(id, deleteTracks = false) {
 
     if (result.changes > 0) {
       logger.info(`Library directory deleted: ${id} (${directory.name})`);
+
+      // Notify analysis server to update allowed paths
+      analysisServerService.updateAllowedPaths().catch(err => {
+        logger.warn('Failed to update analysis server allowed paths:', err);
+      });
+
       return true;
     }
 

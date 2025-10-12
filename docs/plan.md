@@ -370,54 +370,11 @@ Build a Node.js backend server that manages a multi-directory music library with
 
 ---
 
-## Phase 4: Playlist Management (Days 12-13)
+## Phase 4: Analysis Integration (Days 12-15)
 
-### Day 12: Playlist CRUD
+**Note**: Moved before playlists so that smart playlists can leverage rich analysis metadata (BPM, key, energy, danceability, etc.) from day one.
 
-- [ ] Create playlists route (`src/routes/playlists.js`)
-
-  ```javascript
-  GET    /api/playlists                      - List all playlists
-  GET    /api/playlists/:id                  - Get playlist with tracks
-  POST   /api/playlists                      - Create playlist
-  PUT    /api/playlists/:id                  - Update playlist
-  DELETE /api/playlists/:id                  - Delete playlist
-  ```
-
-- [ ] Implement playlist service (`src/services/playlistService.js`)
-  - CRUD operations
-  - Load playlist with tracks (JOIN query)
-  - Handle smart playlists (evaluate criteria)
-  - Playlist statistics (duration, track count)
-
-### Day 13: Playlist Track Management
-
-- [ ] Add playlist track routes
-
-  ```javascript
-  POST   /api/playlists/:id/tracks           - Add tracks to playlist
-  DELETE /api/playlists/:id/tracks/:trackId  - Remove track from playlist
-  PUT    /api/playlists/:id/tracks/reorder   - Reorder tracks
-  ```
-
-- [ ] Implement track management logic
-  - Add multiple tracks at once
-  - Maintain position ordering
-  - Reorder tracks (update positions)
-  - Remove tracks (resequence positions)
-  - Handle deleted tracks gracefully
-
-- [ ] Implement smart playlist evaluation
-  - Parse JSON criteria
-  - Build SQL query from criteria
-  - Auto-update when criteria changes
-  - Refresh on track changes
-
----
-
-## Phase 5: Analysis Integration (Days 14-16)
-
-### Day 14: Python Server Communication
+### Day 12: Python Server Communication
 
 - [ ] Create Python client service (`src/services/pythonClient.js`)
   - HTTP client for Python analysis server
@@ -437,7 +394,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Store partial results
   - Handle Python server unavailability gracefully
 
-### Day 15: Analysis Endpoints
+### Day 13: Analysis Endpoints
 
 - [ ] Create analysis routes (`src/routes/analysis.js`)
 
@@ -463,7 +420,7 @@ Build a Node.js backend server that manages a multi-directory music library with
     - Send WebSocket update
     - Mark job as complete
 
-### Day 16: Progressive Analysis Updates
+### Day 14-15: Progressive Analysis Updates & Waveform Data
 
 - [ ] Handle multi-stage analysis
   - **Stage 1: Basic** (~5-10s)
@@ -501,9 +458,156 @@ Build a Node.js backend server that manages a multi-directory music library with
 
 ---
 
-## Phase 6: WebSocket Real-Time Updates (Days 17-18)
+## Phase 5: Playlist Management (Days 16-19)
 
-### Day 17: WebSocket Server Setup
+**Note**: Moved after analysis integration so smart playlists can use rich metadata (BPM, key, energy, etc.) from day one. See [playlists-design.md](./playlists-design.md) for detailed design document.
+
+### Day 16: Core Playlist CRUD & Database Schema
+
+- [ ] Create database migration for playlists
+
+  ```sql
+  CREATE TABLE playlists (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL CHECK(type IN ('static', 'smart', 'session', 'temp')),
+    description TEXT,
+    color TEXT,
+    icon TEXT,
+    criteria TEXT,  -- JSON for smart playlists
+    session_date INTEGER,
+    session_venue TEXT,
+    session_duration INTEGER,
+    is_temporary INTEGER DEFAULT 0,
+    is_readonly INTEGER DEFAULT 0,
+    is_favorite INTEGER DEFAULT 0,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    last_accessed INTEGER
+  );
+
+  CREATE TABLE playlist_tracks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    playlist_id INTEGER NOT NULL,
+    track_id INTEGER NOT NULL,
+    position INTEGER,
+    added_at INTEGER NOT NULL,
+    played_at INTEGER,
+    play_duration INTEGER,
+    notes TEXT,
+    cue_in INTEGER,
+    cue_out INTEGER,
+    rating_in_context INTEGER,
+    FOREIGN KEY (playlist_id) REFERENCES playlists(id) ON DELETE CASCADE,
+    FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE
+  );
+  ```
+
+- [ ] Create playlists route (`src/routes/playlists.js`)
+
+  ```javascript
+  GET    /api/playlists                      - List all playlists
+  GET    /api/playlists/:id                  - Get playlist with tracks
+  POST   /api/playlists                      - Create playlist
+  PUT    /api/playlists/:id                  - Update playlist metadata
+  DELETE /api/playlists/:id                  - Delete playlist
+  GET    /api/playlists/:id/stats            - Get playlist statistics
+  ```
+
+- [ ] Implement playlist service (`src/services/playlistService.js`)
+  - CRUD operations for static playlists
+  - Load playlist with tracks (JOIN query)
+  - Playlist statistics (duration, track count)
+  - Favorite/unfavorite playlists
+
+### Day 17: Playlist Track Management
+
+- [ ] Add playlist track routes
+
+  ```javascript
+  POST   /api/playlists/:id/tracks           - Add tracks to playlist
+  DELETE /api/playlists/:id/tracks/:trackId  - Remove track from playlist
+  PUT    /api/playlists/:id/tracks/reorder   - Reorder tracks
+  PUT    /api/playlists/:id/tracks/:trackId  - Update track metadata (notes, cues)
+  ```
+
+- [ ] Implement playlist track service (`src/services/playlistTrackService.js`)
+  - Add multiple tracks at once
+  - Maintain position ordering
+  - Reorder tracks (update positions)
+  - Remove tracks (resequence positions)
+  - Update per-track metadata (notes, cue points, rating)
+  - Handle deleted tracks gracefully
+
+- [ ] Implement temporary/thinking playlist
+  - Single "Thinking Playlist" (type = 'temp')
+  - Auto-create if doesn't exist
+  - Quick add/remove tracks
+  - Promote to permanent static playlist
+
+### Day 18: Smart Playlists
+
+- [ ] Create smart playlist evaluator (`src/services/smartPlaylistEvaluator.js`)
+  - Parse JSON criteria
+  - Build SQL query from criteria
+  - Support filters: BPM, key, mode, genre, energy, danceability, date added, play count, rating, etc.
+  - Support complex criteria (AND/OR logic)
+  - Support sorting and limits
+  - Explain query (human-readable description)
+
+- [ ] Add smart playlist endpoints
+
+  ```javascript
+  POST   /api/playlists/:id/refresh          - Force refresh smart playlist
+  POST   /api/playlists/:id/convert          - Convert smart → static
+  GET    /api/playlists/:id/explain          - Explain smart playlist criteria
+  ```
+
+- [ ] Implement auto-refresh logic
+  - Refresh affected smart playlists when tracks change
+  - Debounce refresh (5-second delay)
+  - Background refresh job
+  - Track last_refreshed timestamp
+
+### Day 19: Session History Playlists
+
+- [ ] Create session management service (`src/services/sessionService.js`)
+  - Start new session (auto-create playlist)
+  - Log track plays
+  - Auto-finalize after X hours of inactivity
+  - Manual finalize
+  - Get active session
+
+- [ ] Add session endpoints
+
+  ```javascript
+  POST   /api/playlists/sessions/start       - Start new session
+  POST   /api/playlists/sessions/:id/track   - Log track play
+  POST   /api/playlists/sessions/:id/finalize - Finalize session
+  GET    /api/playlists/sessions/active      - Get active session
+  ```
+
+- [ ] Implement session auto-management
+  - Auto-create session on first track play (if no active session)
+  - Track inactivity timer
+  - Auto-finalize after 4 hours of inactivity
+  - Make session read-only after finalization
+  - Update session duration on finalization
+
+- [ ] Add utility endpoints
+
+  ```javascript
+  POST   /api/playlists/:id/duplicate        - Duplicate playlist
+  POST   /api/playlists/:id/merge            - Merge with another playlist
+  GET    /api/playlists/:id/export           - Export as M3U/JSON
+  GET    /api/playlists/search               - Search playlists by name
+  ```
+
+---
+
+## Phase 6: WebSocket Real-Time Updates (Days 20-21)
+
+### Day 20: WebSocket Server Setup
 
 - [ ] Create WebSocket server (`src/websocket/server.js`)
   - Initialize WebSocket server with `ws`
@@ -519,7 +623,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Message batching for bulk operations
   - Rate limiting
 
-### Day 18: Implement All WebSocket Events
+### Day 21: Implement All WebSocket Events
 
 - [ ] Track events
 
@@ -569,11 +673,26 @@ Build a Node.js backend server that manages a multi-directory music library with
   file_operation: failed;
   ```
 
+- [ ] Playlist events
+
+  ```javascript
+  playlist: created;
+  playlist: updated;
+  playlist: deleted;
+  playlist: track: added;
+  playlist: track: removed;
+  playlist: track: reordered;
+  playlist: smart: refreshed;
+  session: started;
+  session: track: played;
+  session: finalized;
+  ```
+
 ---
 
-## Phase 7: Audio Engine Integration (Days 19-20)
+## Phase 7: Audio Engine Integration (Days 22-23)
 
-### Day 19: C++ Communication Interface
+### Day 22: C++ Communication Interface
 
 - [ ] Decide on communication method
   - **Option A**: HTTP REST (simplest)
@@ -592,7 +711,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   POST /api/tracks/:id/load         - Log track load event
   ```
 
-### Day 20: Waveform Management
+### Day 23: Waveform Management
 
 - [ ] Implement waveform routes
 
@@ -609,9 +728,9 @@ Build a Node.js backend server that manages a multi-directory music library with
 
 ---
 
-## Phase 8: Testing & Quality Assurance (Days 21-24)
+## Phase 8: Testing & Quality Assurance (Days 24-27)
 
-### Day 21: Unit Tests
+### Day 24: Unit Tests
 
 - [ ] Set up Jest testing framework
 - [ ] Write unit tests for services
@@ -622,7 +741,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - File operations tests
   - Playlist service tests
 
-### Day 22: Integration Tests
+### Day 25: Integration Tests
 
 - [ ] Write integration tests
   - Full library scan workflow
@@ -638,7 +757,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Invalid input
   - Concurrent operations
 
-### Day 23: Performance Testing
+### Day 26: Performance Testing
 
 - [ ] Load testing
   - Test with large library (10k+ tracks)
@@ -653,7 +772,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Add caching where appropriate
   - Profile and fix bottlenecks
 
-### Day 24: Security Audit
+### Day 27: Security Audit
 
 - [ ] Security review
   - Path traversal prevention
@@ -666,9 +785,9 @@ Build a Node.js backend server that manages a multi-directory music library with
 
 ---
 
-## Phase 9: Documentation & Polish (Days 25-26)
+## Phase 9: Documentation & Polish (Days 28-29)
 
-### Day 25: API Documentation
+### Day 28: API Documentation
 
 - [ ] Create comprehensive API documentation
   - All endpoints with examples
@@ -684,7 +803,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   - Configuration guide
   - Deployment guide
 
-### Day 26: Code Cleanup & README
+### Day 29: Code Cleanup & README
 
 - [ ] Code cleanup
   - Remove unused code
@@ -737,9 +856,9 @@ Build a Node.js backend server that manages a multi-directory music library with
 
 ---
 
-## Phase 10: Deployment & Integration (Days 27-28)
+## Phase 10: Deployment & Integration (Days 30-31)
 
-### Day 27: Deployment Preparation
+### Day 30: Deployment Preparation
 
 - [ ] Create production configuration
 - [ ] Set up database backups
@@ -747,7 +866,7 @@ Build a Node.js backend server that manages a multi-directory music library with
 - [ ] Create systemd service file (Linux) or equivalent
 - [ ] Set up monitoring and health checks
 
-### Day 28: Integration Testing
+### Day 31: Integration Testing
 
 - [ ] Test integration with C++ audio engine
 - [ ] Test integration with Python analysis server
@@ -836,18 +955,30 @@ Build a Node.js backend server that manages a multi-directory music library with
 
 ## Timeline Summary
 
-- **Phase 1**: Days 1-3 (Setup)
-- **Phase 2**: Days 4-7 (Library Management)
-- **Phase 3**: Days 8-11 (Tracks & Duplicates)
-- **Phase 4**: Days 12-13 (Playlists)
-- **Phase 5**: Days 14-16 (Analysis)
-- **Phase 6**: Days 17-18 (WebSocket)
-- **Phase 7**: Days 19-20 (Audio Engine)
-- **Phase 8**: Days 21-24 (Testing)
-- **Phase 9**: Days 25-26 (Documentation)
-- **Phase 10**: Days 27-28 (Deployment)
+- **Phase 1**: Days 1-3 (Setup) ✅ COMPLETE
+- **Phase 2**: Days 4-7 (Library Management) ✅ COMPLETE
+- **Phase 3**: Days 8-11 (Tracks & Duplicates) ✅ COMPLETE
+- **Phase 4**: Days 12-15 (Analysis Integration) - **MOVED UP** to leverage metadata for playlists
+- **Phase 5**: Days 16-19 (Playlist Management) - **MOVED DOWN** to use analysis data
+- **Phase 6**: Days 20-21 (WebSocket)
+- **Phase 7**: Days 22-23 (Audio Engine)
+- **Phase 8**: Days 24-27 (Testing)
+- **Phase 9**: Days 28-29 (Documentation)
+- **Phase 10**: Days 30-31 (Deployment)
 
-**Total: ~28 working days (5-6 weeks)**
+**Total: ~31 working days (6-7 weeks)**
+
+### Phase Order Rationale
+
+**Why Analysis (Phase 4) Before Playlists (Phase 5)?**
+
+The Python analysis server provides rich metadata that makes playlists significantly more powerful:
+- **Smart playlists** can filter by BPM, key, energy, danceability, valence
+- **Session history** can include energy flow analysis
+- **Recommendations** can be based on harmonic mixing, energy levels
+- **Auto-arrangement** can consider key compatibility and energy progression
+
+By implementing analysis first, we can build playlist features that leverage this data from day one, rather than retrofitting it later.
 
 ---
 
@@ -855,5 +986,5 @@ Build a Node.js backend server that manages a multi-directory music library with
 
 - Allow client to ask for quick analysis of a file - when a file is loaded into a deck
 - rating icon
-- search for tracks that match musically to current track
+- search for tracks that match musically to current track, as next track, recommend based on drop, increase or decrease energy, etc
 - pull info from other sources - discogs, spotify, google music, tunebat, 1001tracklist
