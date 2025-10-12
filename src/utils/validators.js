@@ -109,7 +109,12 @@ export const schemas = {
     energy_min: Joi.number().integer().min(0).max(10),
     energy_max: Joi.number().integer().min(0).max(10),
     search: Joi.string(),
-  }).concat(schemas.pagination),
+    // Pagination
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(1000).default(50),
+    sort: Joi.string(),
+    order: Joi.string().valid('asc', 'desc').default('asc'),
+  }),
 
   // Scan request
   scanRequest: Joi.object({

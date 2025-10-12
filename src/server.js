@@ -66,10 +66,14 @@ app.get('/health', (req, res) => {
   });
 });
 
-// API routes will be added here
-// TODO: Import and use route modules
-// import settingsRoutes from './routes/settings.js';
-// app.use('/api/settings', settingsRoutes);
+// API routes
+import settingsRoutes from './routes/settings.routes.js';
+import libraryDirectoryRoutes from './routes/libraryDirectory.routes.js';
+import scanRoutes from './routes/scan.routes.js';
+
+app.use('/api/settings', settingsRoutes);
+app.use('/api/library/directories', libraryDirectoryRoutes);
+app.use('/api/scan', scanRoutes);
 
 // ============================================================================
 // Error Handling
