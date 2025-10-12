@@ -44,7 +44,8 @@ router.get(
  */
 router.get('/:id', validate(schemas.id, 'params'), async (req, res) => {
   try {
-    const directory = libraryDirService.getDirectoryById(req.params.id);
+    const id = req.validated?.params?.id || parseInt(req.params.id, 10);
+    const directory = libraryDirService.getDirectoryById(id);
 
     if (!directory) {
       return res.status(404).json({
@@ -110,7 +111,8 @@ router.post('/', validate(schemas.libraryDirectory), async (req, res) => {
  */
 router.put('/:id', validate(schemas.id, 'params'), async (req, res) => {
   try {
-    const directory = libraryDirService.updateDirectory(req.params.id, req.body);
+    const id = req.validated?.params?.id || parseInt(req.params.id, 10);
+    const directory = libraryDirService.updateDirectory(id, req.body);
 
     res.json({
       success: true,
@@ -149,8 +151,9 @@ router.delete(
   ),
   async (req, res) => {
     try {
+      const id = req.validated?.params?.id || parseInt(req.params.id, 10);
       const { delete_tracks } = req.query;
-      const deleted = libraryDirService.deleteDirectory(req.params.id, delete_tracks);
+      const deleted = libraryDirService.deleteDirectory(id, delete_tracks);
 
       if (!deleted) {
         return res.status(404).json({
@@ -179,7 +182,8 @@ router.delete(
  */
 router.post('/:id/check-availability', validate(schemas.id, 'params'), async (req, res) => {
   try {
-    const directory = libraryDirService.checkAvailability(req.params.id);
+    const id = req.validated?.params?.id || parseInt(req.params.id, 10);
+    const directory = libraryDirService.checkAvailability(id);
 
     res.json({
       success: true,

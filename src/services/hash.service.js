@@ -11,13 +11,12 @@ import logger from '../utils/logger.js';
 const HASH_CHUNK_SIZE = 64 * 1024; // 64KB chunks
 
 // Initialize xxhash-wasm (lazy initialization)
-let hasherInstance = null;
-async function getHasher() {
-  if (!hasherInstance) {
-    const h64 = await xxhash();
-    hasherInstance = h64.h64;
+let xxhashModule = null;
+async function getHasherModule() {
+  if (!xxhashModule) {
+    xxhashModule = await xxhash();
   }
-  return hasherInstance;
+  return xxhashModule;
 }
 
 /**
@@ -26,7 +25,7 @@ async function getHasher() {
  * @returns {Promise<string>} Hex hash string
  */
 export async function calculateFileHash(filePath) {
-  const hasher = await getHasher();
+  const xxh = await getHasherModule();
 
   return new Promise((resolve, reject) => {
     try {
@@ -44,8 +43,11 @@ export async function calculateFileHash(filePath) {
         try {
           // Concatenate all chunks
           const buffer = Buffer.concat(chunks);
-          // Calculate hash
-          const hash = hasher(buffer).toString(16);
+          // Create hasher and update with buffer
+          const hasher = xxh.create64();
+          hasher.update(buffer);
+          // Get hash as hex string
+          const hash = hasher.digest().toString(16);
           resolve(hash);
         } catch (error) {
           reject(error);
@@ -69,7 +71,7 @@ export async function calculateFileHash(filePath) {
  * @returns {Promise<string>} Hex hash string
  */
 export async function calculateAudioHash(filePath, skipBytes = 0) {
-  const hasher = await getHasher();
+  const xxh = await getHasherModule();
 
   return new Promise((resolve, reject) => {
     try {
@@ -87,7 +89,9 @@ export async function calculateAudioHash(filePath, skipBytes = 0) {
       stream.on('end', () => {
         try {
           const buffer = Buffer.concat(chunks);
-          const hash = hasher(buffer).toString(16);
+          const hasher = xxh.create64();
+          hasher.update(buffer);
+          const hash = hasher.digest().toString(16);
           resolve(hash);
         } catch (error) {
           reject(error);
@@ -111,7 +115,7 @@ export async function calculateAudioHash(filePath, skipBytes = 0) {
  * @returns {Promise<string>} Hex hash string
  */
 export async function calculateQuickHash(filePath, bytes = 1024 * 1024) {
-  const hasher = await getHasher();
+  const xxh = await getHasherModule();
 
   return new Promise((resolve, reject) => {
     try {
@@ -129,7 +133,9 @@ export async function calculateQuickHash(filePath, bytes = 1024 * 1024) {
       stream.on('end', () => {
         try {
           const buffer = Buffer.concat(chunks);
-          const hash = hasher(buffer).toString(16);
+          const hasher = xxh.create64();
+          hasher.update(buffer);
+          const hash = hasher.digest().toString(16);
           resolve(hash);
         } catch (error) {
           reject(error);

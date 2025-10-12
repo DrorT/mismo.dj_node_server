@@ -15,7 +15,8 @@ router.post(
   validate(schemas.scanRequest),
   async (req, res) => {
     try {
-      const { id } = req.params;
+      // Get validated ID (converted to number by Joi)
+      const id = req.validated?.params?.id || parseInt(req.params.id, 10);
       const { strategy, priority } = req.body;
 
       // Check if already scanning
@@ -81,7 +82,7 @@ router.post(
  */
 router.get('/library/:id/status', validate(schemas.id, 'params'), async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.validated?.params?.id || parseInt(req.params.id, 10);
     const status = scannerService.getScanStatus(id);
 
     if (!status) {
@@ -137,7 +138,7 @@ router.get('/active', async (req, res) => {
  */
 router.delete('/library/:id', validate(schemas.id, 'params'), async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = req.validated?.params?.id || parseInt(req.params.id, 10);
     const cancelled = scannerService.cancelScan(id);
 
     if (!cancelled) {
