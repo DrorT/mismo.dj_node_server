@@ -853,3 +853,6 @@ Build a Node.js backend server that manages a multi-directory music library with
 # Future features
 
 - Allow client to ask for quick analysis of a file - when a file is loaded into a deck
+- rating icon
+- search for tracks that match musically to current track
+- pull info from other sources - discogs, spotify, google music, tunebat, 1001tracklist

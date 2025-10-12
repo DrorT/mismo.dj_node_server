@@ -206,8 +206,8 @@ async function fullScan(directory, scanInfo, onProgress) {
       // Extract metadata
       const metadata = await metadataService.extractMetadata(filePath);
 
-      // Calculate hash
-      const hash = await hashService.calculateFileHash(filePath);
+      // Calculate audio-only hash (excludes metadata for better duplicate detection)
+      const hash = await hashService.calculateAudioHash(filePath);
 
       // Upsert track
       const track = trackService.upsertTrack({
@@ -298,7 +298,8 @@ async function hybridScan(directory, scanInfo, onProgress) {
       if (isNew || isModified) {
         // Extract full metadata
         const metadata = await metadataService.extractMetadata(filePath);
-        const hash = await hashService.calculateFileHash(filePath);
+        // Calculate audio-only hash (excludes metadata for better duplicate detection)
+        const hash = await hashService.calculateAudioHash(filePath);
 
         trackService.upsertTrack({
           ...metadata,

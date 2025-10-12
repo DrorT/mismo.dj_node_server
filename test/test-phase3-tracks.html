@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase 3 - Tracks API Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        h2 {
+            color: #2196F3;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #2196F3;
+            padding-bottom: 5px;
+        }
+
+        .section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        input, select, button {
+            padding: 10px 15px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background: #333;
+            color: #e0e0e0;
+            font-size: 14px;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #2196F3;
+        }
+
+        input[type="number"] {
+            width: 100px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            min-width: 200px;
+        }
+
+        button {
+            background: #2196F3;
+            color: white;
+            cursor: pointer;
+            border: none;
+            font-weight: 500;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #1976D2;
+        }
+
+        button:active {
+            background: #0D47A1;
+        }
+
+        button.danger {
+            background: #f44336;
+        }
+
+        button.danger:hover {
+            background: #d32f2f;
+        }
+
+        button.success {
+            background: #4CAF50;
+        }
+
+        button.success:hover {
+            background: #388E3C;
+        }
+
+        .output {
+            background: #1a1a1a;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #444;
+        }
+
+        .output pre {
+            margin: 0;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: #333;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 2em;
+            font-weight: bold;
+            color: #4CAF50;
+            margin: 10px 0;
+        }
+
+        .stat-label {
+            color: #999;
+            font-size: 0.9em;
+        }
+
+        .tracks-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .tracks-table th,
+        .tracks-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #444;
+        }
+
+        .tracks-table th {
+            background: #333;
+            color: #4CAF50;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        .tracks-table tr:hover {
+            background: #333;
+        }
+
+        .tracks-table td {
+            font-size: 13px;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge.missing {
+            background: #f44336;
+            color: white;
+        }
+
+        .badge.found {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .pagination {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-top: 15px;
+        }
+
+        .pagination button {
+            padding: 8px 12px;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .filter-group label {
+            color: #999;
+            font-size: 14px;
+        }
+
+        .actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .actions button {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+
+        .loading {
+            color: #2196F3;
+            font-style: italic;
+        }
+
+        .error {
+            color: #f44336;
+        }
+
+        .success {
+            color: #4CAF50;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #999;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select {
+            width: 100%;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .rating-stars {
+            display: flex;
+            gap: 5px;
+        }
+
+        .rating-stars .star {
+            cursor: pointer;
+            font-size: 24px;
+            color: #666;
+            transition: color 0.2s;
+        }
+
+        .rating-stars .star.filled {
+            color: #FFD700;
+        }
+
+        .rating-stars .star:hover {
+            color: #FFA500;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Mismo DJ - Phase 3: Tracks API Test</h1>
+        <p style="color: #999; margin-bottom: 30px;">Test suite for Track Management API endpoints</p>
+
+        <!-- Track Statistics -->
+        <div class="section">
+            <h2>📊 Track Statistics</h2>
+            <button onclick="loadStats()">Refresh Stats</button>
+            <div id="statsOutput" class="stats-grid"></div>
+        </div>
+
+        <!-- List/Filter Tracks -->
+        <div class="section">
+            <h2>📋 List & Filter Tracks</h2>
+
+            <div class="filter-group" style="margin-bottom: 15px;">
+                <label>Search:</label>
+                <input type="text" id="searchQuery" placeholder="Search title, artist, album...">
+
+                <label>Artist:</label>
+                <input type="text" id="filterArtist" placeholder="Filter by artist">
+
+                <label>Genre:</label>
+                <input type="text" id="filterGenre" placeholder="Filter by genre">
+            </div>
+
+            <div class="filter-group" style="margin-bottom: 15px;">
+                <label>BPM Min:</label>
+                <input type="number" id="bpmMin" placeholder="Min" style="width: 80px;">
+
+                <label>BPM Max:</label>
+                <input type="number" id="bpmMax" placeholder="Max" style="width: 80px;">
+
+                <label>Key:</label>
+                <input type="number" id="filterKey" placeholder="0-11" min="0" max="11" style="width: 80px;">
+
+                <label>Library:</label>
+                <input type="number" id="filterLibrary" placeholder="Library ID" style="width: 100px;">
+
+                <label>Missing:</label>
+                <select id="filterMissing" style="width: 100px;">
+                    <option value="">All</option>
+                    <option value="true">Missing</option>
+                    <option value="false">Available</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label>Sort by:</label>
+                <select id="sortField">
+                    <option value="date_added">Date Added</option>
+                    <option value="artist">Artist</option>
+                    <option value="title">Title</option>
+                    <option value="bpm">BPM</option>
+                    <option value="play_count">Play Count</option>
+                </select>
+
+                <select id="sortOrder">
+                    <option value="DESC">Descending</option>
+                    <option value="ASC">Ascending</option>
+                </select>
+
+                <label>Per page:</label>
+                <select id="pageLimit">
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50" selected>50</option>
+                    <option value="100">100</option>
+                </select>
+
+                <button onclick="loadTracks()">Apply Filters</button>
+                <button onclick="clearFilters()" style="background: #666;">Clear</button>
+            </div>
+
+            <div id="tracksOutput"></div>
+
+            <div class="pagination" id="pagination"></div>
+        </div>
+
+        <!-- Search Tracks -->
+        <div class="section">
+            <h2>🔍 Quick Search</h2>
+            <div class="controls">
+                <input type="text" id="quickSearch" placeholder="Quick search tracks...">
+                <button onclick="quickSearch()">Search</button>
+            </div>
+            <div id="searchOutput" class="output"></div>
+        </div>
+
+        <!-- Get Single Track -->
+        <div class="section">
+            <h2>🎵 Get Single Track</h2>
+            <div class="controls">
+                <input type="number" id="trackId" placeholder="Track ID">
+                <button onclick="getTrack()">Get Track</button>
+            </div>
+            <div id="trackOutput" class="output"></div>
+        </div>
+
+        <!-- Update Track Metadata -->
+        <div class="section">
+            <h2>✏️ Update Track Metadata</h2>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Track ID</label>
+                    <input type="number" id="updateTrackId" placeholder="Track ID">
+                </div>
+                <div class="form-group">
+                    <label>Load Track</label>
+                    <button onclick="loadTrackForUpdate()">Load</button>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Title</label>
+                    <input type="text" id="updateTitle" placeholder="Track title">
+                </div>
+                <div class="form-group">
+                    <label>Artist</label>
+                    <input type="text" id="updateArtist" placeholder="Artist name">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Album</label>
+                    <input type="text" id="updateAlbum" placeholder="Album name">
+                </div>
+                <div class="form-group">
+                    <label>Album Artist</label>
+                    <input type="text" id="updateAlbumArtist" placeholder="Album artist">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Genre</label>
+                    <input type="text" id="updateGenre" placeholder="Genre">
+                </div>
+                <div class="form-group">
+                    <label>Year</label>
+                    <input type="number" id="updateYear" placeholder="Year" min="1900" max="2100">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Rating (0-5)</label>
+                    <div class="rating-stars" id="ratingStars">
+                        <span class="star" data-rating="1">★</span>
+                        <span class="star" data-rating="2">★</span>
+                        <span class="star" data-rating="3">★</span>
+                        <span class="star" data-rating="4">★</span>
+                        <span class="star" data-rating="5">★</span>
+                    </div>
+                    <input type="hidden" id="updateRating" value="0">
+                </div>
+                <div class="form-group">
+                    <label>Energy Level (0-10)</label>
+                    <input type="number" id="updateEnergy" placeholder="Energy" min="0" max="10">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Color Tag</label>
+                <input type="text" id="updateColor" placeholder="Color tag (e.g., #FF0000)">
+            </div>
+
+            <button onclick="updateTrack()" class="success">Update Track</button>
+            <div id="updateOutput" class="output" style="margin-top: 15px;"></div>
+        </div>
+
+        <!-- Track Actions -->
+        <div class="section">
+            <h2>⚡ Track Actions</h2>
+
+            <div style="margin-bottom: 15px;">
+                <h3 style="color: #999; font-size: 1em; margin-bottom: 10px;">Mark as Missing</h3>
+                <div class="controls">
+                    <input type="number" id="markMissingId" placeholder="Track ID">
+                    <button onclick="markMissing()" style="background: #FF9800;">Mark Missing</button>
+                </div>
+            </div>
+
+            <div style="margin-bottom: 15px;">
+                <h3 style="color: #999; font-size: 1em; margin-bottom: 10px;">Mark as Found</h3>
+                <div class="controls">
+                    <input type="number" id="markFoundId" placeholder="Track ID">
+                    <button onclick="markFound()" class="success">Mark Found</button>
+                </div>
+            </div>
+
+            <div>
+                <h3 style="color: #999; font-size: 1em; margin-bottom: 10px;">Delete Track (from database only)</h3>
+                <div class="controls">
+                    <input type="number" id="deleteTrackId" placeholder="Track ID">
+                    <button onclick="deleteTrack()" class="danger">Delete Track</button>
+                </div>
+            </div>
+
+            <div id="actionsOutput" class="output" style="margin-top: 15px;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+        let currentPage = 1;
+
+        // Rating stars interaction
+        document.getElementById('ratingStars').addEventListener('click', (e) => {
+            if (e.target.classList.contains('star')) {
+                const rating = parseInt(e.target.dataset.rating);
+                document.getElementById('updateRating').value = rating;
+                updateStarDisplay(rating);
+            }
+        });
+
+        function updateStarDisplay(rating) {
+            const stars = document.querySelectorAll('.rating-stars .star');
+            stars.forEach((star, index) => {
+                if (index < rating) {
+                    star.classList.add('filled');
+                } else {
+                    star.classList.remove('filled');
+                }
+            });
+        }
+
+        // Load track statistics
+        async function loadStats() {
+            const output = document.getElementById('statsOutput');
+            output.innerHTML = '<div class="loading">Loading statistics...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/tracks/stats`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const stats = data.data;
+                    output.innerHTML = `
+                        <div class="stat-card">
+                            <div class="stat-label">Total Tracks</div>
+                            <div class="stat-value">${stats.total}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Missing Tracks</div>
+                            <div class="stat-value" style="color: #f44336;">${stats.missing}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Analyzed</div>
+                            <div class="stat-value" style="color: #2196F3;">${stats.analyzed}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Duplicates</div>
+                            <div class="stat-value" style="color: #FF9800;">${stats.duplicates}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Total Size</div>
+                            <div class="stat-value" style="font-size: 1.5em;">${formatBytes(stats.total_size)}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-label">Avg Duration</div>
+                            <div class="stat-value" style="font-size: 1.5em;">${formatDuration(stats.avg_duration)}</div>
+                        </div>
+                    `;
+                } else {
+                    output.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                output.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Load tracks with filters
+        async function loadTracks(page = 1) {
+            currentPage = page;
+            const output = document.getElementById('tracksOutput');
+            output.innerHTML = '<div class="loading">Loading tracks...</div>';
+
+            const params = new URLSearchParams({
+                page: page,
+                limit: document.getElementById('pageLimit').value,
+                sort: document.getElementById('sortField').value,
+                order: document.getElementById('sortOrder').value
+            });
+
+            // Add filters
+            const search = document.getElementById('searchQuery').value;
+            const artist = document.getElementById('filterArtist').value;
+            const genre = document.getElementById('filterGenre').value;
+            const bpmMin = document.getElementById('bpmMin').value;
+            const bpmMax = document.getElementById('bpmMax').value;
+            const key = document.getElementById('filterKey').value;
+            const library = document.getElementById('filterLibrary').value;
+            const missing = document.getElementById('filterMissing').value;
+
+            if (search) params.append('search', search);
+            if (artist) params.append('artist', artist);
+            if (genre) params.append('genre', genre);
+            if (bpmMin) params.append('bpm_min', bpmMin);
+            if (bpmMax) params.append('bpm_max', bpmMax);
+            if (key) params.append('key', key);
+            if (library) params.append('library_id', library);
+            if (missing) params.append('is_missing', missing);
+
+            try {
+                const response = await fetch(`${API_BASE}/tracks?${params}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    displayTracks(data.data, data.pagination);
+                } else {
+                    output.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                output.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        function displayTracks(tracks, pagination) {
+            const output = document.getElementById('tracksOutput');
+
+            if (tracks.length === 0) {
+                output.innerHTML = '<div style="color: #999;">No tracks found</div>';
+                document.getElementById('pagination').innerHTML = '';
+                return;
+            }
+
+            let html = `
+                <table class="tracks-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Title</th>
+                            <th>Artist</th>
+                            <th>Album</th>
+                            <th>Genre</th>
+                            <th>Duration</th>
+                            <th>BPM</th>
+                            <th>Rating</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            tracks.forEach(track => {
+                html += `
+                    <tr>
+                        <td>${track.id}</td>
+                        <td>${escapeHtml(track.title || 'Untitled')}</td>
+                        <td>${escapeHtml(track.artist || '-')}</td>
+                        <td>${escapeHtml(track.album || '-')}</td>
+                        <td>${escapeHtml(track.genre || '-')}</td>
+                        <td>${formatDuration(track.duration_seconds)}</td>
+                        <td>${track.bpm ? track.bpm.toFixed(1) : '-'}</td>
+                        <td>${'★'.repeat(track.rating || 0)}</td>
+                        <td>
+                            ${track.is_missing
+                                ? '<span class="badge missing">Missing</span>'
+                                : '<span class="badge found">Available</span>'}
+                        </td>
+                        <td class="actions">
+                            <button onclick="viewTrack(${track.id})" style="background: #2196F3;">View</button>
+                            <button onclick="editTrack(${track.id})" style="background: #4CAF50;">Edit</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table>';
+            output.innerHTML = html;
+
+            // Update pagination
+            updatePagination(pagination);
+        }
+
+        function updatePagination(pagination) {
+            const paginationDiv = document.getElementById('pagination');
+
+            let html = '<span style="color: #999;">Page ' + pagination.page + ' of ' + pagination.totalPages + ' (' + pagination.total + ' total)</span>';
+
+            if (pagination.page > 1) {
+                html += `<button onclick="loadTracks(${pagination.page - 1})">Previous</button>`;
+            }
+
+            if (pagination.page < pagination.totalPages) {
+                html += `<button onclick="loadTracks(${pagination.page + 1})">Next</button>`;
+            }
+
+            paginationDiv.innerHTML = html;
+        }
+
+        function clearFilters() {
+            document.getElementById('searchQuery').value = '';
+            document.getElementById('filterArtist').value = '';
+            document.getElementById('filterGenre').value = '';
+            document.getElementById('bpmMin').value = '';
+            document.getElementById('bpmMax').value = '';
+            document.getElementById('filterKey').value = '';
+            document.getElementById('filterLibrary').value = '';
+            document.getElementById('filterMissing').value = '';
+            loadTracks(1);
+        }
+
+        // Quick search
+        async function quickSearch() {
+            const query = document.getElementById('quickSearch').value;
+            const output = document.getElementById('searchOutput');
+
+            if (!query) {
+                output.innerHTML = '<div class="error">Please enter a search query</div>';
+                return;
+            }
+
+            output.innerHTML = '<div class="loading">Searching...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/tracks/search?q=${encodeURIComponent(query)}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    output.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    output.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                output.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Get single track
+        async function getTrack() {
+            const trackId = document.getElementById('trackId').value;
+            const output = document.getElementById('trackOutput');
+
+            if (!trackId) {
+                output.innerHTML = '<div class="error">Please enter a track ID</div>';
+                return;
+            }
+
+            output.innerHTML = '<div class="loading">Loading track...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/tracks/${trackId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    output.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    output.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                output.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        function viewTrack(id) {
+            document.getElementById('trackId').value = id;
+            getTrack();
+            document.getElementById('trackOutput').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function editTrack(id) {
+            document.getElementById('updateTrackId').value = id;
+            loadTrackForUpdate();
+            document.querySelector('h2').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Load track for updating
+        async function loadTrackForUpdate() {
+            const trackId = document.getElementById('updateTrackId').value;
+            const output = document.getElementById('updateOutput');
+
+            if (!trackId) {
+                output.innerHTML = '<div class="error">Please enter a track ID</div>';
+                return;
+            }
+
+            output.innerHTML = '<div class="loading">Loading track...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/tracks/${trackId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    const track = data.data;
+                    document.getElementById('updateTitle').value = track.title || '';
+                    document.getElementById('updateArtist').value = track.artist || '';
+                    document.getElementById('updateAlbum').value = track.album || '';
+                    document.getElementById('updateAlbumArtist').value = track.album_artist || '';
+                    document.getElementById('updateGenre').value = track.genre || '';
+                    document.getElementById('updateYear').value = track.year || '';
+                    document.getElementById('updateRating').value = track.rating || 0;
+                    document.getElementById('updateEnergy').value = track.energy_level || '';
+                    document.getElementById('updateColor').value = track.color_tag || '';
+
+                    updateStarDisplay(track.rating || 0);
+
+                    output.innerHTML = '<div class="success">Track loaded successfully</div>';
+                } else {
+                    output.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                output.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Update track
+        async function updateTrack() {
+            const trackId = document.getElementById('updateTrackId').value;
+            const output = document.getElementById('updateOutput');
+
+            if (!trackId) {
+                output.innerHTML = '<div class="error">Please enter a track ID</div>';
+                return;
+            }
+
+            const updates = {};
+
+            const title = document.getElementById('updateTitle').value;
+            const artist = document.getElementById('updateArtist').value;
+            const album = document.getElementById('updateAlbum').value;
+            const albumArtist = document.getElementById('updateAlbumArtist').value;
+            const genre = document.getElementById('updateGenre').value;
+            const year = document.getElementById('updateYear').value;
+            const rating = document.getElementById('updateRating').value;
+            const energy = document.getElementById('updateEnergy').value;
+            const color = document.getElementById('updateColor').value;
+
+            if (title) updates.title = title;
+            if (artist) updates.artist = artist;
+            if (album) updates.album = album;
+            if (albumArtist) updates.album_artist = albumArtist;
+            if (genre) updates.genre = genre;
+            if (year) updates.year = parseInt(year);
+            if (rating) updates.rating = parseInt(rating);
+            if (energy) updates.energy_level = parseInt(energy);
+            if (color) updates.color_tag = color;
+
+            output.innerHTML = '<div class="loading">Updating track...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/tracks/${trackId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(updates)
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    output.innerHTML = `<div class="success">Track updated successfully!</div><pre>${JSON.stringify(data.data, null, 2)}</pre>`;
+                    loadStats();
+                    loadTracks(currentPage);
+                } else {
+                    output.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                output.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Mark track as missing
+        async function markMissing() {
+            const trackId = document.getElementById('markMissingId').value;
+            const output = document.getElementById('actionsOutput');
+
+            if (!trackId) {
+                output.innerHTML = '<div class="error">Please enter a track ID</div>';
+                return;
+            }
+
+            output.innerHTML = '<div class="loading">Marking track as missing...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/tracks/${trackId}/mark-missing`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    output.innerHTML = `<div class="success">Track marked as missing!</div><pre>${JSON.stringify(data.data, null, 2)}</pre>`;
+                    loadStats();
+                    loadTracks(currentPage);
+                } else {
+                    output.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                output.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Mark track as found
+        async function markFound() {
+            const trackId = document.getElementById('markFoundId').value;
+            const output = document.getElementById('actionsOutput');
+
+            if (!trackId) {
+                output.innerHTML = '<div class="error">Please enter a track ID</div>';
+                return;
+            }
+
+            output.innerHTML = '<div class="loading">Marking track as found...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/tracks/${trackId}/mark-found`, {
+                    method: 'POST'
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    output.innerHTML = `<div class="success">Track marked as found!</div><pre>${JSON.stringify(data.data, null, 2)}</pre>`;
+                    loadStats();
+                    loadTracks(currentPage);
+                } else {
+                    output.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                output.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Delete track
+        async function deleteTrack() {
+            const trackId = document.getElementById('deleteTrackId').value;
+            const output = document.getElementById('actionsOutput');
+
+            if (!trackId) {
+                output.innerHTML = '<div class="error">Please enter a track ID</div>';
+                return;
+            }
+
+            if (!confirm('Are you sure you want to delete this track from the database? This will not delete the file from disk.')) {
+                return;
+            }
+
+            output.innerHTML = '<div class="loading">Deleting track...</div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/tracks/${trackId}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    output.innerHTML = `<div class="success">Track deleted from database!</div>`;
+                    loadStats();
+                    loadTracks(currentPage);
+                } else {
+                    output.innerHTML = `<div class="error">Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                output.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        // Utility functions
+        function formatBytes(bytes) {
+            if (!bytes) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function formatDuration(seconds) {
+            if (!seconds) return '-';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Load initial data
+        loadStats();
+        loadTracks(1);
+    </script>
+</body>
+</html>

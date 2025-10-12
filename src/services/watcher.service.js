@@ -42,8 +42,8 @@ async function handleFileAdd(filePath, directoryId, directoryPath) {
     // Extract metadata
     const metadata = await metadataService.extractMetadata(filePath);
 
-    // Calculate hash
-    const hash = await hashService.calculateFileHash(filePath);
+    // Calculate audio-only hash (excludes metadata for better duplicate detection)
+    const hash = await hashService.calculateAudioHash(filePath);
 
     // Create track data
     const trackData = {
@@ -105,7 +105,8 @@ async function handleFileChange(filePath, directoryId, directoryPath) {
 
     // Re-extract metadata and hash
     const metadata = await metadataService.extractMetadata(filePath);
-    const hash = await hashService.calculateFileHash(filePath);
+    // Calculate audio-only hash (excludes metadata for better duplicate detection)
+    const hash = await hashService.calculateAudioHash(filePath);
 
     // Update track
     const trackData = {

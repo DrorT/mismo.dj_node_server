@@ -1,6 +1,8 @@
 import xxhash from 'xxhash-wasm';
 import fs from 'fs';
+import path from 'path';
 import logger from '../utils/logger.js';
+import * as mm from 'music-metadata';
 
 /**
  * Hash Service
@@ -64,22 +66,121 @@ export async function calculateFileHash(filePath) {
 }
 
 /**
+ * Get audio data boundaries for a file (skipping metadata)
+ * Returns { start, end } byte positions for the actual audio data
+ * @param {string} filePath - Path to audio file
+ * @returns {Promise<{start: number, end: number|null}>}
+ */
+async function getAudioDataBoundaries(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  const stats = await fs.promises.stat(filePath);
+  const fileSize = stats.size;
+
+  let start = 0;
+  let end = null; // null means read to end
+
+  try {
+    if (ext === '.mp3') {
+      // MP3: Skip ID3v2 at start and ID3v1 at end
+      const buffer = Buffer.alloc(10);
+      const fd = await fs.promises.open(filePath, 'r');
+
+      try {
+        // Check for ID3v2 header at start
+        await fd.read(buffer, 0, 10, 0);
+        if (buffer.toString('utf8', 0, 3) === 'ID3') {
+          // Decode synchsafe integer
+          const size = (buffer[6] << 21) | (buffer[7] << 14) | (buffer[8] << 7) | buffer[9];
+          start = size + 10; // Header is 10 bytes + tag size
+        }
+
+        // Check for ID3v1 tag at end (always 128 bytes if present)
+        const id3v1Buffer = Buffer.alloc(3);
+        await fd.read(id3v1Buffer, 0, 3, fileSize - 128);
+        if (id3v1Buffer.toString('utf8', 0, 3) === 'TAG') {
+          end = fileSize - 128;
+        }
+
+        // Check for APEv2 tag at end (before ID3v1 if present)
+        const apeBuffer = Buffer.alloc(8);
+        const apeCheckPos = end ? end - 32 : fileSize - 32;
+        await fd.read(apeBuffer, 0, 8, apeCheckPos);
+        if (apeBuffer.toString('utf8', 0, 8) === 'APETAGEX') {
+          // APE tag found, need to read size
+          const sizeBuffer = Buffer.alloc(4);
+          await fd.read(sizeBuffer, 0, 4, apeCheckPos + 12);
+          const apeSize = sizeBuffer.readUInt32LE(0);
+          end = apeCheckPos - apeSize + 32;
+        }
+      } finally {
+        await fd.close();
+      }
+    } else if (ext === '.flac') {
+      // FLAC: Skip metadata blocks, keep only audio frames
+      // FLAC starts with "fLaC" marker, followed by metadata blocks
+      // We can use music-metadata to find where audio starts
+      const metadata = await mm.parseFile(filePath);
+      // For FLAC, we'll use a simpler approach: skip first 4KB (covers most metadata)
+      // A more precise implementation would parse FLAC block headers
+      start = 4096; // Conservative estimate
+    } else if (ext === '.m4a' || ext === '.aac' || ext === '.mp4') {
+      // M4A/AAC: Complex atom structure
+      // Use music-metadata to understand structure
+      // For now, we'll hash the whole file as atom structure is complex
+      // A proper implementation would parse the atom tree
+      start = 0;
+      end = null;
+    } else if (ext === '.wav' || ext === '.aif' || ext === '.aiff') {
+      // WAV/AIFF: Metadata is usually in separate chunks
+      // The 'data' chunk contains the actual audio
+      // For simplicity, we'll hash from start since metadata is minimal
+      // and usually doesn't change between duplicates
+      start = 0;
+      end = null;
+    } else if (ext === '.ogg' || ext === '.opus') {
+      // OGG/Opus: Vorbis comments in separate page
+      // Would need Ogg page parsing for precision
+      // For now, hash from start
+      start = 0;
+      end = null;
+    } else {
+      // Unknown format: hash entire file
+      start = 0;
+      end = null;
+    }
+  } catch (error) {
+    logger.warn(`Failed to parse audio boundaries for ${filePath}: ${error.message}`);
+    // Fall back to full file
+    start = 0;
+    end = null;
+  }
+
+  return { start, end };
+}
+
+/**
  * Calculate xxHash for audio data only (skip metadata headers)
  * This provides better duplicate detection for same audio with different tags
+ * Automatically detects file format and skips appropriate metadata
  * @param {string} filePath - Path to audio file
- * @param {number} skipBytes - Bytes to skip from start (metadata)
  * @returns {Promise<string>} Hex hash string
  */
-export async function calculateAudioHash(filePath, skipBytes = 0) {
+export async function calculateAudioHash(filePath) {
   const xxh = await getHasherModule();
+  const { start, end } = await getAudioDataBoundaries(filePath);
 
   return new Promise((resolve, reject) => {
     try {
-      const stream = fs.createReadStream(filePath, {
-        start: skipBytes,
+      const streamOptions = {
+        start,
         highWaterMark: HASH_CHUNK_SIZE,
-      });
+      };
 
+      if (end !== null) {
+        streamOptions.end = end - 1; // createReadStream end is inclusive
+      }
+
+      const stream = fs.createReadStream(filePath, streamOptions);
       const chunks = [];
 
       stream.on('data', chunk => {
@@ -155,13 +256,16 @@ export async function calculateQuickHash(filePath, bytes = 1024 * 1024) {
  * Calculate hash for multiple files
  * @param {Array<string>} filePaths - Array of file paths
  * @param {Function} onProgress - Progress callback (index, total, filePath, hash)
- * @param {string} hashType - Type of hash: 'file', 'audio', or 'quick'
+ * @param {string} hashType - Type of hash: 'audio' (default), 'file', or 'quick'
+ *                            'audio': Hash only audio data (best for duplicate detection)
+ *                            'file': Hash entire file including metadata
+ *                            'quick': Hash first 1MB only (fast screening)
  * @returns {Promise<Array>} Array of {filePath, hash, success, error}
  */
 export async function calculateHashBatch(
   filePaths,
   onProgress = null,
-  hashType = 'file'
+  hashType = 'audio'
 ) {
   const results = [];
 
@@ -173,16 +277,19 @@ export async function calculateHashBatch(
 
       switch (hashType) {
         case 'audio':
-          // For MP3, skip ID3v2 tag (up to 10 bytes header + variable size)
-          // For simplicity, we'll use file hash for now
-          // TODO: Implement proper audio-only hashing per format
-          hash = await calculateFileHash(filePath);
+          // Hash only audio data, excluding metadata
+          hash = await calculateAudioHash(filePath);
           break;
         case 'quick':
           hash = await calculateQuickHash(filePath);
           break;
-        default:
+        case 'file':
+          // Hash entire file including metadata
           hash = await calculateFileHash(filePath);
+          break;
+        default:
+          // Default to audio hashing for better duplicate detection
+          hash = await calculateAudioHash(filePath);
       }
 
       results.push({
