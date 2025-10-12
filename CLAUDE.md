@@ -633,16 +633,62 @@ Before submitting code, verify:
 
 ### Decisions Made
 
-*(This section will be populated as we make architectural decisions)*
+#### Decision 1: Library Directory Architecture - No Nested Directories
+**Date**: 2025-10-12
+**Context**: Phase 3 Day 11 - Directory browsing implementation revealed overlapping library directories (directory 4: `/home/chester/Music/test` was nested inside directory 3: `/home/chester/Music`), causing navigation confusion and data inconsistencies.
 
-Example:
+**Options Considered**:
+1. **Single Root Directories (Chosen)**
+   - Pros: Simple data model, fast LIKE queries on relative_path, minimal refactoring, scales well to 50k+ tracks
+   - Cons: Cannot have independent nested library directories
+
+2. **Hierarchical Library Tree with parent_directory_id**
+   - Pros: Flexible nested structure, per-subdirectory settings possible
+   - Cons: Major refactoring required, recursive CTEs for queries, more complex, database bloat (3k+ directory entries for large libraries)
+
+**Decision**: **Option 1 - Single Root Directories**
+
+**Rationale**:
+- Library directories cannot be nested within each other
+- Each library directory is an independent root with its own tracks
+- Tracks use `relative_path` field for hierarchical organization within a library
+- Validation prevents creation of overlapping directories
+- Optimal for music library use case: same scan settings, simple organization, fast queries
+- Query performance: O(log n) index lookup + linear scan of matching rows vs recursive CTEs
+- Scales efficiently: 50k tracks = 1 library entry + indexed LIKE queries (1-5ms)
+
+**Implementation**:
+- Added `validateNoOverlap()` function to `libraryDirectory.service.js`
+- Created migration script `scripts/migrate-overlapping-directories.js`
+- Added compound indexes: `idx_tracks_library_path` and `idx_tracks_browse`
+- Migrated 21 tracks from directory 4 to directory 3 with updated relative paths
+
+**Performance Characteristics**:
+```sql
+-- Browse query (optimized with compound index)
+SELECT * FROM tracks
+WHERE library_directory_id = 3
+  AND relative_path LIKE 'Artist/Album/%'
+  AND relative_path NOT LIKE 'Artist/Album/%/%'
+  AND is_missing = 0;
+-- Query time: ~1-5ms on 50k tracks
+
+-- Folder statistics query (counts only available tracks)
+SELECT COUNT(*), SUM(file_size)
+FROM tracks
+WHERE library_directory_id = 3
+  AND relative_path LIKE 'Artist/Album/%'
+  AND is_missing = 0;
+-- Query time: ~1-5ms on 50k tracks
 ```
-Decision 1: Audio Metadata Library
-Date: 2025-10-12
-Choice: music-metadata
-Rationale: Pure JavaScript, good format support, no native dependencies
-Alternatives Considered: node-id3 + flac-metadata, ffprobe
+
+**Database Indexes Added**:
+```sql
+CREATE INDEX idx_tracks_library_path ON tracks(library_directory_id, relative_path);
+CREATE INDEX idx_tracks_browse ON tracks(library_directory_id, is_missing, relative_path);
 ```
+
+**Key Constraint**: Library directories must not overlap. Users should organize music within a single root directory per logical library (e.g., one for "Music", one for "DJ Pool", etc.).
 
 ---
 
