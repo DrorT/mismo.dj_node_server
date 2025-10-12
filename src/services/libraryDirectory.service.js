@@ -84,6 +84,47 @@ export function getDirectoryByPath(dirPath) {
 }
 
 /**
+ * Validate that a directory path doesn't overlap with existing library directories
+ * @param {string} dirPath - Directory path to validate
+ * @param {number} excludeId - Optional directory ID to exclude from validation (for updates)
+ * @throws {Error} If path overlaps with existing directory
+ */
+export function validateNoOverlap(dirPath, excludeId = null) {
+  const normalizedPath = path.resolve(dirPath);
+  const allDirs = getAllDirectories();
+
+  for (const dir of allDirs) {
+    // Skip the directory we're updating
+    if (excludeId && dir.id === excludeId) {
+      continue;
+    }
+
+    const existingPath = path.resolve(dir.path);
+
+    // Check if new path is inside existing directory
+    if (normalizedPath.startsWith(existingPath + path.sep)) {
+      throw new Error(
+        `Cannot add directory '${normalizedPath}' because it is a subdirectory of existing library directory '${existingPath}' (${dir.name}). ` +
+        `Nested library directories are not allowed. Consider using only the parent directory '${existingPath}'.`
+      );
+    }
+
+    // Check if existing directory is inside new path
+    if (existingPath.startsWith(normalizedPath + path.sep)) {
+      throw new Error(
+        `Cannot add directory '${normalizedPath}' because it contains existing library directory '${existingPath}' (${dir.name}). ` +
+        `Nested library directories are not allowed. Consider removing the subdirectory first.`
+      );
+    }
+
+    // Check if paths are exactly the same
+    if (normalizedPath === existingPath) {
+      throw new Error(`Directory already exists in library: ${normalizedPath}`);
+    }
+  }
+}
+
+/**
  * Create a new library directory
  * @param {Object} data - Directory data
  * @returns {Object} Created directory
@@ -106,11 +147,8 @@ export function createDirectory(data) {
       throw new Error(`Path is not a directory: ${normalizedPath}`);
     }
 
-    // Check if already added
-    const existing = getDirectoryByPath(normalizedPath);
-    if (existing) {
-      throw new Error(`Directory already exists in library: ${normalizedPath}`);
-    }
+    // Validate no overlap with existing directories
+    validateNoOverlap(normalizedPath);
 
     // Prepare data
     const dirData = {
@@ -394,4 +432,5 @@ export default {
   checkAvailability,
   checkAllAvailability,
   updateScanStatus,
+  validateNoOverlap,
 };

@@ -360,6 +360,7 @@ async function findAudioFiles(directory) {
     nocase: true,
     follow: directory.follow_symlinks,
     ignore: directory.exclude_patterns || [],
+    nodir: true, // Exclude directories from results
   };
 
   // Handle max_depth

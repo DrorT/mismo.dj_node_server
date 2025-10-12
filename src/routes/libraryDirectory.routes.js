@@ -1,5 +1,7 @@
 import express from 'express';
 import * as libraryDirService from '../services/libraryDirectory.service.js';
+import * as directoryBrowserService from '../services/directoryBrowser.service.js';
+import * as missingMediaService from '../services/missingMediaHandler.service.js';
 import { validate, schemas } from '../utils/validators.js';
 import logger from '../utils/logger.js';
 import Joi from 'joi';
@@ -224,6 +226,198 @@ router.post('/check-all-availability', async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to check directory availability',
+    });
+  }
+});
+
+/**
+ * GET /api/library/directories/:id/browse
+ * Browse subdirectories and tracks within a library directory
+ *
+ * Query params:
+ *   path - Relative path within library (e.g., "Artist/Album")
+ */
+router.get(
+  '/:id/browse',
+  validate(schemas.id, 'params'),
+  validate(
+    Joi.object({
+      path: Joi.string().allow('').default(''),
+    }),
+    'query'
+  ),
+  async (req, res) => {
+    try {
+      const id = req.validated?.params?.id || parseInt(req.params.id, 10);
+      const relativePath = req.query.path || '';
+
+      const contents = await directoryBrowserService.browseDirectory(id, relativePath);
+
+      res.json({
+        success: true,
+        data: contents,
+      });
+    } catch (error) {
+      logger.error(`Error browsing directory ${req.params.id}:`, error);
+
+      if (error.message.includes('not found')) {
+        return res.status(404).json({
+          success: false,
+          error: error.message,
+        });
+      }
+
+      if (error.message.includes('traversal')) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid path',
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to browse directory',
+        message: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/library/directories/:id/cleanup
+ * Cleanup missing tracks from a library directory
+ *
+ * Body:
+ * {
+ *   "remove_missing_older_than_days": 30,
+ *   "keep_playlists_intact": true,
+ *   "backup_metadata": true
+ * }
+ */
+router.post(
+  '/:id/cleanup',
+  validate(schemas.id, 'params'),
+  validate(schemas.cleanup, 'body'),
+  async (req, res) => {
+    try {
+      const id = req.validated?.params?.id || parseInt(req.params.id, 10);
+
+      const result = await missingMediaService.cleanupMissingTracks(id, req.body);
+
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      logger.error(`Error cleaning up missing tracks for directory ${req.params.id}:`, error);
+
+      if (error.message.includes('not found')) {
+        return res.status(404).json({
+          success: false,
+          error: error.message,
+        });
+      }
+
+      res.status(500).json({
+        success: false,
+        error: 'Failed to cleanup missing tracks',
+        message: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/library/directories/:id/restore
+ * Restore tracks when media reconnects
+ */
+router.post('/:id/restore', validate(schemas.id, 'params'), async (req, res) => {
+  try {
+    const id = req.validated?.params?.id || parseInt(req.params.id, 10);
+
+    const result = await missingMediaService.restoreTracks(id);
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    logger.error(`Error restoring tracks for directory ${req.params.id}:`, error);
+
+    if (error.message.includes('not found')) {
+      return res.status(404).json({
+        success: false,
+        error: error.message,
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Failed to restore tracks',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/library/directories/:id/missing
+ * Get missing tracks for a library directory
+ */
+router.get(
+  '/:id/missing',
+  validate(schemas.id, 'params'),
+  validate(schemas.pagination, 'query'),
+  async (req, res) => {
+    try {
+      const id = req.validated?.params?.id || parseInt(req.params.id, 10);
+      const { page = 1, limit = 50 } = req.query;
+
+      const result = missingMediaService.getMissingTracks(id, {
+        page: parseInt(page),
+        limit: parseInt(limit),
+      });
+
+      res.json({
+        success: true,
+        data: result.tracks,
+        pagination: {
+          page: result.page,
+          limit: result.limit,
+          total: result.total,
+          totalPages: result.totalPages,
+        },
+      });
+    } catch (error) {
+      logger.error(`Error getting missing tracks for directory ${req.params.id}:`, error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get missing tracks',
+        message: error.message,
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/library/directories/:id/missing/stats
+ * Get missing track statistics for a library directory
+ */
+router.get('/:id/missing/stats', validate(schemas.id, 'params'), async (req, res) => {
+  try {
+    const id = req.validated?.params?.id || parseInt(req.params.id, 10);
+
+    const stats = missingMediaService.getMissingTrackStats(id);
+
+    res.json({
+      success: true,
+      data: stats,
+    });
+  } catch (error) {
+    logger.error(`Error getting missing track stats for directory ${req.params.id}:`, error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get missing track statistics',
+      message: error.message,
     });
   }
 });
