@@ -153,8 +153,31 @@ GET    /api/scan/active                            # List active scans
 DELETE /api/scan/library/:id                       # Cancel scan
 ```
 
+### Tracks API ✅
+```
+GET    /api/tracks                             # List all tracks (paginated, filtered)
+GET    /api/tracks/search?q=query              # Search tracks
+GET    /api/tracks/stats                       # Get track statistics
+GET    /api/tracks/:id                         # Get single track
+POST   /api/tracks                             # Add new track manually
+PUT    /api/tracks/:id                         # Update track metadata
+DELETE /api/tracks/:id                         # Delete track from database
+POST   /api/tracks/:id/mark-missing            # Mark track as missing
+POST   /api/tracks/:id/mark-found              # Mark track as found
+```
+
+**Query Parameters for GET /api/tracks:**
+- `page`, `limit` - Pagination
+- `sort` - Sort field (date_added, artist, title, bpm, play_count)
+- `order` - Sort order (ASC, DESC)
+- `artist`, `genre` - Filter by artist or genre
+- `bpm_min`, `bpm_max` - Filter by BPM range
+- `key` - Filter by musical key (0-11)
+- `library_id` - Filter by library directory
+- `is_missing` - Filter missing tracks (true/false)
+- `search` - Full-text search
+
 ### Coming Soon
-- Track management API (`/api/tracks`)
 - Playlist management (`/api/playlists`)
 - Duplicate detection (`/api/duplicates`)
 - Analysis integration (`/api/analysis`)

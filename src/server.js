@@ -71,11 +71,13 @@ import settingsRoutes from './routes/settings.routes.js';
 import libraryDirectoryRoutes from './routes/libraryDirectory.routes.js';
 import scanRoutes from './routes/scan.routes.js';
 import watcherRoutes from './routes/watcher.routes.js';
+import tracksRoutes from './routes/tracks.routes.js';
 
 app.use('/api/settings', settingsRoutes);
 app.use('/api/library/directories', libraryDirectoryRoutes);
 app.use('/api/scan', scanRoutes);
 app.use('/api/watcher', watcherRoutes);
+app.use('/api/tracks', tracksRoutes);
 
 // Import services for startup scan and file watching
 import * as libraryDirService from './services/libraryDirectory.service.js';

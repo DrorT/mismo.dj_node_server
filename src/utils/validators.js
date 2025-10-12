@@ -172,6 +172,58 @@ export const schemas = {
     keep_playlists_intact: Joi.boolean().default(true),
     backup_metadata: Joi.boolean().default(true),
   }),
+
+  // Track routes specific schemas
+  trackId: Joi.object({
+    id: Joi.number().integer().positive().required(),
+  }),
+
+  trackQuery: Joi.object({
+    page: Joi.number().integer().min(1).default(1),
+    limit: Joi.number().integer().min(1).max(1000).default(50),
+    sort: Joi.string().valid('date_added', 'artist', 'title', 'bpm', 'play_count').default('date_added'),
+    order: Joi.string().valid('ASC', 'DESC', 'asc', 'desc').default('DESC'),
+    artist: Joi.string(),
+    genre: Joi.string(),
+    bpm_min: Joi.number(),
+    bpm_max: Joi.number(),
+    key: Joi.number().integer().min(0).max(11),
+    library_id: Joi.number().integer().positive(),
+    is_missing: Joi.string().valid('true', 'false'),
+    search: Joi.string(),
+    q: Joi.string(), // For /search endpoint
+  }),
+
+  trackCreate: Joi.object({
+    file_path: Joi.string().required(),
+    library_directory_id: Joi.number().integer().positive().required(),
+    title: Joi.string().allow('', null),
+    artist: Joi.string().allow('', null),
+    album: Joi.string().allow('', null),
+    album_artist: Joi.string().allow('', null),
+    genre: Joi.string().allow('', null),
+    year: Joi.number().integer().min(1900).max(2100).allow(null),
+    track_number: Joi.number().integer().min(0).allow(null),
+    comment: Joi.string().allow('', null),
+    duration_seconds: Joi.number().allow(null),
+    sample_rate: Joi.number().integer().allow(null),
+    bit_rate: Joi.number().integer().allow(null),
+    channels: Joi.number().integer().min(1).max(8).allow(null),
+  }),
+
+  trackUpdate: Joi.object({
+    title: Joi.string().allow('', null),
+    artist: Joi.string().allow('', null),
+    album: Joi.string().allow('', null),
+    album_artist: Joi.string().allow('', null),
+    genre: Joi.string().allow('', null),
+    year: Joi.number().integer().min(1900).max(2100).allow(null),
+    track_number: Joi.number().integer().min(0).allow(null),
+    comment: Joi.string().allow('', null),
+    rating: Joi.number().integer().min(0).max(5).allow(null),
+    color_tag: Joi.string().allow('', null),
+    energy_level: Joi.number().integer().min(0).max(10).allow(null),
+  }),
 };
 
 /**
