@@ -219,12 +219,12 @@ Build a Node.js backend server that manages a multi-directory music library with
 
 ### Day 7: File Watcher ⏸️ DEFERRED
 
-- [ ] Create file watcher service (`src/services/fileWatcher.js`)
-  - Use `chokidar` to watch library directories
-  - Detect new files → auto-import
-  - Detect modified files → re-analyze
-  - Detect deleted files → mark as deleted or remove
-  - Detect directory availability changes
+- [x] Create file watcher service (`src/services/fileWatcher.js`) ✅
+  - Use `chokidar` to watch library directories ✅
+  - Detect new files → auto-import ✅
+  - Detect modified files → re-analyze ✅
+  - Detect deleted files → mark as deleted or remove ✅
+  - Detect directory availability changes ✅
   - Handle removable media disconnect/reconnect
   - **STATUS**: Dependencies installed (chokidar), implementation deferred to Phase 3
 

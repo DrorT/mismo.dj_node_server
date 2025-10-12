@@ -32,7 +32,7 @@ const config = {
   library: {
     maxConcurrentScans: parseInt(process.env.MAX_CONCURRENT_SCANS, 10) || 2,
     autoAnalyzeNewTracks: process.env.AUTO_ANALYZE_NEW_TRACKS === 'true',
-    audioFileExtensions: (process.env.AUDIO_FILE_EXTENSIONS || '.mp3,.flac,.wav,.m4a,.aac,.ogg,.wma,.aiff')
+    audioFileExtensions: (process.env.AUDIO_FILE_EXTENSIONS || '.mp3,.flac,.wav,.m4a,.aac,.ogg,.wma,.aif,.aiff,.opus,.alac')
       .split(',')
       .map(ext => ext.trim()),
   },

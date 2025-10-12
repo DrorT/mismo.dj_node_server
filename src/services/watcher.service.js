@@ -5,6 +5,7 @@ import * as libraryDirService from './libraryDirectory.service.js';
 import * as trackService from './track.service.js';
 import * as metadataService from './metadata.service.js';
 import * as hashService from './hash.service.js';
+import config from '../config/settings.js';
 import fs from 'fs/promises';
 
 /**
@@ -19,15 +20,12 @@ const activeWatchers = new Map();
 const debounceTimers = new Map();
 const DEBOUNCE_DELAY = 1000; // 1 second delay to avoid rapid-fire updates
 
-// Supported audio file extensions
-const AUDIO_EXTENSIONS = ['.mp3', '.m4a', '.flac', '.wav', '.ogg', '.aac', '.wma'];
-
 /**
  * Check if file is an audio file
  */
 function isAudioFile(filePath) {
   const ext = path.extname(filePath).toLowerCase();
-  return AUDIO_EXTENSIONS.includes(ext);
+  return config.library.audioFileExtensions.includes(ext);
 }
 
 /**
