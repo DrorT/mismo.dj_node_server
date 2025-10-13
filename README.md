@@ -80,7 +80,12 @@ NODE_ENV=development
 DATABASE_PATH=./data/library.db
 
 # Python Analysis Server
-PYTHON_SERVER_URL=http://localhost:5000
+PYTHON_SERVER_URL=http://127.0.0.1:8000
+PYTHON_SERVER_PORT=8000
+PYTHON_SERVER_AUTO_START=true
+PYTHON_SERVER_STARTUP_TIMEOUT_MS=60000
+PYTHON_SERVER_PYTHON_PATH=/path/to/mismo_server/bin/python
+PYTHON_SERVER_APP_DIR=/path/to/mismo_server_project
 MAX_CONCURRENT_ANALYSIS=2
 
 # Library Settings
@@ -93,6 +98,16 @@ LOG_FILE=./logs/app.log
 ```
 
 See `.env.example` for all available configuration options.
+
+### Python Analysis Server Setup
+
+The Node.js server automatically manages the Python analysis server lifecycle. Configure the following variables in `.env`:
+
+- `PYTHON_SERVER_PYTHON_PATH`: Path to Python virtual environment binary
+- `PYTHON_SERVER_APP_DIR`: Path to Python server source directory (mismo_server_project)
+- `PYTHON_SERVER_STARTUP_TIMEOUT_MS`: Startup timeout in milliseconds (recommended: 60000)
+
+**📖 See [Analysis Server Integration Guide](docs/analysis-server-integration.md) for detailed setup and troubleshooting.**
 
 ## Running the Server
 
@@ -177,11 +192,29 @@ POST   /api/tracks/:id/mark-found              # Mark track as found
 - `is_missing` - Filter missing tracks (true/false)
 - `search` - Full-text search
 
+### Duplicates API ✅
+```
+GET    /api/duplicates                    # List all duplicate groups
+GET    /api/duplicates/:id                # Get duplicate group with tracks
+POST   /api/duplicates/:id/resolve        # Resolve duplicates
+POST   /api/duplicates/scan               # Scan entire library for duplicates
+```
+
+### Analysis Server API ✅
+```
+GET    /api/analysis/status               # Get analysis server status
+GET    /api/analysis/health               # Check if server is healthy
+POST   /api/analysis/start                # Manually start analysis server
+POST   /api/analysis/stop                 # Stop analysis server
+POST   /api/analysis/restart              # Restart analysis server
+```
+
+**📖 See [Analysis Server Integration Guide](docs/analysis-server-integration.md) for detailed information.**
+
 ### Coming Soon
 - Playlist management (`/api/playlists`)
-- Duplicate detection (`/api/duplicates`)
-- Analysis integration (`/api/analysis`)
 - WebSocket for real-time updates
+- Analysis job management (`/api/analysis/jobs`)
 
 ## Testing
 
