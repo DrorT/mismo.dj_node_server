@@ -409,52 +409,133 @@ Build a Node.js backend server that manages a multi-directory music library with
 - [ ] Implement analysis workflow
   - **Request analysis**:
     - Add job to queue
-    - Generate job ID
+    - Hash is used as jobId
     - Send to Python server
-    - Return job ID to client
 
   - **Receive callback**:
     - Validate job ID
     - Parse analysis results
     - Update track in database
-    - Send WebSocket update
+    - Send WebSocket update, if relevant
     - Mark job as complete
 
-### Day 14-15: Progressive Analysis Updates & Waveform Data
+### Day 14: Progressive Analysis Updates & Waveform Data
+
+These are all the analysis stages -
+{
+"all": true, // Run all analyses (overrides individual flags)
+"basic_features": true, // Tempo, key, beats, downbeats
+"characteristics": true, // Danceability, energy, etc.
+"genre": true, // Genre classification
+"stems": true, // Stem separation (Demucs)
+"segments": true, // Track segmentation
+"transitions": true // Potential transition points
+}
+
+segments relies on stems and transitions relies on most previous analysis
 
 - [ ] Handle multi-stage analysis
   - **Stage 1: Basic** (~5-10s)
-    - BPM, key, mode, time signature
-    - Audio features (energy, danceability, etc.)
-    - Update database immediately
+    - ask for basic_features and characteristics
+    - get callback for each
+    - Keep all data in DB immidiately
+    - data in basic_features also include waveform data
 
-  - **Stage 2: Beats** (~20-30s)
-    - Beat grid, downbeats
-    - Store as BLOB
-
-  - **Stage 3: Stems** (~60-90s)
-    - Separated audio stems
-    - Save files to disk
-    - Store paths in database
-
-  - **Waveform Data** (received from Python)
+  - **Waveform Data**
     - Multi-zoom level waveform data
     - Store in database as BLOB
     - Serve to frontend for visualization
 
-- [ ] Send WebSocket updates for each stage
-  ```javascript
-  {
-    "event": "analysis:progress",
-    "data": {
-      "jobId": "abc-123",
-      "trackId": 456,
-      "stage": "beats",
-      "progress": 0.65,
-      "partialResults": { /* ... */ }
-    }
-  }
-  ```
+request format -
+{
+"file_path": "/mnt/audio/tracks/song.mp3",
+"track_hash": "unique-track-id",
+"options": {
+"basic_features": true,
+"characteristics": true
+},
+"callback_url": "https://myserver.com/callbacks",
+"stem_delivery_mode": "path"
+}
+
+basic_features json format -
+{
+"key": 5,
+"key_name": "F",
+"mode": 1,
+"mode_name": "major",
+"key_strength": 0.7572953104972839,
+"tempo": 130.4347826086961,
+"beats": [
+0.04,
+0.52,
+...
+],
+"downbeats": [
+0.04,
+1.96,
+...
+],
+"beat_consistency": 0.9756163159093526,
+"num_beats": 473,
+"num_downbeats": 119,
+"waveforms": [
+{
+"zoom_level": 0,
+"samples_per_pixel": 9705,
+"num_pixels": 1000,
+"low_freq_amplitude": ...,
+"low_freq_intensity": ...,
+"mid_freq_amplitude": ...,
+"mid_freq_intensity": ...,
+"high_freq_amplitude": ...,
+"high_freq_intensity": ...,
+},
+{
+"zoom_level": 1,
+"samples_per_pixel": 2426,
+"num_pixels": 4000,
+"low_freq_amplitude": ...,
+"low_freq_intensity": ...,
+"mid_freq_amplitude": ...,
+"mid_freq_intensity": ...,
+"high_freq_amplitude": ...,
+"high_freq_intensity": ...,
+},
+{
+"zoom_level": 2,
+"samples_per_pixel": 606,
+"num_pixels": 16000,
+"low_freq_amplitude": ...,
+"low_freq_intensity": ...,
+"mid_freq_amplitude": ...,
+"mid_freq_intensity": ...,
+"high_freq_amplitude": ...,
+"high_freq_intensity": ...,
+}
+]
+}
+
+characteristics json format -
+{
+"danceability": true,
+"valence": 6.4851484298706055,
+"arousal": 6.506827354431152,
+"energy": -6.548165017682132,
+"loudness": -12.012717247009277,
+"acousticness": false,
+"instrumentalness": false,
+"processing_time": 2.6578464949998306
+}
+
+### Day 15: Stems
+
+Stems are used for further analysis and for client getting stems access
+If analysis is idle (all files have gone through basic and characteristics analysis), run the rest of the analysis for each file - this includes stems, in this case stems will not be perserved
+
+If client asks for stems - put the stems request at highest priority, get stems from analysis and send to client
+
+- when getting paths, read stems audio data and send to client, stems are not perserved on disk
 
 ---
 
@@ -666,6 +747,7 @@ Build a Node.js backend server that manages a multi-directory music library with
   ```
 
 - [ ] File operation events
+
   ```javascript
   file_operation: started;
   file_operation: progress;
@@ -973,6 +1055,7 @@ Build a Node.js backend server that manages a multi-directory music library with
 **Why Analysis (Phase 4) Before Playlists (Phase 5)?**
 
 The Python analysis server provides rich metadata that makes playlists significantly more powerful:
+
 - **Smart playlists** can filter by BPM, key, energy, danceability, valence
 - **Session history** can include energy flow analysis
 - **Recommendations** can be based on harmonic mixing, energy levels
