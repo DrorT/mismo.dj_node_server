@@ -88,6 +88,8 @@ import * as libraryDirService from './services/libraryDirectory.service.js';
 import * as scannerService from './services/scanner.service.js';
 import * as watcherService from './services/watcher.service.js';
 import analysisServerService from './services/analysisServer.service.js';
+import analysisQueueService from './services/analysisQueue.service.js';
+import pythonClientService from './services/pythonClient.service.js';
 
 // ============================================================================
 // Error Handling
@@ -181,6 +183,16 @@ const server = app.listen(config.server.port, config.server.host, async () => {
     const serverStarted = await analysisServerService.initialize();
     if (serverStarted) {
       logger.info('✓ Analysis server ready');
+
+      // Initialize Python client with callback URL
+      // Use 127.0.0.1 instead of 0.0.0.0 since 0.0.0.0 is not routable for clients
+      const callbackHost = config.server.host === '0.0.0.0' ? '127.0.0.1' : config.server.host;
+      const nodeServerUrl = `http://${callbackHost}:${config.server.port}`;
+      pythonClientService.initialize(nodeServerUrl);
+
+      // Initialize analysis queue
+      await analysisQueueService.initialize();
+      logger.info('✓ Analysis queue initialized');
     } else {
       logger.warn('⚠ Analysis server not available - analysis features will be disabled');
     }
@@ -213,6 +225,14 @@ async function gracefulShutdown(signal) {
 
   server.close(async () => {
     logger.info('HTTP server closed');
+
+    // Stop analysis queue
+    try {
+      analysisQueueService.stopProcessing();
+      logger.info('Analysis queue stopped');
+    } catch (error) {
+      logger.error('Error stopping analysis queue:', error);
+    }
 
     // Stop analysis server
     try {

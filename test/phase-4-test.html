@@ -1,0 +1,810 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Phase 4: Analysis Integration Tests</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        padding: 20px;
+        background: #1a1a1a;
+        color: #e0e0e0;
+        line-height: 1.6;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      h1 {
+        color: #4caf50;
+        margin-bottom: 10px;
+        font-size: 32px;
+      }
+
+      h2 {
+        color: #2196f3;
+        margin: 30px 0 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #333;
+        font-size: 24px;
+      }
+
+      h3 {
+        color: #ffc107;
+        margin: 20px 0 10px;
+        font-size: 18px;
+      }
+
+      .intro {
+        background: #252525;
+        padding: 15px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+        border-left: 4px solid #4caf50;
+      }
+
+      .controls {
+        background: #252525;
+        padding: 20px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+      }
+
+      .control-group {
+        margin-bottom: 15px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 5px;
+        color: #b0b0b0;
+        font-weight: 500;
+      }
+
+      input[type='text'],
+      input[type='number'],
+      select {
+        width: 100%;
+        padding: 10px;
+        background: #1a1a1a;
+        border: 1px solid #444;
+        border-radius: 4px;
+        color: #e0e0e0;
+        font-size: 14px;
+      }
+
+      button {
+        background: #4caf50;
+        color: white;
+        border: none;
+        padding: 12px 24px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: background 0.3s;
+        margin-right: 10px;
+        margin-bottom: 10px;
+      }
+
+      button:hover {
+        background: #45a049;
+      }
+
+      button.secondary {
+        background: #2196f3;
+      }
+
+      button.secondary:hover {
+        background: #0b7dda;
+      }
+
+      button.danger {
+        background: #f44336;
+      }
+
+      button.danger:hover {
+        background: #da190b;
+      }
+
+      .results {
+        background: #252525;
+        padding: 20px;
+        border-radius: 5px;
+        margin-bottom: 20px;
+      }
+
+      .test-item {
+        background: #1a1a1a;
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 10px;
+        border-left: 4px solid #666;
+      }
+
+      .test-item.success {
+        border-left-color: #4caf50;
+      }
+
+      .test-item.error {
+        border-left-color: #f44336;
+      }
+
+      .test-item h4 {
+        color: #4caf50;
+        margin-bottom: 10px;
+      }
+
+      .test-item.error h4 {
+        color: #f44336;
+      }
+
+      pre {
+        background: #0d0d0d;
+        padding: 15px;
+        border-radius: 4px;
+        overflow-x: auto;
+        color: #a0a0a0;
+        font-size: 13px;
+        margin-top: 10px;
+      }
+
+      .status {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+        margin-left: 10px;
+      }
+
+      .status.queued {
+        background: #ffc107;
+        color: #000;
+      }
+      .status.processing {
+        background: #2196f3;
+        color: #fff;
+      }
+      .status.completed {
+        background: #4caf50;
+        color: #fff;
+      }
+      .status.failed {
+        background: #f44336;
+        color: #fff;
+      }
+      .status.cancelled {
+        background: #666;
+        color: #fff;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        margin-top: 20px;
+      }
+
+      .card {
+        background: #1a1a1a;
+        padding: 20px;
+        border-radius: 4px;
+        border: 1px solid #333;
+      }
+
+      .card h4 {
+        color: #4caf50;
+        margin-bottom: 15px;
+      }
+
+      .stat {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #333;
+      }
+
+      .stat:last-child {
+        border-bottom: none;
+      }
+
+      .stat-label {
+        color: #b0b0b0;
+      }
+
+      .stat-value {
+        color: #e0e0e0;
+        font-weight: 500;
+      }
+
+      .loading {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid #666;
+        border-top-color: #4caf50;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-left: 10px;
+        vertical-align: middle;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      .waveform-container {
+        background: #0d0d0d;
+        padding: 20px;
+        border-radius: 4px;
+        margin-top: 10px;
+      }
+
+      canvas {
+        width: 100%;
+        height: 200px;
+        background: #000;
+        border-radius: 4px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Phase 4: Analysis Integration Tests</h1>
+      <div class="intro">
+        <p>
+          <strong>Testing:</strong> Analysis request/callback flow, queue management, waveform
+          storage
+        </p>
+        <p><strong>Server:</strong> <span id="serverUrl">http://localhost:3000</span></p>
+      </div>
+
+      <!-- Server Configuration -->
+      <h2>1. Server Configuration</h2>
+      <div class="controls">
+        <div class="control-group">
+          <label>API Base URL:</label>
+          <input type="text" id="apiUrl" value="http://localhost:3000/api" />
+        </div>
+        <button onclick="testServerHealth()">Test Server Health</button>
+        <button onclick="testAnalysisServerStatus()" class="secondary">
+          Analysis Server Status
+        </button>
+      </div>
+      <div id="serverResults" class="results"></div>
+
+      <!-- Track Selection -->
+      <h2>2. Track Selection</h2>
+      <div class="controls">
+        <button onclick="loadTracks()">Load Available Tracks</button>
+        <div class="control-group" id="trackSelectGroup" style="display: none; margin-top: 15px">
+          <label>Select Track:</label>
+          <select id="trackSelect" onchange="onTrackSelected()">
+            <option value="">-- Select a track --</option>
+          </select>
+        </div>
+        <div id="selectedTrackInfo" style="margin-top: 15px"></div>
+      </div>
+
+      <!-- Analysis Request -->
+      <h2>3. Request Analysis</h2>
+      <div class="controls">
+        <div class="control-group">
+          <label>Priority:</label>
+          <select id="priority">
+            <option value="normal">Normal</option>
+            <option value="high">High</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+        <button onclick="requestAnalysis()">Request Analysis</button>
+        <button onclick="checkJobStatus()" class="secondary">Check Job Status</button>
+        <button onclick="cancelJob()" class="danger">Cancel Job</button>
+      </div>
+      <div id="analysisResults" class="results"></div>
+
+      <!-- Queue Status -->
+      <h2>4. Queue Status</h2>
+      <div class="controls">
+        <button onclick="getQueueStatus()">Get Queue Status</button>
+        <button onclick="startAutoRefresh()" class="secondary">Auto-Refresh (5s)</button>
+        <button onclick="stopAutoRefresh()" class="danger">Stop Auto-Refresh</button>
+      </div>
+      <div id="queueResults" class="results"></div>
+
+      <!-- Waveforms -->
+      <h2>5. Waveform Data</h2>
+      <div class="controls">
+        <button onclick="getWaveforms()">Get Waveforms</button>
+        <div class="control-group" style="margin-top: 15px">
+          <label>Zoom Level:</label>
+          <select id="zoomLevel">
+            <option value="0">0 - Overview (1000 pixels)</option>
+            <option value="1">1 - Medium (4000 pixels)</option>
+            <option value="2">2 - Detailed (16000 pixels)</option>
+          </select>
+        </div>
+        <button onclick="displayWaveform()">Display Waveform</button>
+      </div>
+      <div id="waveformResults" class="results"></div>
+    </div>
+
+    <script>
+      let selectedTrack = null;
+      let currentJobId = null;
+      let autoRefreshInterval = null;
+
+      function getApiUrl() {
+        return document.getElementById('apiUrl').value;
+      }
+
+      function addResult(containerId, title, data, isError = false) {
+        const container = document.getElementById(containerId);
+        const div = document.createElement('div');
+        div.className = `test-item ${isError ? 'error' : 'success'}`;
+        div.innerHTML = `
+                <h4>${title}</h4>
+                <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+        container.insertBefore(div, container.firstChild);
+      }
+
+      async function testServerHealth() {
+        try {
+          const response = await fetch(`${getApiUrl()}/../../health`);
+          const data = await response.json();
+          addResult('serverResults', '✓ Server Health Check', data);
+        } catch (error) {
+          addResult(
+            'serverResults',
+            '✗ Server Health Check Failed',
+            {
+              error: error.message,
+            },
+            true
+          );
+        }
+      }
+
+      async function testAnalysisServerStatus() {
+        try {
+          const response = await fetch(`${getApiUrl()}/analysis/status`);
+          const data = await response.json();
+          addResult('serverResults', '✓ Analysis Server Status', data);
+        } catch (error) {
+          addResult(
+            'serverResults',
+            '✗ Analysis Server Status Failed',
+            {
+              error: error.message,
+            },
+            true
+          );
+        }
+      }
+
+      async function loadTracks() {
+        try {
+          const response = await fetch(`${getApiUrl()}/tracks`);
+          const data = await response.json();
+
+          if (data.data && data.data.length > 0) {
+            const select = document.getElementById('trackSelect');
+            select.innerHTML = '<option value="">-- Select a track --</option>';
+
+            data.data.forEach(track => {
+              const option = document.createElement('option');
+              option.value = track.id;
+              option.textContent = `${track.artist || 'Unknown'} - ${track.title || 'Unknown'}`;
+              option.dataset.track = JSON.stringify(track);
+              select.appendChild(option);
+            });
+
+            document.getElementById('trackSelectGroup').style.display = 'block';
+            addResult('serverResults', `✓ Loaded ${data.data.length} tracks`, {
+              count: data.data.length,
+              sample: data.data.slice(0, 3).map(t => ({
+                id: t.id,
+                title: t.title,
+                artist: t.artist,
+              })),
+            });
+          } else {
+            addResult('serverResults', '⚠ No tracks found', {
+              message: 'Please scan a library directory first',
+            });
+          }
+        } catch (error) {
+          addResult(
+            'serverResults',
+            '✗ Failed to load tracks',
+            {
+              error: error.message,
+            },
+            true
+          );
+        }
+      }
+
+      function onTrackSelected() {
+        const select = document.getElementById('trackSelect');
+        const option = select.options[select.selectedIndex];
+
+        if (option.dataset.track) {
+          selectedTrack = JSON.parse(option.dataset.track);
+          document.getElementById('selectedTrackInfo').innerHTML = `
+                    <div class="card">
+                        <h4>Selected Track</h4>
+                        <div class="stat">
+                            <span class="stat-label">ID:</span>
+                            <span class="stat-value">${selectedTrack.id}</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">Title:</span>
+                            <span class="stat-value">${selectedTrack.title || 'Unknown'}</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">Artist:</span>
+                            <span class="stat-value">${selectedTrack.artist || 'Unknown'}</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">File Hash:</span>
+                            <span class="stat-value">${selectedTrack.file_hash}</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">Current BPM:</span>
+                            <span class="stat-value">${selectedTrack.bpm || 'Not analyzed'}</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-label">Current Key:</span>
+                            <span class="stat-value">${selectedTrack.musical_key !== null ? selectedTrack.musical_key : 'Not analyzed'}</span>
+                        </div>
+                    </div>
+                `;
+        } else {
+          selectedTrack = null;
+          document.getElementById('selectedTrackInfo').innerHTML = '';
+        }
+      }
+
+      async function requestAnalysis() {
+        if (!selectedTrack) {
+          alert('Please select a track first');
+          return;
+        }
+
+        try {
+          const priority = document.getElementById('priority').value;
+
+          const response = await fetch(`${getApiUrl()}/analysis/request`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              track_id: selectedTrack.id,
+              priority: priority,
+              options: {
+                basic_features: true,
+                characteristics: true,
+              },
+            }),
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            currentJobId = data.job.job_id;
+            addResult('analysisResults', '✓ Analysis Requested', data);
+          } else {
+            addResult('analysisResults', '✗ Analysis Request Failed', data, true);
+          }
+        } catch (error) {
+          addResult(
+            'analysisResults',
+            '✗ Analysis Request Failed',
+            {
+              error: error.message,
+            },
+            true
+          );
+        }
+      }
+
+      async function checkJobStatus() {
+        if (!currentJobId) {
+          alert('No active job. Request analysis first.');
+          return;
+        }
+
+        try {
+          const response = await fetch(`${getApiUrl()}/analysis/jobs/${currentJobId}`);
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult('analysisResults', `✓ Job Status: ${data.job.status}`, data);
+          } else {
+            addResult('analysisResults', '✗ Failed to get job status', data, true);
+          }
+        } catch (error) {
+          addResult(
+            'analysisResults',
+            '✗ Failed to get job status',
+            {
+              error: error.message,
+            },
+            true
+          );
+        }
+      }
+
+      async function cancelJob() {
+        if (!currentJobId) {
+          alert('No active job to cancel');
+          return;
+        }
+
+        try {
+          const response = await fetch(`${getApiUrl()}/analysis/jobs/${currentJobId}`, {
+            method: 'DELETE',
+          });
+
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult('analysisResults', '✓ Job Cancelled', data);
+            currentJobId = null;
+          } else {
+            addResult('analysisResults', '✗ Failed to cancel job', data, true);
+          }
+        } catch (error) {
+          addResult(
+            'analysisResults',
+            '✗ Failed to cancel job',
+            {
+              error: error.message,
+            },
+            true
+          );
+        }
+      }
+
+      async function getQueueStatus() {
+        try {
+          const response = await fetch(`${getApiUrl()}/analysis/queue`);
+          const data = await response.json();
+
+          if (response.ok) {
+            // Create visual representation
+            const html = `
+                        <div class="grid">
+                            <div class="card">
+                                <h4>Queue Status</h4>
+                                <div class="stat">
+                                    <span class="stat-label">Processing:</span>
+                                    <span class="stat-value">${data.queue.processingCount} / ${data.queue.maxConcurrentJobs}</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-label">Queued:</span>
+                                    <span class="stat-value">${data.queue.queuedCount}</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-label">Active:</span>
+                                    <span class="stat-value">${data.queue.isProcessing ? 'Yes' : 'No'}</span>
+                                </div>
+                            </div>
+                            <div class="card">
+                                <h4>Priority Breakdown</h4>
+                                <div class="stat">
+                                    <span class="stat-label">High Priority:</span>
+                                    <span class="stat-value">${data.stats.queued.high + data.stats.processing.high}</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-label">Normal Priority:</span>
+                                    <span class="stat-value">${data.stats.queued.normal + data.stats.processing.normal}</span>
+                                </div>
+                                <div class="stat">
+                                    <span class="stat-label">Low Priority:</span>
+                                    <span class="stat-value">${data.stats.queued.low + data.stats.processing.low}</span>
+                                </div>
+                            </div>
+                        </div>
+                        <pre style="margin-top: 20px;">${JSON.stringify(data, null, 2)}</pre>
+                    `;
+
+            document.getElementById('queueResults').innerHTML = html;
+          } else {
+            addResult('queueResults', '✗ Failed to get queue status', data, true);
+          }
+        } catch (error) {
+          addResult(
+            'queueResults',
+            '✗ Failed to get queue status',
+            {
+              error: error.message,
+            },
+            true
+          );
+        }
+      }
+
+      function startAutoRefresh() {
+        if (autoRefreshInterval) {
+          return;
+        }
+
+        autoRefreshInterval = setInterval(() => {
+          getQueueStatus();
+          if (currentJobId) {
+            checkJobStatus();
+          }
+        }, 5000);
+
+        addResult('queueResults', '✓ Auto-refresh started', {
+          interval: '5 seconds',
+        });
+      }
+
+      function stopAutoRefresh() {
+        if (autoRefreshInterval) {
+          clearInterval(autoRefreshInterval);
+          autoRefreshInterval = null;
+          addResult('queueResults', '✓ Auto-refresh stopped', {});
+        }
+      }
+
+      async function getWaveforms() {
+        if (!selectedTrack) {
+          alert('Please select a track first');
+          return;
+        }
+
+        try {
+          const response = await fetch(`${getApiUrl()}/analysis/waveforms/${selectedTrack.id}`);
+          const data = await response.json();
+
+          if (response.ok) {
+            addResult(
+              'waveformResults',
+              `✓ Waveforms Retrieved (${data.waveforms.length} levels)`,
+              {
+                count: data.waveforms.length,
+                zoom_levels: data.waveforms.map(w => w.zoom_level),
+              }
+            );
+          } else {
+            addResult('waveformResults', '✗ Failed to get waveforms', data, true);
+          }
+        } catch (error) {
+          addResult(
+            'waveformResults',
+            '✗ Failed to get waveforms',
+            {
+              error: error.message,
+            },
+            true
+          );
+        }
+      }
+
+      async function displayWaveform() {
+        if (!selectedTrack) {
+          alert('Please select a track first');
+          return;
+        }
+
+        try {
+          const zoomLevel = document.getElementById('zoomLevel').value;
+          const response = await fetch(
+            `${getApiUrl()}/analysis/waveforms/${selectedTrack.id}/${zoomLevel}`
+          );
+          const data = await response.json();
+
+          if (response.ok) {
+            const waveform = data.waveform;
+
+            // Create canvas for visualization
+            const html = `
+                        <div class="waveform-container">
+                            <h4>Waveform - Zoom Level ${waveform.zoom_level}</h4>
+                            <p>Samples per pixel: ${waveform.samples_per_pixel} | Total pixels: ${waveform.num_pixels}</p>
+                            <canvas id="waveformCanvas"></canvas>
+                        </div>
+                        <pre style="margin-top: 20px;">${JSON.stringify(
+                          {
+                            zoom_level: waveform.zoom_level,
+                            samples_per_pixel: waveform.samples_per_pixel,
+                            num_pixels: waveform.num_pixels,
+                            data_points: {
+                              low_freq_amplitude: waveform.low_freq_amplitude.length,
+                              mid_freq_amplitude: waveform.mid_freq_amplitude.length,
+                              high_freq_amplitude: waveform.high_freq_amplitude.length,
+                            },
+                          },
+                          null,
+                          2
+                        )}</pre>
+                    `;
+
+            document.getElementById('waveformResults').innerHTML = html;
+
+            // Draw waveform on canvas
+            setTimeout(() => drawWaveform(waveform), 100);
+          } else {
+            addResult('waveformResults', '✗ Failed to display waveform', data, true);
+          }
+        } catch (error) {
+          addResult(
+            'waveformResults',
+            '✗ Failed to display waveform',
+            {
+              error: error.message,
+            },
+            true
+          );
+        }
+      }
+
+      function drawWaveform(waveform) {
+        const canvas = document.getElementById('waveformCanvas');
+        if (!canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        canvas.width = canvas.offsetWidth;
+        canvas.height = 200;
+
+        const width = canvas.width;
+        const height = canvas.height;
+
+        // Clear canvas
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, width, height);
+
+        // Draw waveforms
+        const data = waveform.mid_freq_amplitude;
+        const step = data.length / width;
+
+        ctx.strokeStyle = '#4CAF50';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+
+        for (let i = 0; i < width; i++) {
+          const index = Math.floor(i * step);
+          const value = data[index] || 0;
+          const y = height / 2 - (value * height) / 2;
+
+          if (i === 0) {
+            ctx.moveTo(i, y);
+          } else {
+            ctx.lineTo(i, y);
+          }
+        }
+
+        ctx.stroke();
+
+        // Draw center line
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, height / 2);
+        ctx.lineTo(width, height / 2);
+        ctx.stroke();
+      }
+
+      // Initialize on load
+      window.addEventListener('load', () => {
+        testServerHealth();
+      });
+    </script>
+  </body>
+</html>
