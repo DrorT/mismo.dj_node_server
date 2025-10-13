@@ -5,6 +5,7 @@ import * as libraryDirService from './libraryDirectory.service.js';
 import * as trackService from './track.service.js';
 import * as metadataService from './metadata.service.js';
 import * as hashService from './hash.service.js';
+import analysisQueueService from './analysisQueue.service.js';
 import config from '../config/settings.js';
 import fs from 'fs/promises';
 
@@ -71,6 +72,17 @@ async function handleFileAdd(filePath, directoryId, directoryPath) {
     // Insert/update track
     const track = trackService.upsertTrack(trackData);
     logger.info(`File watcher: Track added/updated - ${track.title || filePath}`);
+
+    // Queue track for analysis (basic_features + characteristics only)
+    try {
+      await analysisQueueService.requestAnalysis(track.id, {
+        basic_features: true,
+        characteristics: true,
+      }, 'normal');
+      logger.debug(`File watcher: Queued analysis for track ${track.id}`);
+    } catch (error) {
+      logger.warn(`File watcher: Failed to queue analysis for track ${track.id}:`, error.message);
+    }
   } catch (error) {
     logger.error(`File watcher: Error processing added file ${filePath}:`, error);
   }

@@ -5,6 +5,7 @@ import * as libraryDirService from './libraryDirectory.service.js';
 import * as metadataService from './metadata.service.js';
 import * as hashService from './hash.service.js';
 import * as trackService from './track.service.js';
+import analysisQueueService from './analysisQueue.service.js';
 import logger from '../utils/logger.js';
 import config from '../config/settings.js';
 
@@ -144,7 +145,7 @@ async function fastScan(directory, scanInfo, onProgress) {
         const fileInfo = metadataService.getBasicFileInfo(filePath);
         const hash = await hashService.calculateQuickHash(filePath);
 
-        trackService.upsertTrack({
+        const track = trackService.upsertTrack({
           ...fileInfo,
           file_hash: hash,
           library_directory_id: directory.id,
@@ -153,6 +154,17 @@ async function fastScan(directory, scanInfo, onProgress) {
         });
 
         scanInfo.tracksAdded++;
+
+        // Queue track for analysis (basic_features + characteristics only)
+        try {
+          await analysisQueueService.requestAnalysis(track.id, {
+            basic_features: true,
+            characteristics: true,
+          }, 'normal');
+          logger.debug(`Queued analysis for new track: ${track.id}`);
+        } catch (error) {
+          logger.warn(`Failed to queue analysis for track ${track.id}:`, error.message);
+        }
       } catch (error) {
         logger.warn(`Fast scan error for ${filePath}:`, error.message);
         scanInfo.errors.push({ file: filePath, error: error.message });
@@ -218,8 +230,20 @@ async function fullScan(directory, scanInfo, onProgress) {
         is_missing: false,
       });
 
-      if (track.date_added === track.date_modified) {
+      const isNew = track.date_added === track.date_modified;
+      if (isNew) {
         scanInfo.tracksAdded++;
+
+        // Queue track for analysis (basic_features + characteristics only)
+        try {
+          await analysisQueueService.requestAnalysis(track.id, {
+            basic_features: true,
+            characteristics: true,
+          }, 'normal');
+          logger.debug(`Queued analysis for new track: ${track.id}`);
+        } catch (error) {
+          logger.warn(`Failed to queue analysis for track ${track.id}:`, error.message);
+        }
       } else {
         scanInfo.tracksUpdated++;
       }
@@ -301,7 +325,7 @@ async function hybridScan(directory, scanInfo, onProgress) {
         // Calculate audio-only hash (excludes metadata for better duplicate detection)
         const hash = await hashService.calculateAudioHash(filePath);
 
-        trackService.upsertTrack({
+        const track = trackService.upsertTrack({
           ...metadata,
           file_hash: hash,
           library_directory_id: directory.id,
@@ -311,6 +335,17 @@ async function hybridScan(directory, scanInfo, onProgress) {
 
         if (isNew) {
           scanInfo.tracksAdded++;
+
+          // Queue track for analysis (basic_features + characteristics only)
+          try {
+            await analysisQueueService.requestAnalysis(track.id, {
+              basic_features: true,
+              characteristics: true,
+            }, 'normal');
+            logger.debug(`Queued analysis for new track: ${track.id}`);
+          } catch (error) {
+            logger.warn(`Failed to queue analysis for track ${track.id}:`, error.message);
+          }
         } else {
           scanInfo.tracksUpdated++;
         }

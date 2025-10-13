@@ -124,6 +124,65 @@ app.use((err, req, res, next) => {
 });
 
 // ============================================================================
+// Startup Analysis Queue
+// ============================================================================
+
+/**
+ * Queue all unanalyzed tracks for analysis on startup
+ * This ensures all existing tracks eventually get analyzed
+ */
+async function queueUnanalyzedTracks() {
+  try {
+    logger.info('Queueing unanalyzed tracks for analysis...');
+
+    // Import track service
+    const trackService = await import('./services/track.service.js');
+
+    // Get all tracks that haven't been analyzed yet
+    // A track is considered unanalyzed if it has no date_analyzed or missing key analysis fields
+    const db = (await import('./config/database.js')).getDatabase();
+    const unanalyzedTracks = db.prepare(`
+      SELECT id, file_path
+      FROM tracks
+      WHERE is_missing = 0
+        AND (
+          date_analyzed IS NULL
+          OR bpm IS NULL
+          OR musical_key IS NULL
+        )
+    `).all();
+
+    if (unanalyzedTracks.length === 0) {
+      logger.info('No unanalyzed tracks found');
+      return;
+    }
+
+    logger.info(`Found ${unanalyzedTracks.length} unanalyzed tracks, queueing for analysis...`);
+
+    // Queue each track for analysis (with low priority for background processing)
+    let queuedCount = 0;
+    let errorCount = 0;
+
+    for (const track of unanalyzedTracks) {
+      try {
+        await analysisQueueService.requestAnalysis(track.id, {
+          basic_features: true,
+          characteristics: true,
+        }, 'low'); // Low priority for startup analysis
+        queuedCount++;
+      } catch (error) {
+        logger.warn(`Failed to queue track ${track.id} for analysis:`, error.message);
+        errorCount++;
+      }
+    }
+
+    logger.info(`Startup analysis queue complete: ${queuedCount} queued, ${errorCount} errors`);
+  } catch (error) {
+    logger.error('Error queueing unanalyzed tracks:', error);
+  }
+}
+
+// ============================================================================
 // Startup Scan
 // ============================================================================
 
@@ -193,6 +252,12 @@ const server = app.listen(config.server.port, config.server.host, async () => {
       // Initialize analysis queue
       await analysisQueueService.initialize();
       logger.info('✓ Analysis queue initialized');
+
+      // Queue all unanalyzed tracks for analysis
+      // Do this after a short delay to let the startup scan complete first
+      setTimeout(() => {
+        queueUnanalyzedTracks();
+      }, 5000); // Wait 5 seconds for startup scan to start
     } else {
       logger.warn('⚠ Analysis server not available - analysis features will be disabled');
     }
