@@ -1,4 +1,7 @@
 import { spawn } from 'child_process';
+import { createWriteStream } from 'fs';
+import { mkdir } from 'fs/promises';
+import { dirname } from 'path';
 import axios from 'axios';
 import logger from '../utils/logger.js';
 import { getAllDirectories } from './libraryDirectory.service.js';
@@ -19,6 +22,8 @@ class AnalysisServerService {
     this.appDir = process.env.PYTHON_SERVER_APP_DIR;
     this.isReady = false;
     this.startupPromise = null;
+    this.logStream = null;
+    this.logFilePath = 'logs/analysis.log';
   }
 
   /**
@@ -111,6 +116,13 @@ class AnalysisServerService {
    */
   async _startServerProcess() {
     try {
+      // Create logs directory if it doesn't exist
+      await mkdir(dirname(this.logFilePath), { recursive: true });
+
+      // Create log stream
+      this.logStream = createWriteStream(this.logFilePath, { flags: 'a' });
+      this.logStream.write(`\n\n=== Analysis Server Started: ${new Date().toISOString()} ===\n\n`);
+
       // Get allowed path prefixes from library directories
       const directories = getAllDirectories({ is_active: true });
       const allowedPaths = directories.map(dir => dir.path);
@@ -154,12 +166,20 @@ class AnalysisServerService {
         const output = data.toString().trim();
         if (output) {
           logger.info(`[Analysis Server] ${output}`);
+          if (this.logStream) {
+            this.logStream.write(`[STDOUT] ${output}\n`);
+          }
         }
       });
 
       this.serverProcess.stderr.on('data', (data) => {
         const output = data.toString().trim();
         if (output) {
+          // Write to log file
+          if (this.logStream) {
+            this.logStream.write(`[STDERR] ${output}\n`);
+          }
+
           // Uvicorn logs to stderr by default, so don't treat everything as error
           if (output.includes('ERROR') || output.includes('Exception')) {
             logger.error(`[Analysis Server] ${output}`);
@@ -172,12 +192,22 @@ class AnalysisServerService {
       // Handle process exit
       this.serverProcess.on('exit', (code, signal) => {
         logger.info(`Analysis server process exited with code ${code}, signal ${signal}`);
+        if (this.logStream) {
+          this.logStream.write(`\n=== Analysis Server Exited: ${new Date().toISOString()} (code: ${code}, signal: ${signal}) ===\n`);
+          this.logStream.end();
+          this.logStream = null;
+        }
         this.serverProcess = null;
         this.isReady = false;
       });
 
       this.serverProcess.on('error', (error) => {
         logger.error('Analysis server process error:', error);
+        if (this.logStream) {
+          this.logStream.write(`\n=== Analysis Server Error: ${new Date().toISOString()} ===\n${error.stack}\n`);
+          this.logStream.end();
+          this.logStream = null;
+        }
         this.serverProcess = null;
         this.isReady = false;
       });
@@ -250,6 +280,10 @@ class AnalysisServerService {
         if (this.serverProcess) {
           this.serverProcess.kill('SIGKILL');
         }
+        if (this.logStream) {
+          this.logStream.end();
+          this.logStream = null;
+        }
         resolve();
       }, 5000); // 5 second timeout for graceful shutdown
 
@@ -258,6 +292,10 @@ class AnalysisServerService {
         logger.info('Analysis server stopped');
         this.serverProcess = null;
         this.isReady = false;
+        if (this.logStream) {
+          this.logStream.end();
+          this.logStream = null;
+        }
         resolve();
       });
 

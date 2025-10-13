@@ -280,6 +280,26 @@ export function updateTrackMetadata(id, updates) {
       'rating',
       'color_tag',
       'energy_level',
+      // Analysis fields
+      'bpm',
+      'musical_key',
+      'mode',
+      'time_signature',
+      'beats_data',
+      'downbeats_data',
+      'stems_path',
+      'danceability',
+      'energy',
+      'loudness',
+      'valence',
+      'acousticness',
+      'instrumentalness',
+      'spectral_centroid',
+      'spectral_rolloff',
+      'spectral_bandwidth',
+      'zero_crossing_rate',
+      'date_analyzed',
+      'analysis_version',
     ];
 
     for (const field of updateableFields) {

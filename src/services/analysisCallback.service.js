@@ -77,7 +77,7 @@ export async function handleBasicFeatures(jobId, data) {
     }
 
     // Update track
-    trackService.updateTrack(job.track_id, trackUpdates);
+    trackService.updateTrackMetadata(job.track_id, trackUpdates);
 
     logger.info(`Updated track ${job.track_id} with basic features`, {
       bpm: tempo,
@@ -142,7 +142,7 @@ export async function handleCharacteristics(jobId, data) {
     };
 
     // Update track
-    trackService.updateTrack(job.track_id, trackUpdates);
+    trackService.updateTrackMetadata(job.track_id, trackUpdates);
 
     logger.info(`Updated track ${job.track_id} with characteristics`, {
       danceability: data.danceability,
@@ -230,6 +230,31 @@ export async function handleAnalysisError(jobId, errorMessage) {
 
   } catch (error) {
     logger.error(`Error handling analysis error for job ${jobId}:`, error);
+  }
+}
+
+/**
+ * Handle job_completed callback from Python server
+ * This indicates all requested features have been analyzed
+ *
+ * @param {string} jobId - Job identifier
+ * @param {Object} data - Completion data (processing time, stages completed, etc.)
+ */
+export async function handleJobCompleted(jobId, data) {
+  try {
+    logger.info(`Job ${jobId} completed successfully`, data);
+
+    const job = analysisJobService.getJobById(jobId);
+    if (!job) {
+      logger.warn(`Job ${jobId} not found for completion handling`);
+      return;
+    }
+
+    // Mark job as completed
+    await analysisQueueService.handleJobCompletion(jobId);
+
+  } catch (error) {
+    logger.error(`Error handling job completion for ${jobId}:`, error);
   }
 }
 

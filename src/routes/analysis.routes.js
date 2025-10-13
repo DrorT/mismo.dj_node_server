@@ -289,23 +289,23 @@ router.get('/queue', async (req, res) => {
  * Body:
  * {
  *   job_id: string,
- *   stage: 'basic_features' | 'characteristics' | 'genre' | 'stems' | 'segments' | 'transitions' | 'error',
+ *   stage: 'basic_features' | 'characteristics' | 'genre' | 'stems' | 'segments' | 'transitions' | 'job_completed' | 'job_failed' | 'error',
  *   data: Object
  * }
  */
 router.post('/callback', async (req, res) => {
   try {
-    const { job_id, stage, data } = req.body;
+    const { job_id, stage, data, status } = req.body;
 
     // Validate request
-    if (!job_id || !stage || !data) {
+    if (!job_id || !stage) {
       return res.status(400).json({
         error: 'Invalid callback',
-        message: 'job_id, stage, and data are required',
+        message: 'job_id and stage are required',
       });
     }
 
-    logger.info(`Received callback for job ${job_id}, stage: ${stage}`);
+    logger.info(`Received callback for job ${job_id}, stage: ${stage}, status: ${status}`);
 
     // Route to appropriate handler
     switch (stage) {
@@ -333,8 +333,16 @@ router.post('/callback', async (req, res) => {
         await analysisCallbackService.handleTransitions(job_id, data);
         break;
 
+      case 'job_completed':
+        await analysisCallbackService.handleJobCompleted(job_id, data);
+        break;
+
+      case 'job_failed':
+        await analysisCallbackService.handleAnalysisError(job_id, data?.error || 'Job failed');
+        break;
+
       case 'error':
-        await analysisCallbackService.handleAnalysisError(job_id, data.error || 'Unknown error');
+        await analysisCallbackService.handleAnalysisError(job_id, data?.error || 'Unknown error');
         break;
 
       default:
