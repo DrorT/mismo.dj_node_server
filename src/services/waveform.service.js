@@ -60,7 +60,8 @@ export function storeWaveforms(trackId, waveforms) {
           continue;
         }
 
-        // Encode waveform data as JSON BLOB
+        // Store waveform data as JSON BLOB
+        // Data can be either arrays or base64 strings - store as-is for efficiency
         const waveformData = {
           low_freq_amplitude: waveform.low_freq_amplitude,
           low_freq_intensity: waveform.low_freq_intensity,
@@ -234,8 +235,8 @@ function validateWaveform(waveform) {
     }
   }
 
-  // Validate arrays
-  const arrayFields = [
+  // Validate data fields (accept either arrays or base64 strings)
+  const dataFields = [
     'low_freq_amplitude',
     'low_freq_intensity',
     'mid_freq_amplitude',
@@ -244,8 +245,14 @@ function validateWaveform(waveform) {
     'high_freq_intensity',
   ];
 
-  for (const field of arrayFields) {
-    if (!Array.isArray(waveform[field])) {
+  for (const field of dataFields) {
+    const value = waveform[field];
+    // Accept either arrays (legacy) or base64-encoded strings (preferred)
+    if (!Array.isArray(value) && typeof value !== 'string') {
+      return false;
+    }
+    // If it's a string, validate it's not empty
+    if (typeof value === 'string' && value.length === 0) {
       return false;
     }
   }

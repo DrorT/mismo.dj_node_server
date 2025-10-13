@@ -292,6 +292,7 @@ export function updateTrackMetadata(id, updates) {
       'energy',
       'loudness',
       'valence',
+      'arousal',
       'acousticness',
       'instrumentalness',
       'spectral_centroid',

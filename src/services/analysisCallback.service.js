@@ -134,8 +134,14 @@ export async function handleCharacteristics(jobId, data) {
 
       // Numeric characteristics
       valence: data.valence,
+      arousal: data.arousal,
       energy: data.energy,
       loudness: data.loudness,
+
+      // Spectral features
+      spectral_centroid: data.spectral_centroid,
+      spectral_rolloff: data.spectral_rolloff,
+      zero_crossing_rate: data.zero_crossing_rate,
 
       // Set analysis timestamp
       date_analyzed: new Date().toISOString(),
@@ -147,7 +153,11 @@ export async function handleCharacteristics(jobId, data) {
     logger.info(`Updated track ${job.track_id} with characteristics`, {
       danceability: data.danceability,
       valence: data.valence,
+      arousal: data.arousal,
       energy: data.energy,
+      spectral_centroid: data.spectral_centroid,
+      spectral_rolloff: data.spectral_rolloff,
+      zero_crossing_rate: data.zero_crossing_rate,
     });
 
     // Update job progress
