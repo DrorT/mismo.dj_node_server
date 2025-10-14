@@ -1,6 +1,7 @@
 import WebSocket from 'ws';
 import logger from '../utils/logger.js';
 import path from 'path';
+import audioServerService from './audioServer.service.js';
 
 /**
  * Audio Server WebSocket Client Service
@@ -62,6 +63,15 @@ class AudioServerClientService {
     if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.OPEN)) {
       logger.debug('Already connected or connecting to audio server');
       return;
+    }
+
+    // Wait for audio server to be ready before connecting
+    if (!audioServerService.isReady) {
+      logger.debug('Waiting for audio server to be ready before connecting...');
+      const isReady = await audioServerService.waitForReady(30000); // Wait up to 30s
+      if (!isReady) {
+        throw new Error('Audio server is not ready');
+      }
     }
 
     this.isConnecting = true;

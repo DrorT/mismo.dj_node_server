@@ -1177,8 +1177,8 @@ By implementing analysis first, we can build playlist features that leverage thi
 - [x] Allow client to ask for quick analysis of a file - when a file is loaded into a deck
 - [x] when checking for pending analysis jobs check the file is not missing - close the job if missing
 - [x] change track id to UUID - not consecutive - so we can have tracks from multiple sources, withotu fear of repetition
-- do not wait on analysis server on startup, at the moment it is a blocking command slowing the startup
-- start the audio server on startup - after startup connect to it, monitor for crashes
+- [x] do not wait on analysis server on startup, at the moment it is a blocking command slowing the startup
+- [x] start the audio server on startup - after startup connect to it, monitor for crashes
 - have a command from client to restart audio and analysis servers - helps with updates
 
 # Future features

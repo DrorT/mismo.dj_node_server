@@ -90,6 +90,7 @@ import * as watcherService from './services/watcher.service.js';
 import analysisServerService from './services/analysisServer.service.js';
 import analysisQueueService from './services/analysisQueue.service.js';
 import pythonClientService from './services/pythonClient.service.js';
+import audioServerService from './services/audioServer.service.js';
 import audioServerClientService from './services/audioServerClient.service.js';
 
 // ============================================================================
@@ -275,30 +276,43 @@ const server = app.listen(config.server.port, config.server.host, async () => {
 
   // Continue with other initialization tasks in parallel (don't await analysis server)
 
-  // Initialize audio server WebSocket client
-  try {
-    logger.info('Initializing audio server WebSocket client...');
+  // Start audio server initialization in background (non-blocking)
+  const audioServerInitPromise = (async () => {
+    try {
+      logger.info('Initializing C++ audio server (background)...');
+      const serverStarted = await audioServerService.initializeAsync();
+      if (serverStarted) {
+        logger.info('✓ Audio server ready');
 
-    // Import track service for audio server client
-    const trackService = await import('./services/track.service.js');
+        // Import track service for audio server client
+        const trackService = await import('./services/track.service.js');
 
-    // Initialize with required dependencies
-    audioServerClientService.initialize({
-      trackService: trackService,
-      libraryDirectoryService: libraryDirService,
-      analysisQueueService: analysisQueueService
-    });
+        // Initialize audio server WebSocket client
+        audioServerClientService.initialize({
+          trackService: trackService,
+          libraryDirectoryService: libraryDirService,
+          analysisQueueService: analysisQueueService
+        });
 
-    // Connect to audio server (non-blocking, will retry if unavailable)
-    audioServerClientService.connect().then(() => {
-      logger.info('✓ Audio server client connected');
-    }).catch(error => {
-      logger.warn('⚠ Audio server not available - will retry automatically:', error.message);
-    });
-  } catch (error) {
-    logger.error('✗ Failed to initialize audio server client:', error);
-    logger.warn('Audio server integration will be disabled');
-  }
+        // Connect to audio server (will wait for server to be ready)
+        try {
+          await audioServerClientService.connect();
+          logger.info('✓ Audio server WebSocket client connected');
+        } catch (error) {
+          logger.warn('⚠ Failed to connect to audio server - will retry automatically:', error.message);
+        }
+
+        return true;
+      } else {
+        logger.warn('⚠ Audio server not available - audio features will be disabled');
+        return false;
+      }
+    } catch (error) {
+      logger.error('✗ Failed to initialize audio server:', error);
+      logger.warn('Audio features will be disabled');
+      return false;
+    }
+  })();
 
   // Perform startup scan and initialize file watchers after server is ready
   setTimeout(() => {
@@ -349,12 +363,20 @@ async function gracefulShutdown(signal) {
       logger.error('Error stopping file watchers:', error);
     }
 
-    // Disconnect from audio server
+    // Disconnect from audio server WebSocket
     try {
       audioServerClientService.disconnect();
       logger.info('Audio server client disconnected');
     } catch (error) {
       logger.error('Error disconnecting audio server client:', error);
+    }
+
+    // Stop audio server process
+    try {
+      await audioServerService.stop();
+      logger.info('Audio server stopped');
+    } catch (error) {
+      logger.error('Error stopping audio server:', error);
     }
 
     // Close database connection
