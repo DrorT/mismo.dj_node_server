@@ -1,6 +1,7 @@
 import EventEmitter from 'events';
 import logger from '../utils/logger.js';
 import pythonClientService from './pythonClient.service.js';
+import analysisServerService from './analysisServer.service.js';
 import * as analysisJobService from './analysisJob.service.js';
 import { getTrackById } from './track.service.js';
 
@@ -188,6 +189,12 @@ class AnalysisQueueService extends EventEmitter {
 
       if (availableSlots <= 0) {
         return; // At capacity
+      }
+
+      // Check if analysis server is ready
+      if (!analysisServerService.isReady) {
+        logger.debug('Analysis server not ready yet, waiting before processing queue');
+        return;
       }
 
       // Check if Python server is available

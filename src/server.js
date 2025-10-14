@@ -237,35 +237,43 @@ const server = app.listen(config.server.port, config.server.host, async () => {
   logger.info(`Server running on http://${config.server.host}:${config.server.port}`);
   logger.info(`Environment: ${config.server.env}`);
 
-  // Initialize analysis server
-  try {
-    logger.info('Initializing Python analysis server...');
-    const serverStarted = await analysisServerService.initialize();
-    if (serverStarted) {
-      logger.info('✓ Analysis server ready');
+  // Start analysis server initialization in background (non-blocking)
+  const analysisServerInitPromise = (async () => {
+    try {
+      logger.info('Initializing Python analysis server (background)...');
+      const serverStarted = await analysisServerService.initializeAsync();
+      if (serverStarted) {
+        logger.info('✓ Analysis server ready');
 
-      // Initialize Python client with callback URL
-      // Use 127.0.0.1 instead of 0.0.0.0 since 0.0.0.0 is not routable for clients
-      const callbackHost = config.server.host === '0.0.0.0' ? '127.0.0.1' : config.server.host;
-      const nodeServerUrl = `http://${callbackHost}:${config.server.port}`;
-      pythonClientService.initialize(nodeServerUrl);
+        // Initialize Python client with callback URL
+        // Use 127.0.0.1 instead of 0.0.0.0 since 0.0.0.0 is not routable for clients
+        const callbackHost = config.server.host === '0.0.0.0' ? '127.0.0.1' : config.server.host;
+        const nodeServerUrl = `http://${callbackHost}:${config.server.port}`;
+        pythonClientService.initialize(nodeServerUrl);
 
-      // Initialize analysis queue
-      await analysisQueueService.initialize();
-      logger.info('✓ Analysis queue initialized');
+        // Initialize analysis queue
+        await analysisQueueService.initialize();
+        logger.info('✓ Analysis queue initialized');
 
-      // Queue all unanalyzed tracks for analysis
-      // Do this after a short delay to let the startup scan complete first
-      setTimeout(() => {
-        queueUnanalyzedTracks();
-      }, 5000); // Wait 5 seconds for startup scan to start
-    } else {
-      logger.warn('⚠ Analysis server not available - analysis features will be disabled');
+        // Queue all unanalyzed tracks for analysis
+        // Do this after a short delay to let the startup scan complete first
+        setTimeout(() => {
+          queueUnanalyzedTracks();
+        }, 5000); // Wait 5 seconds for startup scan to start
+
+        return true;
+      } else {
+        logger.warn('⚠ Analysis server not available - analysis features will be disabled');
+        return false;
+      }
+    } catch (error) {
+      logger.error('✗ Failed to initialize analysis server:', error);
+      logger.warn('Analysis features will be disabled');
+      return false;
     }
-  } catch (error) {
-    logger.error('✗ Failed to initialize analysis server:', error);
-    logger.warn('Analysis features will be disabled');
-  }
+  })();
+
+  // Continue with other initialization tasks in parallel (don't await analysis server)
 
   // Initialize audio server WebSocket client
   try {

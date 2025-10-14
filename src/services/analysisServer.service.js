@@ -53,6 +53,89 @@ class AnalysisServerService {
   }
 
   /**
+   * Initialize the analysis server in background (non-blocking)
+   * Returns immediately while server starts in background
+   * @returns {Promise<boolean>} Promise that resolves when server is ready
+   */
+  initializeAsync() {
+    logger.info('Initializing analysis server (non-blocking)...');
+
+    // Return the initialization promise without awaiting it
+    // The promise will resolve when the server is ready
+    const initPromise = this._initializeInBackground();
+
+    return initPromise;
+  }
+
+  /**
+   * Internal method for background initialization
+   * @private
+   */
+  async _initializeInBackground() {
+    try {
+      // Check if server is already running
+      const isRunning = await this.checkHealth();
+
+      if (isRunning) {
+        logger.info('Analysis server is already running');
+        this.isReady = true;
+        return true;
+      }
+
+      // Auto-start if configured
+      if (this.autoStart) {
+        logger.info('Analysis server not running, attempting to auto-start...');
+        return await this.start();
+      } else {
+        logger.warn('Analysis server not running and auto-start is disabled');
+        return false;
+      }
+    } catch (error) {
+      logger.error('Error during background initialization:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Wait for the server to be ready
+   * Can be called multiple times safely - will return immediately if already ready
+   * @param {number} timeout - Optional timeout in milliseconds (default: 60000)
+   * @returns {Promise<boolean>} True if server is ready
+   */
+  async waitForReady(timeout = 60000) {
+    // If already ready, return immediately
+    if (this.isReady) {
+      return true;
+    }
+
+    // If startup is in progress, wait for it
+    if (this.startupPromise) {
+      try {
+        return await this.startupPromise;
+      } catch (error) {
+        return false;
+      }
+    }
+
+    // Otherwise, check health with timeout
+    const startTime = Date.now();
+    const interval = 500; // Check every 500ms
+
+    while (Date.now() - startTime < timeout) {
+      const isHealthy = await this.checkHealth();
+      if (isHealthy) {
+        this.isReady = true;
+        return true;
+      }
+
+      // Wait before next check
+      await new Promise(resolve => setTimeout(resolve, interval));
+    }
+
+    return false;
+  }
+
+  /**
    * Check if the analysis server is healthy
    * @returns {Promise<boolean>} True if server is healthy
    */
