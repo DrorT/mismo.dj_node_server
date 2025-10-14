@@ -19,10 +19,10 @@ INSERT OR IGNORE INTO schema_version (version, description) VALUES (1, 'Initial 
 INSERT OR IGNORE INTO schema_version (version, description) VALUES (2, 'Added multi-directory library support, duplicate detection, and file operations');
 
 -- ============================================================================
--- Library Directories Table
+-- Library Directories Table (Updated to UUID - Migration 008)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS library_directories (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY,                     -- UUID after migration 008
     path TEXT NOT NULL UNIQUE,
     name TEXT,                               -- User-friendly name
     is_active BOOLEAN DEFAULT 1,             -- Enable/disable scanning
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS library_directories (
     total_missing INTEGER DEFAULT 0,         -- Count of missing tracks
     date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
     priority INTEGER DEFAULT 0,              -- Scan order priority
-    
+
     -- Scanning configuration
     recursive_scan BOOLEAN DEFAULT 1,
     max_depth INTEGER DEFAULT -1,            -- -1 = unlimited depth
@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     file_size INTEGER,
     file_modified DATETIME,
     file_hash TEXT NOT NULL,                 -- Audio fingerprint hash for duplicate detection
-    library_directory_id INTEGER,           -- Reference to library directory
+    library_directory_id TEXT,               -- Reference to library directory (UUID after migration 008)
     relative_path TEXT,                      -- Path relative to library directory
     is_missing BOOLEAN DEFAULT 0,           -- For disconnected media
     missing_since DATETIME,                  -- When track became unavailable
@@ -154,10 +154,10 @@ CREATE INDEX IF NOT EXISTS idx_tracks_missing ON tracks(is_missing);
 CREATE INDEX IF NOT EXISTS idx_tracks_duplicate_group ON tracks(duplicate_group_id);
 
 -- ============================================================================
--- Playlists Table
+-- Playlists Table (Updated to UUID - Migration 007)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS playlists (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id TEXT PRIMARY KEY,                    -- UUID after migration 007
     name TEXT NOT NULL,
     description TEXT,
     date_created DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -175,10 +175,10 @@ CREATE TABLE IF NOT EXISTS playlists (
 CREATE INDEX IF NOT EXISTS idx_playlists_name ON playlists(name);
 
 -- ============================================================================
--- Playlist Tracks Junction Table (Updated for UUID tracks - Migration 005)
+-- Playlist Tracks Junction Table (Updated for UUIDs - Migrations 005, 007)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS playlist_tracks (
-    playlist_id INTEGER NOT NULL,
+    playlist_id TEXT NOT NULL,             -- UUID after migration 007
     track_id TEXT NOT NULL,                -- UUID after migration 005
     position INTEGER NOT NULL,
     date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -212,7 +212,7 @@ CREATE TABLE IF NOT EXISTS waveforms (
 CREATE INDEX IF NOT EXISTS idx_waveforms_hash ON waveforms(file_hash);
 
 -- ============================================================================
--- File Operations Log Table (Updated for UUID tracks - Migration 005)
+-- File Operations Log Table (Updated for UUIDs - Migrations 005, 008)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS file_operations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -220,8 +220,8 @@ CREATE TABLE IF NOT EXISTS file_operations (
     track_id TEXT NOT NULL,                -- UUID after migration 005
     old_path TEXT,
     new_path TEXT,
-    old_library_directory_id INTEGER,
-    new_library_directory_id INTEGER,
+    old_library_directory_id TEXT,         -- UUID after migration 008
+    new_library_directory_id TEXT,         -- UUID after migration 008
     status TEXT DEFAULT 'pending',         -- 'pending', 'completed', 'failed'
     error_message TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
