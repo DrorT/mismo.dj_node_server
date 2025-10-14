@@ -2,6 +2,7 @@ import { getDatabase } from '../config/database.js';
 import logger from '../utils/logger.js';
 import path from 'path';
 import * as waveformService from './waveform.service.js';
+import { generateUUID, isValidUUID } from '../utils/uuid.js';
 
 /**
  * Track Service
@@ -10,20 +11,19 @@ import * as waveformService from './waveform.service.js';
 
 /**
  * Get track by ID
- * @param {number} id - Track ID
+ * @param {string} id - Track UUID
  * @returns {Object|null} Track or null
  */
 export function getTrackById(id) {
   try {
-    // Ensure id is an integer
-    const trackId = parseInt(id, 10);
-    if (isNaN(trackId)) {
-      throw new Error(`Invalid track ID: ${id} is not a valid integer`);
+    // Validate UUID format
+    if (!isValidUUID(id)) {
+      throw new Error(`Invalid track ID: ${id} is not a valid UUID`);
     }
 
     const db = getDatabase();
     const stmt = db.prepare('SELECT * FROM tracks WHERE id = ?');
-    return stmt.get(trackId) || null;
+    return stmt.get(id) || null;
   } catch (error) {
     logger.error(`Error getting track ${id}:`, error);
     throw error;
@@ -220,17 +220,20 @@ export function upsertTrack(trackData) {
 
       return getTrackById(existing.id);
     } else {
-      // Insert new track
+      // Insert new track with generated UUID
+      const trackId = generateUUID();
+
       const stmt = db.prepare(`
         INSERT INTO tracks (
-          file_path, file_size, file_modified, file_hash,
+          id, file_path, file_size, file_modified, file_hash,
           library_directory_id, relative_path, is_missing,
           title, artist, album, album_artist, genre, year, track_number, comment,
           duration_seconds, sample_rate, bit_rate, channels
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
-      const result = stmt.run(
+      stmt.run(
+        trackId,
         trackData.file_path,
         trackData.file_size || null,
         trackData.file_modified || null,
@@ -252,9 +255,9 @@ export function upsertTrack(trackData) {
         trackData.channels || null
       );
 
-      logger.info(`Track created: ${trackData.file_path}`);
+      logger.info(`Track created with UUID ${trackId}: ${trackData.file_path}`);
 
-      return getTrackById(result.lastInsertRowid);
+      return getTrackById(trackId);
     }
   } catch (error) {
     logger.error('Error upserting track:', error);
@@ -264,7 +267,7 @@ export function upsertTrack(trackData) {
 
 /**
  * Update track metadata
- * @param {number} id - Track ID
+ * @param {string} id - Track UUID
  * @param {Object} updates - Metadata updates
  * @returns {Object} Updated track
  */
@@ -332,7 +335,7 @@ export function updateTrackMetadata(id, updates) {
 
 /**
  * Mark track as missing
- * @param {number} id - Track ID
+ * @param {string} id - Track UUID
  * @returns {Object} Updated track
  */
 export function markTrackMissing(id) {
@@ -354,7 +357,7 @@ export function markTrackMissing(id) {
 
 /**
  * Mark track as found
- * @param {number} id - Track ID
+ * @param {string} id - Track UUID
  * @returns {Object} Updated track
  */
 export function markTrackFound(id) {
@@ -376,7 +379,7 @@ export function markTrackFound(id) {
 
 /**
  * Delete track
- * @param {number} id - Track ID
+ * @param {string} id - Track UUID
  * @returns {boolean} True if deleted
  */
 export function deleteTrack(id) {
@@ -462,8 +465,8 @@ export function getAnalyzedTrackByHash(fileHash) {
 
 /**
  * Copy analysis data from one track to another
- * @param {number} fromTrackId - Source track ID
- * @param {number} toTrackId - Destination track ID
+ * @param {string} fromTrackId - Source track UUID
+ * @param {string} toTrackId - Destination track UUID
  * @returns {boolean} True if copied successfully
  */
 export function copyAnalysisData(fromTrackId, toTrackId) {

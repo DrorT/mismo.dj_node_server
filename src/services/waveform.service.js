@@ -5,6 +5,9 @@ import logger from '../utils/logger.js';
  * Waveform Service
  * Storage and retrieval of multi-zoom level waveform data
  *
+ * NOTE: After migration 006, waveforms are stored by file_hash instead of track_id.
+ * This eliminates duplicate waveforms for identical audio files.
+ *
  * Waveform data structure from Python:
  * {
  *   zoom_level: 0-2,
@@ -20,15 +23,15 @@ import logger from '../utils/logger.js';
  */
 
 /**
- * Store waveform data for a track
- * @param {number} trackId - Track ID
+ * Store waveform data by file hash
+ * @param {string} fileHash - Audio file hash
  * @param {Array<Object>} waveforms - Array of waveform objects
  * @returns {number} Number of waveforms stored
  */
-export function storeWaveforms(trackId, waveforms) {
+export function storeWaveforms(fileHash, waveforms) {
   try {
     if (!Array.isArray(waveforms) || waveforms.length === 0) {
-      logger.warn(`No waveforms provided for track ${trackId}`);
+      logger.warn(`No waveforms provided for hash ${fileHash}`);
       return 0;
     }
 
@@ -37,14 +40,14 @@ export function storeWaveforms(trackId, waveforms) {
 
     // Use transaction for atomic update
     db.transaction(() => {
-      // Delete existing waveforms for this track
-      const deleteStmt = db.prepare('DELETE FROM waveforms WHERE track_id = ?');
-      deleteStmt.run(trackId);
+      // Delete existing waveforms for this hash
+      const deleteStmt = db.prepare('DELETE FROM waveforms WHERE file_hash = ?');
+      deleteStmt.run(fileHash);
 
       // Insert new waveforms
       const insertStmt = db.prepare(`
-        INSERT INTO waveforms (
-          track_id,
+        INSERT OR REPLACE INTO waveforms (
+          file_hash,
           zoom_level,
           sample_rate,
           samples_per_point,
@@ -56,7 +59,7 @@ export function storeWaveforms(trackId, waveforms) {
       for (const waveform of waveforms) {
         // Validate waveform structure
         if (!validateWaveform(waveform)) {
-          logger.warn(`Invalid waveform structure for track ${trackId}, zoom level ${waveform.zoom_level}`);
+          logger.warn(`Invalid waveform structure for hash ${fileHash}, zoom level ${waveform.zoom_level}`);
           continue;
         }
 
@@ -74,7 +77,7 @@ export function storeWaveforms(trackId, waveforms) {
         const dataBlob = Buffer.from(JSON.stringify(waveformData));
 
         insertStmt.run(
-          trackId,
+          fileHash,
           waveform.zoom_level,
           waveform.sample_rate || null,
           waveform.samples_per_pixel,
@@ -86,29 +89,29 @@ export function storeWaveforms(trackId, waveforms) {
       }
     })();
 
-    logger.info(`Stored ${stored} waveforms for track ${trackId}`);
+    logger.info(`Stored ${stored} waveforms for hash ${fileHash}`);
     return stored;
   } catch (error) {
-    logger.error(`Error storing waveforms for track ${trackId}:`, error);
+    logger.error(`Error storing waveforms for hash ${fileHash}:`, error);
     throw error;
   }
 }
 
 /**
- * Get waveform for a track at a specific zoom level
- * @param {number} trackId - Track ID
+ * Get waveform by file hash at a specific zoom level
+ * @param {string} fileHash - Audio file hash
  * @param {number} zoomLevel - Zoom level (0-2)
  * @returns {Object|null} Waveform data or null if not found
  */
-export function getWaveform(trackId, zoomLevel) {
+export function getWaveformByHash(fileHash, zoomLevel) {
   try {
     const db = getDatabase();
     const stmt = db.prepare(`
       SELECT * FROM waveforms
-      WHERE track_id = ? AND zoom_level = ?
+      WHERE file_hash = ? AND zoom_level = ?
     `);
 
-    const row = stmt.get(trackId, zoomLevel);
+    const row = stmt.get(fileHash, zoomLevel);
     if (!row) {
       return null;
     }
@@ -117,8 +120,7 @@ export function getWaveform(trackId, zoomLevel) {
     const waveformData = JSON.parse(row.data.toString());
 
     return {
-      id: row.id,
-      track_id: row.track_id,
+      file_hash: row.file_hash,
       zoom_level: row.zoom_level,
       sample_rate: row.sample_rate,
       samples_per_pixel: row.samples_per_point,
@@ -126,34 +128,59 @@ export function getWaveform(trackId, zoomLevel) {
       ...waveformData,
     };
   } catch (error) {
+    logger.error(`Error getting waveform for hash ${fileHash}, zoom ${zoomLevel}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get waveform for a track at a specific zoom level (backward compatible)
+ * @param {string} trackId - Track UUID
+ * @param {number} zoomLevel - Zoom level (0-2)
+ * @returns {Object|null} Waveform data or null if not found
+ */
+export function getWaveform(trackId, zoomLevel) {
+  try {
+    const db = getDatabase();
+
+    // Get file_hash for the track
+    const trackStmt = db.prepare('SELECT file_hash FROM tracks WHERE id = ?');
+    const track = trackStmt.get(trackId);
+
+    if (!track) {
+      logger.warn(`Track ${trackId} not found`);
+      return null;
+    }
+
+    return getWaveformByHash(track.file_hash, zoomLevel);
+  } catch (error) {
     logger.error(`Error getting waveform for track ${trackId}, zoom ${zoomLevel}:`, error);
     throw error;
   }
 }
 
 /**
- * Get all waveforms for a track
- * @param {number} trackId - Track ID
+ * Get all waveforms by file hash
+ * @param {string} fileHash - Audio file hash
  * @returns {Array<Object>} Array of waveform objects
  */
-export function getAllWaveforms(trackId) {
+export function getAllWaveformsByHash(fileHash) {
   try {
     const db = getDatabase();
     const stmt = db.prepare(`
       SELECT * FROM waveforms
-      WHERE track_id = ?
+      WHERE file_hash = ?
       ORDER BY zoom_level ASC
     `);
 
-    const rows = stmt.all(trackId);
+    const rows = stmt.all(fileHash);
 
     return rows.map(row => {
       // Decode BLOB data
       const waveformData = JSON.parse(row.data.toString());
 
       return {
-        id: row.id,
-        track_id: row.track_id,
+        file_hash: row.file_hash,
         zoom_level: row.zoom_level,
         sample_rate: row.sample_rate,
         samples_per_pixel: row.samples_per_point,
@@ -162,44 +189,107 @@ export function getAllWaveforms(trackId) {
       };
     });
   } catch (error) {
+    logger.error(`Error getting all waveforms for hash ${fileHash}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get all waveforms for a track (backward compatible)
+ * @param {string} trackId - Track UUID
+ * @returns {Array<Object>} Array of waveform objects
+ */
+export function getAllWaveforms(trackId) {
+  try {
+    const db = getDatabase();
+
+    // Get file_hash for the track
+    const trackStmt = db.prepare('SELECT file_hash FROM tracks WHERE id = ?');
+    const track = trackStmt.get(trackId);
+
+    if (!track) {
+      logger.warn(`Track ${trackId} not found`);
+      return [];
+    }
+
+    return getAllWaveformsByHash(track.file_hash);
+  } catch (error) {
     logger.error(`Error getting all waveforms for track ${trackId}:`, error);
     throw error;
   }
 }
 
 /**
- * Delete waveforms for a track
- * @param {number} trackId - Track ID
+ * Delete waveforms by file hash
+ * WARNING: This will affect all tracks with the same audio hash!
+ * @param {string} fileHash - Audio file hash
  * @returns {number} Number of waveforms deleted
  */
-export function deleteWaveforms(trackId) {
+export function deleteWaveformsByHash(fileHash) {
   try {
     const db = getDatabase();
-    const stmt = db.prepare('DELETE FROM waveforms WHERE track_id = ?');
-    const result = stmt.run(trackId);
+    const stmt = db.prepare('DELETE FROM waveforms WHERE file_hash = ?');
+    const result = stmt.run(fileHash);
 
-    logger.info(`Deleted ${result.changes} waveforms for track ${trackId}`);
+    logger.info(`Deleted ${result.changes} waveforms for hash ${fileHash}`);
     return result.changes;
   } catch (error) {
-    logger.error(`Error deleting waveforms for track ${trackId}:`, error);
+    logger.error(`Error deleting waveforms for hash ${fileHash}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Delete waveforms for a track (no-op with hash-based storage)
+ * NOTE: With hash-based storage, waveforms are shared across duplicate tracks
+ * This function is kept for backward compatibility but does nothing.
+ * @param {string} trackId - Track UUID
+ * @returns {number} Always returns 0
+ */
+export function deleteWaveforms(trackId) {
+  logger.info(`deleteWaveforms() called for track ${trackId} - no-op with hash-based storage`);
+  return 0;
+}
+
+/**
+ * Check if file hash has waveforms
+ * @param {string} fileHash - Audio file hash
+ * @returns {boolean} True if hash has waveforms
+ */
+export function hasWaveformsByHash(fileHash) {
+  try {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+      SELECT COUNT(*) as count FROM waveforms WHERE file_hash = ?
+    `);
+
+    const result = stmt.get(fileHash);
+    return result.count > 0;
+  } catch (error) {
+    logger.error(`Error checking waveforms for hash ${fileHash}:`, error);
     throw error;
   }
 }
 
 /**
  * Check if track has waveforms
- * @param {number} trackId - Track ID
+ * @param {string} trackId - Track UUID
  * @returns {boolean} True if track has waveforms
  */
 export function hasWaveforms(trackId) {
   try {
     const db = getDatabase();
-    const stmt = db.prepare(`
-      SELECT COUNT(*) as count FROM waveforms WHERE track_id = ?
-    `);
 
-    const result = stmt.get(trackId);
-    return result.count > 0;
+    // Get file_hash for the track
+    const trackStmt = db.prepare('SELECT file_hash FROM tracks WHERE id = ?');
+    const track = trackStmt.get(trackId);
+
+    if (!track) {
+      logger.warn(`Track ${trackId} not found`);
+      return false;
+    }
+
+    return hasWaveformsByHash(track.file_hash);
   } catch (error) {
     logger.error(`Error checking waveforms for track ${trackId}:`, error);
     throw error;
@@ -268,11 +358,11 @@ export function getWaveformStats() {
   try {
     const db = getDatabase();
 
-    // Count tracks with waveforms
-    const tracksStmt = db.prepare(`
-      SELECT COUNT(DISTINCT track_id) as count FROM waveforms
+    // Count unique audio hashes with waveforms
+    const hashesStmt = db.prepare(`
+      SELECT COUNT(DISTINCT file_hash) as count FROM waveforms
     `);
-    const tracksResult = tracksStmt.get();
+    const hashesResult = hashesStmt.get();
 
     // Count total waveforms
     const totalStmt = db.prepare(`
@@ -286,8 +376,16 @@ export function getWaveformStats() {
     `);
     const sizeResult = sizeStmt.get();
 
+    // Count tracks that have waveforms (via their file_hash)
+    const tracksWithWaveformsStmt = db.prepare(`
+      SELECT COUNT(*) as count FROM tracks
+      WHERE file_hash IN (SELECT DISTINCT file_hash FROM waveforms)
+    `);
+    const tracksWithWaveformsResult = tracksWithWaveformsStmt.get();
+
     return {
-      tracks_with_waveforms: tracksResult.count,
+      unique_audio_hashes: hashesResult.count,
+      tracks_with_waveforms: tracksWithWaveformsResult.count,
       total_waveforms: totalResult.count,
       storage_bytes: sizeResult.total_bytes || 0,
       storage_mb: ((sizeResult.total_bytes || 0) / (1024 * 1024)).toFixed(2),
@@ -299,68 +397,29 @@ export function getWaveformStats() {
 }
 
 /**
- * Copy waveforms from one track to another
- * @param {number} fromTrackId - Source track ID
- * @param {number} toTrackId - Destination track ID
- * @returns {number} Number of waveforms copied
+ * Copy waveforms from one track to another (no-op with hash-based storage)
+ * NOTE: With hash-based storage, waveforms are automatically shared across duplicate tracks
+ * This function is kept for backward compatibility but does nothing.
+ * @param {string} fromTrackId - Source track UUID
+ * @param {string} toTrackId - Destination track UUID
+ * @returns {number} Always returns 0
  */
 export function copyWaveforms(fromTrackId, toTrackId) {
-  try {
-    const db = getDatabase();
-
-    // Use transaction for atomic copy
-    let copied = 0;
-
-    db.transaction(() => {
-      // Delete existing waveforms for destination track (if any)
-      const deleteStmt = db.prepare('DELETE FROM waveforms WHERE track_id = ?');
-      deleteStmt.run(toTrackId);
-
-      // Copy waveforms directly from source track using SQL
-      // This is more efficient than getAllWaveforms() + re-insert
-      const copyStmt = db.prepare(`
-        INSERT INTO waveforms (
-          track_id,
-          zoom_level,
-          sample_rate,
-          samples_per_point,
-          num_points,
-          data
-        )
-        SELECT
-          ? as track_id,
-          zoom_level,
-          sample_rate,
-          samples_per_point,
-          num_points,
-          data
-        FROM waveforms
-        WHERE track_id = ?
-      `);
-
-      const result = copyStmt.run(toTrackId, fromTrackId);
-      copied = result.changes;
-    })();
-
-    if (copied > 0) {
-      logger.info(`Copied ${copied} waveforms from track ${fromTrackId} to track ${toTrackId}`);
-    } else {
-      logger.debug(`No waveforms to copy from track ${fromTrackId}`);
-    }
-
-    return copied;
-  } catch (error) {
-    logger.error(`Error copying waveforms from ${fromTrackId} to ${toTrackId}:`, error);
-    throw error;
-  }
+  logger.info(`copyWaveforms() called from ${fromTrackId} to ${toTrackId} - no-op with hash-based storage`);
+  logger.info('Waveforms are automatically shared for tracks with the same file_hash');
+  return 0;
 }
 
 export default {
   storeWaveforms,
   getWaveform,
+  getWaveformByHash,
   getAllWaveforms,
+  getAllWaveformsByHash,
   deleteWaveforms,
+  deleteWaveformsByHash,
   hasWaveforms,
+  hasWaveformsByHash,
   getWaveformStats,
   copyWaveforms,
 };

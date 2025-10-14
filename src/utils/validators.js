@@ -1,5 +1,6 @@
 import Joi from 'joi';
 import path from 'path';
+import { isValidUUID } from './uuid.js';
 
 /**
  * Validation middleware factory
@@ -38,6 +39,18 @@ export function validate(schema, property = 'body') {
 }
 
 /**
+ * Custom Joi UUID validator
+ */
+const uuidValidator = Joi.string().custom((value, helpers) => {
+  if (!isValidUUID(value)) {
+    return helpers.error('string.uuid');
+  }
+  return value;
+}, 'UUID validation').messages({
+  'string.uuid': '{{#label}} must be a valid UUID',
+});
+
+/**
  * Common validation schemas
  */
 export const schemas = {
@@ -49,8 +62,13 @@ export const schemas = {
     order: Joi.string().valid('asc', 'desc').default('asc'),
   }),
 
-  // ID parameter
+  // ID parameter (UUID)
   id: Joi.object({
+    id: uuidValidator.required(),
+  }),
+
+  // Legacy ID parameter (for backward compatibility - will be deprecated)
+  legacyId: Joi.object({
     id: Joi.number().integer().positive().required(),
   }),
 

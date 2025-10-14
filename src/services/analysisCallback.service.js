@@ -88,10 +88,10 @@ export async function handleBasicFeatures(jobId, data) {
       num_downbeats: downbeats.length,
     });
 
-    // Store waveforms
+    // Store waveforms using file_hash (jobId is the file_hash)
     if (data.waveforms && Array.isArray(data.waveforms)) {
-      waveformService.storeWaveforms(job.track_id, data.waveforms);
-      logger.info(`Stored ${data.waveforms.length} waveforms for track ${job.track_id}`);
+      waveformService.storeWaveforms(jobId, data.waveforms);
+      logger.info(`Stored ${data.waveforms.length} waveforms for file_hash ${jobId}`);
     }
 
     // Update job progress
