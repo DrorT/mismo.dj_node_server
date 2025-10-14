@@ -1,6 +1,7 @@
 import { getDatabase } from '../config/database.js';
 import logger from '../utils/logger.js';
 import path from 'path';
+import * as waveformService from './waveform.service.js';
 
 /**
  * Track Service
@@ -431,6 +432,109 @@ export function getTrackStats() {
   }
 }
 
+/**
+ * Get an analyzed track by file hash
+ * @param {string} fileHash - File hash
+ * @returns {Object|null} Analyzed track or null
+ */
+export function getAnalyzedTrackByHash(fileHash) {
+  try {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+      SELECT * FROM tracks
+      WHERE file_hash = ?
+        AND date_analyzed IS NOT NULL
+        AND bpm IS NOT NULL
+      LIMIT 1
+    `);
+    return stmt.get(fileHash) || null;
+  } catch (error) {
+    logger.error(`Error getting analyzed track by hash ${fileHash}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Copy analysis data from one track to another
+ * @param {number} fromTrackId - Source track ID
+ * @param {number} toTrackId - Destination track ID
+ * @returns {boolean} True if copied successfully
+ */
+export function copyAnalysisData(fromTrackId, toTrackId) {
+  try {
+    const db = getDatabase();
+
+    // Get source track analysis data
+    const sourceTrack = getTrackById(fromTrackId);
+    if (!sourceTrack || !sourceTrack.date_analyzed) {
+      logger.warn(`Source track ${fromTrackId} has no analysis data to copy`);
+      return false;
+    }
+
+    // Copy all analysis fields
+    const stmt = db.prepare(`
+      UPDATE tracks SET
+        bpm = ?,
+        musical_key = ?,
+        mode = ?,
+        time_signature = ?,
+        beats_data = ?,
+        downbeats_data = ?,
+        danceability = ?,
+        energy = ?,
+        loudness = ?,
+        valence = ?,
+        arousal = ?,
+        acousticness = ?,
+        instrumentalness = ?,
+        spectral_centroid = ?,
+        spectral_rolloff = ?,
+        spectral_bandwidth = ?,
+        zero_crossing_rate = ?,
+        date_analyzed = ?,
+        analysis_version = ?
+      WHERE id = ?
+    `);
+
+    stmt.run(
+      sourceTrack.bpm,
+      sourceTrack.musical_key,
+      sourceTrack.mode,
+      sourceTrack.time_signature,
+      sourceTrack.beats_data,
+      sourceTrack.downbeats_data,
+      sourceTrack.danceability,
+      sourceTrack.energy,
+      sourceTrack.loudness,
+      sourceTrack.valence,
+      sourceTrack.arousal,
+      sourceTrack.acousticness,
+      sourceTrack.instrumentalness,
+      sourceTrack.spectral_centroid,
+      sourceTrack.spectral_rolloff,
+      sourceTrack.spectral_bandwidth,
+      sourceTrack.zero_crossing_rate,
+      sourceTrack.date_analyzed,
+      sourceTrack.analysis_version,
+      toTrackId
+    );
+
+    // Also copy waveforms
+    try {
+      const waveformCount = waveformService.copyWaveforms(fromTrackId, toTrackId);
+      logger.info(`Copied analysis data and ${waveformCount} waveforms from track ${fromTrackId} to track ${toTrackId}`);
+    } catch (error) {
+      logger.warn(`Failed to copy waveforms from ${fromTrackId} to ${toTrackId}:`, error.message);
+      logger.info(`Copied analysis data from track ${fromTrackId} to track ${toTrackId} (waveforms failed)`);
+    }
+
+    return true;
+  } catch (error) {
+    logger.error(`Error copying analysis data from ${fromTrackId} to ${toTrackId}:`, error);
+    throw error;
+  }
+}
+
 export default {
   getTrackById,
   getTrackByPath,
@@ -443,4 +547,6 @@ export default {
   deleteTrack,
   getTracksByDuplicateGroup,
   getTrackStats,
+  getAnalyzedTrackByHash,
+  copyAnalysisData,
 };

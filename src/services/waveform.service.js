@@ -298,6 +298,63 @@ export function getWaveformStats() {
   }
 }
 
+/**
+ * Copy waveforms from one track to another
+ * @param {number} fromTrackId - Source track ID
+ * @param {number} toTrackId - Destination track ID
+ * @returns {number} Number of waveforms copied
+ */
+export function copyWaveforms(fromTrackId, toTrackId) {
+  try {
+    const db = getDatabase();
+
+    // Use transaction for atomic copy
+    let copied = 0;
+
+    db.transaction(() => {
+      // Delete existing waveforms for destination track (if any)
+      const deleteStmt = db.prepare('DELETE FROM waveforms WHERE track_id = ?');
+      deleteStmt.run(toTrackId);
+
+      // Copy waveforms directly from source track using SQL
+      // This is more efficient than getAllWaveforms() + re-insert
+      const copyStmt = db.prepare(`
+        INSERT INTO waveforms (
+          track_id,
+          zoom_level,
+          sample_rate,
+          samples_per_point,
+          num_points,
+          data
+        )
+        SELECT
+          ? as track_id,
+          zoom_level,
+          sample_rate,
+          samples_per_point,
+          num_points,
+          data
+        FROM waveforms
+        WHERE track_id = ?
+      `);
+
+      const result = copyStmt.run(toTrackId, fromTrackId);
+      copied = result.changes;
+    })();
+
+    if (copied > 0) {
+      logger.info(`Copied ${copied} waveforms from track ${fromTrackId} to track ${toTrackId}`);
+    } else {
+      logger.debug(`No waveforms to copy from track ${fromTrackId}`);
+    }
+
+    return copied;
+  } catch (error) {
+    logger.error(`Error copying waveforms from ${fromTrackId} to ${toTrackId}:`, error);
+    throw error;
+  }
+}
+
 export default {
   storeWaveforms,
   getWaveform,
@@ -305,4 +362,5 @@ export default {
   deleteWaveforms,
   hasWaveforms,
   getWaveformStats,
+  copyWaveforms,
 };

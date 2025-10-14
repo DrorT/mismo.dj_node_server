@@ -73,15 +73,27 @@ async function handleFileAdd(filePath, directoryId, directoryPath) {
     const track = trackService.upsertTrack(trackData);
     logger.info(`File watcher: Track added/updated - ${track.title || filePath}`);
 
-    // Queue track for analysis (basic_features + characteristics only)
-    try {
-      await analysisQueueService.requestAnalysis(track.id, {
-        basic_features: true,
-        characteristics: true,
-      }, 'normal');
-      logger.debug(`File watcher: Queued analysis for track ${track.id}`);
-    } catch (error) {
-      logger.warn(`File watcher: Failed to queue analysis for track ${track.id}:`, error.message);
+    // Check if another track with same hash already has analysis data
+    const analyzedTrack = trackService.getAnalyzedTrackByHash(hash);
+    if (analyzedTrack && analyzedTrack.id !== track.id) {
+      // Copy analysis data from the analyzed track
+      try {
+        trackService.copyAnalysisData(analyzedTrack.id, track.id);
+        logger.info(`File watcher: Copied analysis data from track ${analyzedTrack.id} to track ${track.id}`);
+      } catch (error) {
+        logger.warn(`File watcher: Failed to copy analysis data to track ${track.id}:`, error.message);
+      }
+    } else {
+      // Queue track for analysis (basic_features + characteristics only)
+      try {
+        await analysisQueueService.requestAnalysis(track.id, {
+          basic_features: true,
+          characteristics: true,
+        }, 'normal');
+        logger.debug(`File watcher: Queued analysis for track ${track.id}`);
+      } catch (error) {
+        logger.warn(`File watcher: Failed to queue analysis for track ${track.id}:`, error.message);
+      }
     }
   } catch (error) {
     logger.error(`File watcher: Error processing added file ${filePath}:`, error);

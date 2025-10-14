@@ -155,15 +155,27 @@ async function fastScan(directory, scanInfo, onProgress) {
 
         scanInfo.tracksAdded++;
 
-        // Queue track for analysis (basic_features + characteristics only)
-        try {
-          await analysisQueueService.requestAnalysis(track.id, {
-            basic_features: true,
-            characteristics: true,
-          }, 'normal');
-          logger.debug(`Queued analysis for new track: ${track.id}`);
-        } catch (error) {
-          logger.warn(`Failed to queue analysis for track ${track.id}:`, error.message);
+        // Check if another track with same hash already has analysis data
+        const analyzedTrack = trackService.getAnalyzedTrackByHash(hash);
+        if (analyzedTrack && analyzedTrack.id !== track.id) {
+          // Copy analysis data from the analyzed track
+          try {
+            trackService.copyAnalysisData(analyzedTrack.id, track.id);
+            logger.debug(`Copied analysis data from track ${analyzedTrack.id} to track ${track.id}`);
+          } catch (error) {
+            logger.warn(`Failed to copy analysis data to track ${track.id}:`, error.message);
+          }
+        } else {
+          // Queue track for analysis (basic_features + characteristics only)
+          try {
+            await analysisQueueService.requestAnalysis(track.id, {
+              basic_features: true,
+              characteristics: true,
+            }, 'normal');
+            logger.debug(`Queued analysis for new track: ${track.id}`);
+          } catch (error) {
+            logger.warn(`Failed to queue analysis for track ${track.id}:`, error.message);
+          }
         }
       } catch (error) {
         logger.warn(`Fast scan error for ${filePath}:`, error.message);
@@ -234,15 +246,27 @@ async function fullScan(directory, scanInfo, onProgress) {
       if (isNew) {
         scanInfo.tracksAdded++;
 
-        // Queue track for analysis (basic_features + characteristics only)
-        try {
-          await analysisQueueService.requestAnalysis(track.id, {
-            basic_features: true,
-            characteristics: true,
-          }, 'normal');
-          logger.debug(`Queued analysis for new track: ${track.id}`);
-        } catch (error) {
-          logger.warn(`Failed to queue analysis for track ${track.id}:`, error.message);
+        // Check if another track with same hash already has analysis data
+        const analyzedTrack = trackService.getAnalyzedTrackByHash(hash);
+        if (analyzedTrack && analyzedTrack.id !== track.id) {
+          // Copy analysis data from the analyzed track
+          try {
+            trackService.copyAnalysisData(analyzedTrack.id, track.id);
+            logger.debug(`Copied analysis data from track ${analyzedTrack.id} to track ${track.id}`);
+          } catch (error) {
+            logger.warn(`Failed to copy analysis data to track ${track.id}:`, error.message);
+          }
+        } else {
+          // Queue track for analysis (basic_features + characteristics only)
+          try {
+            await analysisQueueService.requestAnalysis(track.id, {
+              basic_features: true,
+              characteristics: true,
+            }, 'normal');
+            logger.debug(`Queued analysis for new track: ${track.id}`);
+          } catch (error) {
+            logger.warn(`Failed to queue analysis for track ${track.id}:`, error.message);
+          }
         }
       } else {
         scanInfo.tracksUpdated++;
@@ -336,15 +360,27 @@ async function hybridScan(directory, scanInfo, onProgress) {
         if (isNew) {
           scanInfo.tracksAdded++;
 
-          // Queue track for analysis (basic_features + characteristics only)
-          try {
-            await analysisQueueService.requestAnalysis(track.id, {
-              basic_features: true,
-              characteristics: true,
-            }, 'normal');
-            logger.debug(`Queued analysis for new track: ${track.id}`);
-          } catch (error) {
-            logger.warn(`Failed to queue analysis for track ${track.id}:`, error.message);
+          // Check if another track with same hash already has analysis data
+          const analyzedTrack = trackService.getAnalyzedTrackByHash(hash);
+          if (analyzedTrack && analyzedTrack.id !== track.id) {
+            // Copy analysis data from the analyzed track
+            try {
+              trackService.copyAnalysisData(analyzedTrack.id, track.id);
+              logger.debug(`Copied analysis data from track ${analyzedTrack.id} to track ${track.id}`);
+            } catch (error) {
+              logger.warn(`Failed to copy analysis data to track ${track.id}:`, error.message);
+            }
+          } else {
+            // Queue track for analysis (basic_features + characteristics only)
+            try {
+              await analysisQueueService.requestAnalysis(track.id, {
+                basic_features: true,
+                characteristics: true,
+              }, 'normal');
+              logger.debug(`Queued analysis for new track: ${track.id}`);
+            } catch (error) {
+              logger.warn(`Failed to queue analysis for track ${track.id}:`, error.message);
+            }
           }
         } else {
           scanInfo.tracksUpdated++;
