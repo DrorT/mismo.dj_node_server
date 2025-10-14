@@ -49,26 +49,26 @@ CREATE INDEX IF NOT EXISTS idx_library_directories_active ON library_directories
 CREATE INDEX IF NOT EXISTS idx_library_directories_priority ON library_directories(priority DESC);
 
 -- ============================================================================
--- Duplicate Groups Table
+-- Duplicate Groups Table (Updated for UUID tracks - Migration 005)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS duplicate_groups (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     file_hash TEXT NOT NULL UNIQUE,
-    canonical_track_id INTEGER,              -- Preferred version of the track
+    canonical_track_id TEXT,              -- Preferred version of the track (UUID after migration 005)
     total_duplicates INTEGER DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    
+
     FOREIGN KEY (canonical_track_id) REFERENCES tracks(id) ON DELETE SET NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_duplicate_groups_hash ON duplicate_groups(file_hash);
 
 -- ============================================================================
--- Tracks Table (Updated)
+-- Tracks Table (Updated with UUID support - Migration 005)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS tracks (
-    -- Primary key
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    -- Primary key (UUID after migration 005)
+    id TEXT PRIMARY KEY,
 
     -- File information
     file_path TEXT NOT NULL UNIQUE,
@@ -175,11 +175,11 @@ CREATE TABLE IF NOT EXISTS playlists (
 CREATE INDEX IF NOT EXISTS idx_playlists_name ON playlists(name);
 
 -- ============================================================================
--- Playlist Tracks Junction Table
+-- Playlist Tracks Junction Table (Updated for UUID tracks - Migration 005)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS playlist_tracks (
     playlist_id INTEGER NOT NULL,
-    track_id INTEGER NOT NULL,
+    track_id TEXT NOT NULL,                -- UUID after migration 005
     position INTEGER NOT NULL,
     date_added DATETIME DEFAULT CURRENT_TIMESTAMP,
 
@@ -194,30 +194,30 @@ CREATE INDEX IF NOT EXISTS idx_playlist_tracks_position
     ON playlist_tracks(playlist_id, position);
 
 -- ============================================================================
--- Waveforms Table (Multi-zoom levels)
+-- Waveforms Table (Hash-based storage - Migration 006)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS waveforms (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    track_id INTEGER NOT NULL,
+    file_hash TEXT NOT NULL,              -- Audio file hash (from tracks table)
     zoom_level INTEGER NOT NULL,           -- 0=overview, 1-3=zoom levels
     sample_rate INTEGER,
     samples_per_point INTEGER,
     num_points INTEGER,
     data BLOB NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 
-    FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
-    UNIQUE (track_id, zoom_level)
+    PRIMARY KEY (file_hash, zoom_level)   -- Composite primary key
 );
 
-CREATE INDEX IF NOT EXISTS idx_waveforms_track ON waveforms(track_id);
+CREATE INDEX IF NOT EXISTS idx_waveforms_hash ON waveforms(file_hash);
 
 -- ============================================================================
--- File Operations Log Table
+-- File Operations Log Table (Updated for UUID tracks - Migration 005)
 -- ============================================================================
 CREATE TABLE IF NOT EXISTS file_operations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     operation_type TEXT NOT NULL,          -- 'move', 'rename', 'delete', 'copy'
-    track_id INTEGER NOT NULL,
+    track_id TEXT NOT NULL,                -- UUID after migration 005
     old_path TEXT,
     new_path TEXT,
     old_library_directory_id INTEGER,
@@ -226,7 +226,7 @@ CREATE TABLE IF NOT EXISTS file_operations (
     error_message TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     completed_at DATETIME,
-    
+
     FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
     FOREIGN KEY (old_library_directory_id) REFERENCES library_directories(id) ON DELETE SET NULL,
     FOREIGN KEY (new_library_directory_id) REFERENCES library_directories(id) ON DELETE SET NULL

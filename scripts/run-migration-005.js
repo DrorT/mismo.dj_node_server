@@ -241,8 +241,25 @@ try {
 
   console.log('✓ Data migration completed\n');
 
-  // Step 6: Drop old tables and rename new ones
-  console.log('Step 6: Replacing old tables with new tables...');
+  // Step 6: Drop old views (they reference old tables)
+  console.log('Step 6: Dropping old views...');
+  db.exec('DROP VIEW IF EXISTS tracks_with_library');
+  db.exec('DROP VIEW IF EXISTS library_stats');
+  db.exec('DROP VIEW IF EXISTS duplicates_with_tracks');
+  console.log('✓ Old views dropped\n');
+
+  // Step 7: Drop old triggers (they reference old tables)
+  console.log('Step 7: Dropping old triggers...');
+  db.exec('DROP TRIGGER IF EXISTS update_library_stats_on_track_insert');
+  db.exec('DROP TRIGGER IF EXISTS update_library_stats_on_track_delete');
+  db.exec('DROP TRIGGER IF EXISTS update_library_stats_on_track_update_old');
+  db.exec('DROP TRIGGER IF EXISTS update_library_stats_on_track_update_new');
+  db.exec('DROP TRIGGER IF EXISTS update_duplicate_group_on_track_insert');
+  db.exec('DROP TRIGGER IF EXISTS update_duplicate_group_on_track_delete');
+  console.log('✓ Old triggers dropped\n');
+
+  // Step 8: Drop old tables and rename new ones
+  console.log('Step 8: Replacing old tables with new tables...');
 
   db.exec('DROP TABLE IF EXISTS tracks');
   db.exec('ALTER TABLE tracks_new RENAME TO tracks');
@@ -276,8 +293,8 @@ try {
 
   console.log('✓ Tables replaced\n');
 
-  // Step 7: Create indexes
-  console.log('Step 7: Creating indexes...');
+  // Step 9: Create indexes
+  console.log('Step 9: Creating indexes...');
   const indexStatements = [
     'CREATE INDEX idx_tracks_artist ON tracks(artist)',
     'CREATE INDEX idx_tracks_bpm ON tracks(bpm)',
@@ -321,8 +338,8 @@ try {
 
   console.log('✓ Indexes created\n');
 
-  // Step 8: Update views and triggers (from migration SQL)
-  console.log('Step 8: Updating views and triggers...');
+  // Step 10: Update views and triggers (from migration SQL)
+  console.log('Step 10: Updating views and triggers...');
 
   // Recreate views
   db.exec('DROP VIEW IF EXISTS tracks_with_library');
@@ -458,8 +475,8 @@ try {
 
   console.log('✓ Views and triggers updated\n');
 
-  // Step 9: Update schema version
-  console.log('Step 9: Updating schema version...');
+  // Step 11: Update schema version
+  console.log('Step 11: Updating schema version...');
   db.exec(`
     INSERT INTO schema_version (version, description) VALUES
     (5, 'Migrated tracks table from INTEGER id to UUID (TEXT) id')

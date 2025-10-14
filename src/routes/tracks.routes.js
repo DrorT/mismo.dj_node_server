@@ -139,7 +139,7 @@ router.get('/stats', async (req, res) => {
 router.get('/:id', validate(schemas.trackId, 'params'), async (req, res) => {
   try {
     const { id } = req.params;
-    const track = trackService.getTrackById(parseInt(id));
+    const track = trackService.getTrackById(id);
 
     if (!track) {
       return res.status(404).json({
@@ -210,7 +210,7 @@ router.put('/:id', validate(schemas.trackId, 'params'), validate(schemas.trackUp
     const updates = req.body;
 
     // Check if track exists
-    const existingTrack = trackService.getTrackById(parseInt(id));
+    const existingTrack = trackService.getTrackById(id);
     if (!existingTrack) {
       return res.status(404).json({
         success: false,
@@ -219,7 +219,7 @@ router.put('/:id', validate(schemas.trackId, 'params'), validate(schemas.trackUp
       });
     }
 
-    const updatedTrack = trackService.updateTrackMetadata(parseInt(id), updates);
+    const updatedTrack = trackService.updateTrackMetadata(id, updates);
 
     res.json({
       success: true,
@@ -245,7 +245,7 @@ router.delete('/:id', validate(schemas.trackId, 'params'), async (req, res) => {
     const { id } = req.params;
 
     // Check if track exists
-    const track = trackService.getTrackById(parseInt(id));
+    const track = trackService.getTrackById(id);
     if (!track) {
       return res.status(404).json({
         success: false,
@@ -254,7 +254,7 @@ router.delete('/:id', validate(schemas.trackId, 'params'), async (req, res) => {
       });
     }
 
-    const deleted = trackService.deleteTrack(parseInt(id));
+    const deleted = trackService.deleteTrack(id);
 
     if (deleted) {
       res.json({
@@ -285,7 +285,7 @@ router.post('/:id/mark-missing', validate(schemas.trackId, 'params'), async (req
   try {
     const { id } = req.params;
 
-    const track = trackService.getTrackById(parseInt(id));
+    const track = trackService.getTrackById(id);
     if (!track) {
       return res.status(404).json({
         success: false,
@@ -293,7 +293,7 @@ router.post('/:id/mark-missing', validate(schemas.trackId, 'params'), async (req
       });
     }
 
-    const updatedTrack = trackService.markTrackMissing(parseInt(id));
+    const updatedTrack = trackService.markTrackMissing(id);
 
     res.json({
       success: true,
@@ -318,7 +318,7 @@ router.post('/:id/mark-found', validate(schemas.trackId, 'params'), async (req, 
   try {
     const { id } = req.params;
 
-    const track = trackService.getTrackById(parseInt(id));
+    const track = trackService.getTrackById(id);
     if (!track) {
       return res.status(404).json({
         success: false,
@@ -326,7 +326,7 @@ router.post('/:id/mark-found', validate(schemas.trackId, 'params'), async (req, 
       });
     }
 
-    const updatedTrack = trackService.markTrackFound(parseInt(id));
+    const updatedTrack = trackService.markTrackFound(id);
 
     res.json({
       success: true,
@@ -359,7 +359,7 @@ router.post('/:id/move', validate(schemas.trackId, 'params'), validate(schemas.f
     const { destination_path, library_directory_id } = req.body;
 
     const updatedTrack = await fileOpsService.moveTrack(
-      parseInt(id),
+      id,
       destination_path,
       library_directory_id ? parseInt(library_directory_id) : null
     );
@@ -393,7 +393,7 @@ router.post('/:id/rename', validate(schemas.trackId, 'params'), validate(schemas
     const { id } = req.params;
     const { new_name } = req.body;
 
-    const updatedTrack = await fileOpsService.renameTrack(parseInt(id), new_name);
+    const updatedTrack = await fileOpsService.renameTrack(id, new_name);
 
     res.json({
       success: true,
@@ -420,7 +420,7 @@ router.delete('/:id/file', validate(schemas.trackId, 'params'), validate(schemas
     const { id } = req.params;
     const { confirm } = req.body;
 
-    const result = await fileOpsService.deleteTrack(parseInt(id), confirm, {
+    const result = await fileOpsService.deleteTrack(id, confirm, {
       deleteFile: true,
       removeFromPlaylists: true,
     });
@@ -447,7 +447,7 @@ router.delete('/:id/file', validate(schemas.trackId, 'params'), validate(schemas
 router.get('/:id/verify', validate(schemas.trackId, 'params'), async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await fileOpsService.verifyTrackFile(parseInt(id));
+    const result = await fileOpsService.verifyTrackFile(id);
 
     res.json({
       success: true,

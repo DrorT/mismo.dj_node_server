@@ -193,7 +193,7 @@ export const schemas = {
 
   // Track routes specific schemas
   trackId: Joi.object({
-    id: Joi.number().integer().positive().required(),
+    id: uuidValidator.required(),
   }),
 
   trackQuery: Joi.object({

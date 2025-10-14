@@ -1171,13 +1171,18 @@ By implementing analysis first, we can build playlist features that leverage thi
 
 ---
 
+# extras and fixes -
+
+- [x] waveforms should be saved based on the track hash, this way 2 copies of same track share the same waveform data
+- [x] Allow client to ask for quick analysis of a file - when a file is loaded into a deck
+- [x] when checking for pending analysis jobs check the file is not missing - close the job if missing
+- [x] change track id to UUID - not consecutive - so we can have tracks from multiple sources, withotu fear of repetition
+- do not wait on analysis server on startup, at the moment it is a blocking command slowing the startup
+- start the audio server on startup - after startup connect to it, monitor for crashes
+- have a commadn from client to restart audio and analysis servers - helps with updates
+
 # Future features
 
-- waveforms should be saved based on the track hash, this way 2 copies of same track share the same waveform data
-- [maybe] Allow client to ask for quick analysis of a file - when a file is loaded into a deck
 - rating icon - smiley, dancing couple, raging face
 - search for tracks that match musically to current track, as next track, recommend based on drop, increase or decrease energy, etc
 - pull info from other sources - discogs, spotify, google music, tunebat, 1001tracklist
-- [maybe] when checking for pending analysis jobs check the file is not missing - close the job if missing
-- do not wait on analysis server on startup, at the moment it is a blocking command slowing the startup
-- change track id to UUID - not consecutive - so we can have tracks from multiple sources, withotu fear of repetition
