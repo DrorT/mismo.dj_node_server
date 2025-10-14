@@ -539,11 +539,109 @@ If client asks for stems - put the stems request at highest priority, get stems 
 
 ---
 
-## Phase 5: Playlist Management (Days 16-19)
+## Phase 4.5: Audio Server Integration (Days 15.5-16)
+
+**Note**: This phase provides the C++ audio server with track metadata and analysis data via WebSocket connection. Required before the audio server can implement tempo control and deck synchronization features.
+
+### Day 15.5: WebSocket Client for Audio Server
+
+- [ ] Create audio server WebSocket client service (`src/services/audioServerClient.js`)
+  - Connect to audio server WebSocket (default: ws://localhost:8080)
+  - Handle connection lifecycle (connect, disconnect, reconnect)
+  - Implement exponential backoff for reconnection attempts
+  - Gracefully handle audio server unavailability
+  - Optional: Token-based authentication for production
+
+- [ ] Implement message protocol handler
+  - Listen for incoming `getTrackInfo` requests from audio server
+  - Parse and validate incoming JSON messages
+  - Send JSON responses back to audio server
+  - Handle malformed messages gracefully
+  - Log all requests and responses
+
+- [ ] Create audio server routes (if using REST as fallback)
+  ```javascript
+  GET /api/audio-server/tracks/:id  - Get track info via REST (fallback)
+  ```
+
+### Day 16: Track Info Service for Audio Server
+
+- [ ] Implement `getTrackInfo` command handler
+  - **Input**: `{ command: "getTrackInfo", trackId: "uuid", stems: false }`
+  - **Validate**: Track ID format and existence
+  - **Query database** for track metadata and analysis data
+  - **Return success response**:
+    ```json
+    {
+      "success": true,
+      "trackId": "uuid",
+      "filePath": "/absolute/path/to/track.mp3",
+      "bpm": 128.5,
+      "key": "Am",
+      "mode": "minor",
+      "beats_data": [0.0, 0.468, 0.937, ...],
+      "downbeats_data": [0.0, 1.873, 3.746, ...]
+    }
+    ```
+  - **Return error response** for failures:
+    ```json
+    {
+      "success": false,
+      "trackId": "uuid",
+      "error": "Track not found"
+    }
+    ```
+
+- [ ] Handle edge cases
+  - Track exists but file missing on disk → `"Track file missing"`
+  - Track exists but not analyzed yet → `"Analysis not complete"`
+  - Invalid track ID format → `"Invalid track ID"`
+  - File permission issues → `"Permission denied"`
+
+- [ ] Add track info utility functions
+  - Convert relative path to absolute path
+  - Load beats and downbeats from database
+  - Handle missing analysis data gracefully (return empty arrays)
+  - Validate file accessibility before returning path
+
+### Testing & Validation
+
+- [ ] Create WebSocket test client
+  - Test connection establishment
+  - Send `getTrackInfo` commands
+  - Verify response format
+  - Test error scenarios
+
+- [ ] Integration test with audio server
+  - Ensure audio server can connect
+  - Request track info for test tracks
+  - Verify file paths are accessible from audio server
+  - Test with tracks at different analysis stages
+
+- [ ] Performance testing
+  - Test response time for track info requests
+  - Verify no memory leaks with long-running connections
+  - Test concurrent requests from audio server
+
+### Configuration
+
+Add to `.env`:
+
+```env
+# Audio Server WebSocket (App Server connects TO Audio Server)
+AUDIO_SERVER_WS_URL=ws://localhost:8080
+AUDIO_SERVER_RECONNECT_DELAY=1000
+AUDIO_SERVER_MAX_RECONNECT_DELAY=30000
+AUDIO_SERVER_AUTH_TOKEN=optional-token-for-production
+```
+
+---
+
+## Phase 5: Playlist Management (Days 17-20)
 
 **Note**: Moved after analysis integration so smart playlists can use rich metadata (BPM, key, energy, etc.) from day one. See [playlists-design.md](./playlists-design.md) for detailed design document.
 
-### Day 16: Core Playlist CRUD & Database Schema
+### Day 17: Core Playlist CRUD & Database Schema
 
 - [ ] Create database migration for playlists
 
@@ -601,7 +699,7 @@ If client asks for stems - put the stems request at highest priority, get stems 
   - Playlist statistics (duration, track count)
   - Favorite/unfavorite playlists
 
-### Day 17: Playlist Track Management
+### Day 18: Playlist Track Management
 
 - [ ] Add playlist track routes
 
@@ -626,7 +724,7 @@ If client asks for stems - put the stems request at highest priority, get stems 
   - Quick add/remove tracks
   - Promote to permanent static playlist
 
-### Day 18: Smart Playlists
+### Day 19: Smart Playlists
 
 - [ ] Create smart playlist evaluator (`src/services/smartPlaylistEvaluator.js`)
   - Parse JSON criteria
@@ -650,7 +748,7 @@ If client asks for stems - put the stems request at highest priority, get stems 
   - Background refresh job
   - Track last_refreshed timestamp
 
-### Day 19: Session History Playlists
+### Day 20: Session History Playlists
 
 - [ ] Create session management service (`src/services/sessionService.js`)
   - Start new session (auto-create playlist)
@@ -686,9 +784,9 @@ If client asks for stems - put the stems request at highest priority, get stems 
 
 ---
 
-## Phase 6: WebSocket Real-Time Updates (Days 20-21)
+## Phase 6: WebSocket Real-Time Updates (Days 21-22)
 
-### Day 20: WebSocket Server Setup
+### Day 21: WebSocket Server Setup
 
 - [ ] Create WebSocket server (`src/websocket/server.js`)
   - Initialize WebSocket server with `ws`
@@ -704,7 +802,7 @@ If client asks for stems - put the stems request at highest priority, get stems 
   - Message batching for bulk operations
   - Rate limiting
 
-### Day 21: Implement All WebSocket Events
+### Day 22: Implement All WebSocket Events
 
 - [ ] Track events
 
@@ -772,28 +870,27 @@ If client asks for stems - put the stems request at highest priority, get stems 
 
 ---
 
-## Phase 7: Audio Engine Integration (Days 22-23)
+## Phase 7: Audio Engine Integration (Days 23-24)
 
-### Day 22: C++ Communication Interface
+**Note**: Phase 4.5 already implements WebSocket communication with the audio server. This phase covers additional integration features if needed.
 
-- [ ] Decide on communication method
-  - **Option A**: HTTP REST (simplest)
-  - **Option B**: Unix Socket (lower latency)
-  - **Option C**: Shared JSON file (simplest, good for read-heavy)
+### Day 23: Extended Audio Engine Features (Optional)
 
-- [ ] Implement selected method
-  - **If REST**: Create endpoint for C++ to query track info
-  - **If Unix Socket**: Create socket server and message protocol
-  - **If Shared File**: Create file writer that updates on DB changes
+- [ ] Add REST API fallback endpoints (if WebSocket is insufficient)
 
-- [ ] Create audio engine routes (if using REST)
   ```javascript
   GET /api/tracks/:id/file          - Get track file path and metadata
-  GET /api/tracks/:id/waveform      - Get waveform data
   POST /api/tracks/:id/load         - Log track load event
+  POST /api/tracks/:id/playback     - Log playback events
   ```
 
-### Day 23: Waveform Management
+- [ ] Implement track event logging
+  - Log when tracks are loaded into decks
+  - Log playback start/stop events
+  - Track play count and last played timestamp
+  - Update session playlists with play events
+
+### Day 24: Waveform Management
 
 - [ ] Implement waveform routes
 
@@ -810,9 +907,9 @@ If client asks for stems - put the stems request at highest priority, get stems 
 
 ---
 
-## Phase 8: Testing & Quality Assurance (Days 24-27)
+## Phase 8: Testing & Quality Assurance (Days 25-28)
 
-### Day 24: Unit Tests
+### Day 25: Unit Tests
 
 - [ ] Set up Jest testing framework
 - [ ] Write unit tests for services
@@ -822,8 +919,9 @@ If client asks for stems - put the stems request at highest priority, get stems 
   - Duplicate detector tests
   - File operations tests
   - Playlist service tests
+  - Audio server WebSocket tests
 
-### Day 25: Integration Tests
+### Day 26: Integration Tests
 
 - [ ] Write integration tests
   - Full library scan workflow
@@ -838,8 +936,9 @@ If client asks for stems - put the stems request at highest priority, get stems 
   - Network errors (Python server down)
   - Invalid input
   - Concurrent operations
+  - Audio server WebSocket communication
 
-### Day 26: Performance Testing
+### Day 27: Performance Testing
 
 - [ ] Load testing
   - Test with large library (10k+ tracks)
@@ -853,8 +952,9 @@ If client asks for stems - put the stems request at highest priority, get stems 
   - Optimize complex queries
   - Add caching where appropriate
   - Profile and fix bottlenecks
+  - WebSocket message throughput for audio server
 
-### Day 27: Security Audit
+### Day 28: Security Audit
 
 - [ ] Security review
   - Path traversal prevention
@@ -867,9 +967,9 @@ If client asks for stems - put the stems request at highest priority, get stems 
 
 ---
 
-## Phase 9: Documentation & Polish (Days 28-29)
+## Phase 9: Documentation & Polish (Days 29-30)
 
-### Day 28: API Documentation
+### Day 29: API Documentation
 
 - [ ] Create comprehensive API documentation
   - All endpoints with examples
@@ -884,8 +984,9 @@ If client asks for stems - put the stems request at highest priority, get stems 
   - Service descriptions
   - Configuration guide
   - Deployment guide
+  - Audio server WebSocket API documentation
 
-### Day 29: Code Cleanup & README
+### Day 30: Code Cleanup & README
 
 - [ ] Code cleanup
   - Remove unused code
@@ -916,8 +1017,11 @@ If client asks for stems - put the stems request at highest priority, get stems 
   PYTHON_SERVER_URL=http://localhost:5000
   MAX_CONCURRENT_ANALYSIS=2
 
-  # C++ Audio Engine
-  AUDIO_ENGINE_URL=http://localhost:8080
+  # C++ Audio Server WebSocket (App Server connects TO Audio Server)
+  AUDIO_SERVER_WS_URL=ws://localhost:8080
+  AUDIO_SERVER_RECONNECT_DELAY=1000
+  AUDIO_SERVER_MAX_RECONNECT_DELAY=30000
+  AUDIO_SERVER_AUTH_TOKEN=optional-token-for-production
 
   # Library Settings
   MAX_CONCURRENT_SCANS=2
@@ -938,17 +1042,18 @@ If client asks for stems - put the stems request at highest priority, get stems 
 
 ---
 
-## Phase 10: Deployment & Integration (Days 30-31)
+## Phase 10: Deployment & Integration (Days 31-32)
 
-### Day 30: Deployment Preparation
+### Day 31: Deployment Preparation
 
 - [ ] Create production configuration
 - [ ] Set up database backups
 - [ ] Configure logging for production
 - [ ] Create systemd service file (Linux) or equivalent
 - [ ] Set up monitoring and health checks
+- [ ] Configure audio server WebSocket for production
 
-### Day 31: Integration Testing
+### Day 32: Integration Testing
 
 - [ ] Test integration with C++ audio engine
 - [ ] Test integration with Python analysis server
@@ -1041,14 +1146,15 @@ If client asks for stems - put the stems request at highest priority, get stems 
 - **Phase 2**: Days 4-7 (Library Management) ✅ COMPLETE
 - **Phase 3**: Days 8-11 (Tracks & Duplicates) ✅ COMPLETE
 - **Phase 4**: Days 12-15 (Analysis Integration) - **MOVED UP** to leverage metadata for playlists
-- **Phase 5**: Days 16-19 (Playlist Management) - **MOVED DOWN** to use analysis data
-- **Phase 6**: Days 20-21 (WebSocket)
-- **Phase 7**: Days 22-23 (Audio Engine)
-- **Phase 8**: Days 24-27 (Testing)
-- **Phase 9**: Days 28-29 (Documentation)
-- **Phase 10**: Days 30-31 (Deployment)
+- **Phase 4.5**: Days 15.5-16 (Audio Server Integration) - **NEW** WebSocket communication with C++ audio server
+- **Phase 5**: Days 17-20 (Playlist Management) - **MOVED DOWN** to use analysis data
+- **Phase 6**: Days 21-22 (WebSocket Real-Time Updates)
+- **Phase 7**: Days 23-24 (Extended Audio Engine Features)
+- **Phase 8**: Days 25-28 (Testing)
+- **Phase 9**: Days 29-30 (Documentation)
+- **Phase 10**: Days 31-32 (Deployment)
 
-**Total: ~31 working days (6-7 weeks)**
+**Total: ~32 working days (6-7 weeks)**
 
 ### Phase Order Rationale
 
@@ -1067,7 +1173,10 @@ By implementing analysis first, we can build playlist features that leverage thi
 
 # Future features
 
+- waveforms should be saved based on the track hash, this way 2 copies of same track share the same waveform data
 - Allow client to ask for quick analysis of a file - when a file is loaded into a deck
-- rating icon
+- rating icon - smiley, dancing couple, raging face
 - search for tracks that match musically to current track, as next track, recommend based on drop, increase or decrease energy, etc
 - pull info from other sources - discogs, spotify, google music, tunebat, 1001tracklist
+- when checking for pending analysis jobs check the file is not missing - close the job if missing
+- do not wait on analysis server on startup, at the moment it is a blocking command slowing the startup process

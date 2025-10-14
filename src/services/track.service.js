@@ -15,9 +15,15 @@ import * as waveformService from './waveform.service.js';
  */
 export function getTrackById(id) {
   try {
+    // Ensure id is an integer
+    const trackId = parseInt(id, 10);
+    if (isNaN(trackId)) {
+      throw new Error(`Invalid track ID: ${id} is not a valid integer`);
+    }
+
     const db = getDatabase();
     const stmt = db.prepare('SELECT * FROM tracks WHERE id = ?');
-    return stmt.get(id) || null;
+    return stmt.get(trackId) || null;
   } catch (error) {
     logger.error(`Error getting track ${id}:`, error);
     throw error;
@@ -231,7 +237,7 @@ export function upsertTrack(trackData) {
         trackData.file_hash,
         trackData.library_directory_id || null,
         trackData.relative_path || null,
-        trackData.is_missing ? 1 : 0,  // Convert boolean to integer
+        trackData.is_missing ? 1 : 0, // Convert boolean to integer
         trackData.title || null,
         trackData.artist || null,
         trackData.album || null,
@@ -522,10 +528,14 @@ export function copyAnalysisData(fromTrackId, toTrackId) {
     // Also copy waveforms
     try {
       const waveformCount = waveformService.copyWaveforms(fromTrackId, toTrackId);
-      logger.info(`Copied analysis data and ${waveformCount} waveforms from track ${fromTrackId} to track ${toTrackId}`);
+      logger.info(
+        `Copied analysis data and ${waveformCount} waveforms from track ${fromTrackId} to track ${toTrackId}`
+      );
     } catch (error) {
       logger.warn(`Failed to copy waveforms from ${fromTrackId} to ${toTrackId}:`, error.message);
-      logger.info(`Copied analysis data from track ${fromTrackId} to track ${toTrackId} (waveforms failed)`);
+      logger.info(
+        `Copied analysis data from track ${fromTrackId} to track ${toTrackId} (waveforms failed)`
+      );
     }
 
     return true;

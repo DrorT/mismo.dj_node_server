@@ -90,6 +90,7 @@ import * as watcherService from './services/watcher.service.js';
 import analysisServerService from './services/analysisServer.service.js';
 import analysisQueueService from './services/analysisQueue.service.js';
 import pythonClientService from './services/pythonClient.service.js';
+import audioServerClientService from './services/audioServerClient.service.js';
 
 // ============================================================================
 // Error Handling
@@ -266,6 +267,30 @@ const server = app.listen(config.server.port, config.server.host, async () => {
     logger.warn('Analysis features will be disabled');
   }
 
+  // Initialize audio server WebSocket client
+  try {
+    logger.info('Initializing audio server WebSocket client...');
+
+    // Import track service for audio server client
+    const trackService = await import('./services/track.service.js');
+
+    // Initialize with required dependencies
+    audioServerClientService.initialize({
+      trackService: trackService,
+      libraryDirectoryService: libraryDirService
+    });
+
+    // Connect to audio server (non-blocking, will retry if unavailable)
+    audioServerClientService.connect().then(() => {
+      logger.info('✓ Audio server client connected');
+    }).catch(error => {
+      logger.warn('⚠ Audio server not available - will retry automatically:', error.message);
+    });
+  } catch (error) {
+    logger.error('✗ Failed to initialize audio server client:', error);
+    logger.warn('Audio server integration will be disabled');
+  }
+
   // Perform startup scan and initialize file watchers after server is ready
   setTimeout(() => {
     performStartupScan();
@@ -313,6 +338,14 @@ async function gracefulShutdown(signal) {
       logger.info('File watchers stopped');
     } catch (error) {
       logger.error('Error stopping file watchers:', error);
+    }
+
+    // Disconnect from audio server
+    try {
+      audioServerClientService.disconnect();
+      logger.info('Audio server client disconnected');
+    } catch (error) {
+      logger.error('Error disconnecting audio server client:', error);
     }
 
     // Close database connection
