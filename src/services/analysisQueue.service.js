@@ -64,9 +64,10 @@ class AnalysisQueueService extends EventEmitter {
    * @param {number} trackId - Track ID
    * @param {Object} options - Analysis options
    * @param {string} priority - Priority: 'low', 'normal', 'high'
+   * @param {Object} callback_metadata - Optional callback metadata
    * @returns {Promise<Object>} Created/existing job
    */
-  async requestAnalysis(trackId, options = {}, priority = 'normal') {
+  async requestAnalysis(trackId, options = {}, priority = 'normal', callback_metadata = null) {
     try {
       // Get track info
       const track = getTrackById(trackId);
@@ -116,12 +117,14 @@ class AnalysisQueueService extends EventEmitter {
         file_path: track.file_path,
         options: analysisOptions,
         priority,
+        callback_metadata,
       });
 
       logger.info(`Queued analysis job: ${jobId}`, {
         track_id: trackId,
         priority,
         options: analysisOptions,
+        has_callback: !!callback_metadata,
       });
 
       // Emit event

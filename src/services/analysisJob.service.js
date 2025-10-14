@@ -14,9 +14,10 @@ import logger from '../utils/logger.js';
  * @param {string} jobData.file_path - File path
  * @param {Object} jobData.options - Analysis options
  * @param {string} jobData.priority - Priority: 'low', 'normal', 'high'
+ * @param {Object} jobData.callback_metadata - Optional callback metadata (JSON)
  * @returns {Object} Created job
  */
-export function createJob({ job_id, track_id, file_path, options, priority = 'normal' }) {
+export function createJob({ job_id, track_id, file_path, options, priority = 'normal', callback_metadata = null }) {
   try {
     const db = getDatabase();
 
@@ -32,8 +33,8 @@ export function createJob({ job_id, track_id, file_path, options, priority = 'no
     const stmt = db.prepare(`
       INSERT INTO analysis_jobs (
         job_id, track_id, file_path, status, priority,
-        options, stages_completed, stages_total
-      ) VALUES (?, ?, ?, 'queued', ?, ?, '[]', ?)
+        options, stages_completed, stages_total, callback_metadata
+      ) VALUES (?, ?, ?, 'queued', ?, ?, '[]', ?, ?)
     `);
 
     const result = stmt.run(
@@ -42,13 +43,15 @@ export function createJob({ job_id, track_id, file_path, options, priority = 'no
       file_path,
       priority,
       JSON.stringify(options),
-      stages_total
+      stages_total,
+      callback_metadata ? JSON.stringify(callback_metadata) : null
     );
 
     logger.info(`Created analysis job: ${job_id}`, {
       track_id,
       priority,
       stages_total,
+      has_callback: !!callback_metadata,
     });
 
     return getJobById(job_id);
@@ -80,6 +83,9 @@ export function getJobById(jobId) {
     // Parse JSON fields
     job.options = JSON.parse(job.options);
     job.stages_completed = JSON.parse(job.stages_completed || '[]');
+    if (job.callback_metadata) {
+      job.callback_metadata = JSON.parse(job.callback_metadata);
+    }
 
     return job;
   } catch (error) {
@@ -109,6 +115,9 @@ export function getJobByTrackId(trackId) {
     // Parse JSON fields
     job.options = JSON.parse(job.options);
     job.stages_completed = JSON.parse(job.stages_completed || '[]');
+    if (job.callback_metadata) {
+      job.callback_metadata = JSON.parse(job.callback_metadata);
+    }
 
     return job;
   } catch (error) {
@@ -145,6 +154,7 @@ export function getQueuedJobs(limit = 100) {
       ...job,
       options: JSON.parse(job.options),
       stages_completed: JSON.parse(job.stages_completed || '[]'),
+      callback_metadata: job.callback_metadata ? JSON.parse(job.callback_metadata) : null,
     }));
   } catch (error) {
     logger.error('Error getting queued jobs:', error);
@@ -172,6 +182,7 @@ export function getProcessingJobs() {
       ...job,
       options: JSON.parse(job.options),
       stages_completed: JSON.parse(job.stages_completed || '[]'),
+      callback_metadata: job.callback_metadata ? JSON.parse(job.callback_metadata) : null,
     }));
   } catch (error) {
     logger.error('Error getting processing jobs:', error);

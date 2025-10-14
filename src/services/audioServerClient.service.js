@@ -26,6 +26,7 @@ class AudioServerClientService {
     // Services will be injected during initialization
     this.trackService = null;
     this.libraryDirectoryService = null;
+    this.analysisQueueService = null;
   }
 
   /**
@@ -33,8 +34,9 @@ class AudioServerClientService {
    * @param {Object} services - Required services
    * @param {Object} services.trackService - Track service for database queries
    * @param {Object} services.libraryDirectoryService - Library directory service
+   * @param {Object} services.analysisQueueService - Analysis queue service for requesting analysis
    */
-  initialize({ trackService, libraryDirectoryService }) {
+  initialize({ trackService, libraryDirectoryService, analysisQueueService }) {
     if (this.isInitialized) {
       logger.warn('AudioServerClientService already initialized');
       return;
@@ -42,6 +44,7 @@ class AudioServerClientService {
 
     this.trackService = trackService;
     this.libraryDirectoryService = libraryDirectoryService;
+    this.analysisQueueService = analysisQueueService;
     this.isInitialized = true;
 
     logger.info('AudioServerClientService initialized');
@@ -265,9 +268,54 @@ class AudioServerClientService {
       // Check if track has been analyzed
       const hasAnalysis = track.bpm && track.bpm > 0;
       if (!hasAnalysis) {
-        logger.warn(`Track not analyzed: ${trackId}`);
-        this.sendError(trackId, 'Analysis not complete');
+        logger.warn(`Track not analyzed: ${trackId}, requesting analysis`);
+
+        // Create analysis job with callback metadata to notify audio server when done
+        try {
+          await this.analysisQueueService.requestAnalysis(
+            track.id,
+            { basic_features: true, characteristics: false },
+            'high', // High priority for audio server requests
+            {
+              type: 'audio_server_track_info',
+              trackId: trackId,
+              requestId: message.requestId,
+            }
+          );
+
+          logger.info(`Analysis job created for track ${trackId}, will notify audio server when complete`);
+          this.sendError(trackId, 'Analysis in progress');
+        } catch (error) {
+          logger.error(`Failed to create analysis job for track ${trackId}:`, error);
+          this.sendError(trackId, 'Failed to start analysis');
+        }
         return;
+      }
+
+      // Check if stems are requested and not available
+      if (stems && !track.stems_path) {
+        logger.info(`Stems requested for track ${trackId} but not available, creating stem separation job`);
+
+        // Create stem separation job with callback metadata
+        try {
+          await this.analysisQueueService.requestAnalysis(
+            track.id,
+            { stems: true, basic_features: false, characteristics: false },
+            'normal', // Normal priority for stem separation (it's slow)
+            {
+              type: 'audio_server_stems',
+              trackId: trackId,
+              requestId: message.requestId,
+            }
+          );
+
+          logger.info(`Stem separation job created for track ${trackId}, will notify audio server when ready`);
+        } catch (error) {
+          logger.error(`Failed to create stem separation job for track ${trackId}:`, error);
+        }
+
+        // Note: We don't return here - we still send the track info without stems
+        // The audio server will receive stems later via a separate notification
       }
 
       // Parse beats and downbeats data
@@ -303,9 +351,17 @@ class AudioServerClientService {
         downbeats_data: downbeatsData,
       };
 
-      // TODO: Handle stems in future phase
+      // Include stems if requested and available
       if (stems) {
-        response.stems = [];
+        if (track.stems_path) {
+          // Stems are available - include the path
+          response.stems_path = track.stems_path;
+          logger.info(`Including stems path for track ${trackId}: ${track.stems_path}`);
+        } else {
+          // Stems not available yet (job created above)
+          response.stems_path = null;
+          logger.info(`Stems not available for track ${trackId}, job created`);
+        }
       }
 
       this.send(response);
@@ -384,6 +440,104 @@ class AudioServerClientService {
       serverUrl: this.serverUrl,
       reconnectDelay: this.currentReconnectDelay,
     };
+  }
+
+  /**
+   * Send track info to audio server (called after analysis completes)
+   * @param {string} trackId - Track UUID
+   * @param {string} requestId - Original request ID (optional)
+   */
+  async sendTrackInfo(trackId, requestId = null) {
+    try {
+      // Get track from database
+      const track = await this.trackService.getTrackById(trackId);
+
+      if (!track) {
+        logger.warn(`Track not found: ${trackId}`);
+        this.sendError(trackId, 'Track not found');
+        return;
+      }
+
+      // Build absolute file path
+      const libraryDirectory = await this.libraryDirectoryService.getDirectoryById(
+        track.library_directory_id
+      );
+      if (!libraryDirectory) {
+        logger.error(`Library directory not found for track ${trackId}`);
+        this.sendError(trackId, 'Library directory not found');
+        return;
+      }
+
+      const absolutePath = path.join(libraryDirectory.path, track.relative_path);
+
+      // Parse beats and downbeats data
+      let beatsData = [];
+      let downbeatsData = [];
+
+      if (track.beats_data) {
+        try {
+          beatsData = JSON.parse(track.beats_data);
+        } catch (error) {
+          logger.warn(`Failed to parse beats_data for track ${trackId}`);
+        }
+      }
+
+      if (track.downbeats_data) {
+        try {
+          downbeatsData = JSON.parse(track.downbeats_data);
+        } catch (error) {
+          logger.warn(`Failed to parse downbeats_data for track ${trackId}`);
+        }
+      }
+
+      // Send success response
+      const response = {
+        success: true,
+        requestId: requestId,
+        trackId: trackId,
+        filePath: absolutePath,
+        bpm: track.bpm || 0,
+        key: String(track.musical_key),
+        mode: String(track.mode),
+        beats_data: beatsData,
+        downbeats_data: downbeatsData,
+      };
+
+      this.send(response);
+      logger.info(`✓ Sent track info for ${trackId} (${track.title} by ${track.artist})`);
+    } catch (error) {
+      logger.error(`Error sending track info for ${trackId}:`, error);
+      this.sendError(trackId, 'Internal server error');
+    }
+  }
+
+  /**
+   * Send stems notification to audio server (called after stem separation completes)
+   * @param {string} trackId - Track UUID
+   * @param {string} stemsPath - Path to stems directory
+   * @param {string} requestId - Original request ID (optional)
+   */
+  async sendStemsReady(trackId, stemsPath, requestId = null) {
+    try {
+      if (!this.isConnected()) {
+        logger.warn(`Cannot send stems notification: not connected to audio server`);
+        return;
+      }
+
+      // Send notification that stems are ready
+      const response = {
+        success: true,
+        type: 'stemsReady',
+        requestId: requestId,
+        trackId: trackId,
+        stems_path: stemsPath,
+      };
+
+      this.send(response);
+      logger.info(`✓ Notified audio server that stems are ready for track ${trackId}`);
+    } catch (error) {
+      logger.error(`Error sending stems notification for ${trackId}:`, error);
+    }
   }
 }
 

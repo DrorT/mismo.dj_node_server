@@ -3,6 +3,7 @@ import * as trackService from './track.service.js';
 import * as waveformService from './waveform.service.js';
 import * as analysisJobService from './analysisJob.service.js';
 import analysisQueueService from './analysisQueue.service.js';
+import audioServerClientService from './audioServerClient.service.js';
 
 /**
  * Analysis Callback Service
@@ -96,6 +97,11 @@ export async function handleBasicFeatures(jobId, data) {
     // Update job progress
     analysisJobService.updateJobProgress(jobId, 'basic_features');
 
+    // Check if there's a callback to notify (e.g., audio server)
+    if (job.callback_metadata) {
+      await handleCallback(job, data);
+    }
+
   } catch (error) {
     logger.error(`Error handling basic_features for job ${jobId}:`, error);
     throw error;
@@ -187,14 +193,47 @@ export async function handleGenre(jobId, data) {
 }
 
 /**
- * Handle stems callback (Phase 5)
+ * Handle stems callback
  * @param {string} jobId - Job ID
- * @param {Object} data - Stems data
+ * @param {Object} data - Stems data with path
  * @returns {Promise<void>}
  */
 export async function handleStems(jobId, data) {
-  // Placeholder for Phase 5
-  logger.info(`Received stems for job: ${jobId} (not implemented yet)`);
+  try {
+    logger.info(`Received stems for job: ${jobId}`);
+
+    // Get job
+    const job = analysisJobService.getJobById(jobId);
+    if (!job) {
+      logger.warn(`Job ${jobId} not found for stems callback`);
+      return;
+    }
+
+    // Validate data
+    if (!data || !data.stems_path) {
+      logger.error(`Invalid stems data for job ${jobId}: missing stems_path`);
+      throw new Error('Invalid stems data: missing stems_path');
+    }
+
+    // Update track with stems path
+    trackService.updateTrackMetadata(job.track_id, {
+      stems_path: data.stems_path,
+    });
+
+    logger.info(`Updated track ${job.track_id} with stems path: ${data.stems_path}`);
+
+    // Update job progress
+    analysisJobService.updateJobProgress(jobId, 'stems');
+
+    // Check if there's a callback to notify (e.g., audio server)
+    if (job.callback_metadata) {
+      await handleCallback(job, data);
+    }
+
+  } catch (error) {
+    logger.error(`Error handling stems for job ${jobId}:`, error);
+    throw error;
+  }
 }
 
 /**
@@ -324,6 +363,60 @@ function validateCharacteristics(data) {
   }
 
   return true;
+}
+
+/**
+ * Handle callback notification after analysis completes
+ * @param {Object} job - Job data with callback_metadata
+ * @param {Object} data - Analysis data (optional, for stems)
+ * @returns {Promise<void>}
+ */
+async function handleCallback(job, data = null) {
+  try {
+    const { callback_metadata } = job;
+
+    if (!callback_metadata || !callback_metadata.type) {
+      logger.warn(`Job ${job.job_id} has invalid callback_metadata`);
+      return;
+    }
+
+    logger.info(`Processing callback for job ${job.job_id}`, {
+      type: callback_metadata.type,
+      trackId: callback_metadata.trackId,
+    });
+
+    // Handle different callback types
+    switch (callback_metadata.type) {
+      case 'audio_server_track_info':
+        // Notify audio server that track info is now available
+        await audioServerClientService.sendTrackInfo(
+          callback_metadata.trackId,
+          callback_metadata.requestId
+        );
+        logger.info(`✓ Notified audio server about track ${callback_metadata.trackId}`);
+        break;
+
+      case 'audio_server_stems':
+        // Notify audio server that stems are ready
+        if (data && data.stems_path) {
+          await audioServerClientService.sendStemsReady(
+            callback_metadata.trackId,
+            data.stems_path,
+            callback_metadata.requestId
+          );
+          logger.info(`✓ Notified audio server that stems are ready for track ${callback_metadata.trackId}`);
+        } else {
+          logger.warn(`Stems callback for job ${job.job_id} has no stems_path in data`);
+        }
+        break;
+
+      default:
+        logger.warn(`Unknown callback type: ${callback_metadata.type}`);
+    }
+  } catch (error) {
+    logger.error(`Error handling callback for job ${job.job_id}:`, error);
+    // Don't throw - callback errors shouldn't fail the analysis
+  }
 }
 
 export default {

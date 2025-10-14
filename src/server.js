@@ -277,7 +277,8 @@ const server = app.listen(config.server.port, config.server.host, async () => {
     // Initialize with required dependencies
     audioServerClientService.initialize({
       trackService: trackService,
-      libraryDirectoryService: libraryDirService
+      libraryDirectoryService: libraryDirService,
+      analysisQueueService: analysisQueueService
     });
 
     // Connect to audio server (non-blocking, will retry if unavailable)
