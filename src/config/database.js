@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import fs from 'fs-extra';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import logger from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -20,8 +21,19 @@ export function initDatabase(dbPath) {
     fs.ensureDirSync(dbDir);
 
     // Create database connection
+    // SQL logging options via DEBUG_SQL environment variable:
+    // - 'console' - logs to console.log
+    // - 'logger' - logs using winston logger
+    // - not set or any other value - no SQL logging
+    let verboseLogger = null;
+    if (process.env.DEBUG_SQL === 'console') {
+      verboseLogger = console.log;
+    } else if (process.env.DEBUG_SQL === 'logger') {
+      verboseLogger = (sql) => logger.debug(`SQL: ${sql}`);
+    }
+
     db = new Database(dbPath, {
-      verbose: process.env.NODE_ENV === 'development' ? console.log : null,
+      verbose: verboseLogger,
     });
 
     // Enable foreign key constraints
