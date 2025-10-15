@@ -23,6 +23,8 @@ class AudioServerClientService {
     this.shouldReconnect = true;
     this.messageHandlers = new Map();
     this.isInitialized = false;
+    this.pingInterval = null;
+    this.pingIntervalMs = parseInt(process.env.AUDIO_SERVER_PING_INTERVAL || '30000'); // 30 seconds
 
     // Services will be injected during initialization
     this.trackService = null;
@@ -56,54 +58,72 @@ class AudioServerClientService {
    * @returns {Promise<void>}
    */
   async connect() {
+    const attemptId = Date.now();
+    logger.info(`[WS-CONNECT-${attemptId}] Connection attempt initiated`);
+
     if (!this.isInitialized) {
+      logger.error(`[WS-CONNECT-${attemptId}] Cannot connect: service not initialized`);
       throw new Error('AudioServerClientService must be initialized before connecting');
     }
 
-    if (this.isConnecting || (this.ws && this.ws.readyState === WebSocket.OPEN)) {
-      logger.debug('Already connected or connecting to audio server');
+    if (this.isConnecting) {
+      logger.warn(`[WS-CONNECT-${attemptId}] Already connecting, aborting this attempt`);
+      return;
+    }
+
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      logger.warn(`[WS-CONNECT-${attemptId}] Already connected, aborting this attempt`);
       return;
     }
 
     // Wait for audio server to be ready before connecting
     if (!audioServerService.isReady) {
-      logger.debug('Waiting for audio server to be ready before connecting...');
+      logger.info(`[WS-CONNECT-${attemptId}] Waiting for audio server to be ready...`);
       const isReady = await audioServerService.waitForReady(30000); // Wait up to 30s
       if (!isReady) {
+        logger.error(`[WS-CONNECT-${attemptId}] Audio server not ready after 30s timeout`);
         throw new Error('Audio server is not ready');
       }
+      logger.info(`[WS-CONNECT-${attemptId}] Audio server is ready`);
     }
 
     this.isConnecting = true;
-    logger.info(`Connecting to audio server at ${this.serverUrl}...`);
+    logger.info(`[WS-CONNECT-${attemptId}] Creating WebSocket connection to ${this.serverUrl}`);
 
     try {
       this.ws = new WebSocket(this.serverUrl);
+      logger.info(`[WS-CONNECT-${attemptId}] WebSocket object created, setting up event handlers`);
 
       // Set up event handlers
       this.ws.on('open', this.handleOpen.bind(this));
       this.ws.on('message', this.handleMessage.bind(this));
       this.ws.on('close', this.handleClose.bind(this));
       this.ws.on('error', this.handleError.bind(this));
+      this.ws.on('ping', this.handlePing.bind(this));
+      this.ws.on('pong', this.handlePong.bind(this));
 
       // Wait for connection to open or fail
       await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
+          logger.error(`[WS-CONNECT-${attemptId}] Connection timeout after 5s`);
           reject(new Error('Connection timeout'));
         }, 5000);
 
         this.ws.once('open', () => {
           clearTimeout(timeout);
+          logger.info(`[WS-CONNECT-${attemptId}] Connection opened successfully`);
           resolve();
         });
 
         this.ws.once('error', error => {
           clearTimeout(timeout);
+          logger.error(`[WS-CONNECT-${attemptId}] Connection error:`, error.message);
           reject(error);
         });
       });
     } catch (error) {
       this.isConnecting = false;
+      logger.error(`[WS-CONNECT-${attemptId}] Connection failed:`, error.message);
       throw error;
     }
   }
@@ -115,14 +135,22 @@ class AudioServerClientService {
     this.isConnecting = false;
     this.currentReconnectDelay = this.reconnectDelay; // Reset backoff
 
+    const connectionId = Date.now();
+    logger.info(`[WS-${connectionId}] WebSocket connection opened`);
+
     // IMMEDIATELY send identification message
     this.ws.send(
       JSON.stringify({
         type: 'appServerIdentify',
       })
     );
+    logger.info(`[WS-${connectionId}] Sent appServerIdentify message`);
 
-    logger.info('✓ Connected to audio server');
+    // Start keepalive pings to prevent idle timeout
+    this.startPingInterval();
+    logger.info(`[WS-${connectionId}] Started keepalive pings (every ${this.pingIntervalMs}ms)`);
+
+    logger.info(`[WS-${connectionId}] ✓ Connected to audio server`);
   }
 
   /**
@@ -182,13 +210,24 @@ class AudioServerClientService {
    * @param {string} reason - Close reason
    */
   handleClose(code, reason) {
-    logger.info(`Connection to audio server closed (code: ${code}, reason: ${reason || 'none'})`);
+    const reasonStr = reason ? reason.toString() : 'none';
+    logger.warn(`[WS-CLOSE] Connection to audio server closed`);
+    logger.warn(`[WS-CLOSE]   Code: ${code}`);
+    logger.warn(`[WS-CLOSE]   Reason: ${reasonStr}`);
+    logger.warn(`[WS-CLOSE]   Reconnect enabled: ${this.shouldReconnect}`);
+
     this.ws = null;
     this.isConnecting = false;
 
+    // Stop ping interval
+    this.stopPingInterval();
+
     // Attempt reconnection with exponential backoff
     if (this.shouldReconnect) {
+      logger.info(`[WS-CLOSE] Scheduling reconnection in ${this.currentReconnectDelay}ms`);
       this.scheduleReconnect();
+    } else {
+      logger.info(`[WS-CLOSE] Reconnect disabled, not reconnecting`);
     }
   }
 
@@ -197,7 +236,12 @@ class AudioServerClientService {
    * @param {Error} error - Error object
    */
   handleError(error) {
-    logger.error('Audio server WebSocket error:', error.message);
+    logger.error('[WS-ERROR] Audio server WebSocket error:', error.message);
+    logger.error('[WS-ERROR]   Error code:', error.code || 'none');
+    logger.error('[WS-ERROR]   Error type:', error.type || 'none');
+    if (error.stack) {
+      logger.error('[WS-ERROR]   Stack:', error.stack);
+    }
     // Don't set isConnecting to false here - let handleClose do it
   }
 
@@ -206,23 +250,28 @@ class AudioServerClientService {
    */
   scheduleReconnect() {
     if (this.reconnectTimer) {
+      logger.warn('[WS-RECONNECT] Reconnection already scheduled, skipping');
       return; // Already scheduled
     }
 
-    logger.info(`Scheduling reconnection in ${this.currentReconnectDelay}ms`);
+    logger.info(`[WS-RECONNECT] Scheduling reconnection in ${this.currentReconnectDelay}ms`);
 
     this.reconnectTimer = setTimeout(async () => {
       this.reconnectTimer = null;
+      logger.info('[WS-RECONNECT] Attempting reconnection now');
 
       try {
         await this.connect();
+        logger.info('[WS-RECONNECT] Reconnection successful');
       } catch (error) {
-        logger.error('Reconnection failed:', error.message);
+        logger.error('[WS-RECONNECT] Reconnection failed:', error.message);
         // Increase delay with exponential backoff
+        const oldDelay = this.currentReconnectDelay;
         this.currentReconnectDelay = Math.min(
           this.currentReconnectDelay * 2,
           this.maxReconnectDelay
         );
+        logger.info(`[WS-RECONNECT] Increasing backoff delay from ${oldDelay}ms to ${this.currentReconnectDelay}ms`);
         this.scheduleReconnect();
       }
     }, this.currentReconnectDelay);
@@ -414,10 +463,66 @@ class AudioServerClientService {
   }
 
   /**
+   * Start sending periodic pings to keep connection alive
+   */
+  startPingInterval() {
+    // Clear any existing interval
+    this.stopPingInterval();
+
+    logger.info(`[WS-KEEPALIVE] Starting keepalive (ping every ${this.pingIntervalMs}ms)`);
+
+    this.pingInterval = setInterval(() => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        try {
+          const timestamp = Date.now();
+          this.ws.ping();
+          logger.info(`[WS-KEEPALIVE] Sent ping to audio server at ${timestamp}`);
+        } catch (error) {
+          logger.error('[WS-KEEPALIVE] Error sending ping to audio server:', error.message);
+        }
+      } else {
+        const state = this.ws ? this.ws.readyState : 'null';
+        logger.warn(`[WS-KEEPALIVE] Cannot send ping, socket state: ${state}`);
+      }
+    }, this.pingIntervalMs);
+  }
+
+  /**
+   * Stop the ping interval
+   */
+  stopPingInterval() {
+    if (this.pingInterval) {
+      clearInterval(this.pingInterval);
+      this.pingInterval = null;
+      logger.info('[WS-KEEPALIVE] Stopped WebSocket keepalive');
+    }
+  }
+
+  /**
+   * Handle ping from audio server (auto-respond with pong)
+   */
+  handlePing() {
+    const timestamp = Date.now();
+    logger.info(`[WS-KEEPALIVE] Received ping from audio server at ${timestamp} (auto-ponging)`);
+    // The 'ws' library automatically responds to pings with pongs
+  }
+
+  /**
+   * Handle pong from audio server
+   */
+  handlePong() {
+    const timestamp = Date.now();
+    logger.info(`[WS-KEEPALIVE] Received pong from audio server at ${timestamp}`);
+  }
+
+  /**
    * Disconnect from the audio server
    */
   disconnect() {
     this.shouldReconnect = false;
+
+    // Stop ping interval
+    this.stopPingInterval();
 
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);

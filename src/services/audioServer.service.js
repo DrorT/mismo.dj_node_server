@@ -155,10 +155,33 @@ class AudioServerService {
 
   /**
    * Check if the audio server is healthy
-   * Uses WebSocket connection test since audio server doesn't have HTTP health endpoint
+   *
+   * NOTE: We check if the app server client is connected rather than creating
+   * a new WebSocket connection. Creating new connections for health checks
+   * causes unnecessary connect/disconnect cycles that pollute logs and waste resources.
+   *
+   * If the app server client is connected, we know the audio server is healthy.
+   * If not connected, we do a one-time connection test (not periodic).
+   *
    * @returns {Promise<boolean>} True if server is healthy
    */
   async checkHealth() {
+    // Import audioServerClientService to check connection status
+    const audioServerClientService = (await import('./audioServerClient.service.js')).default;
+
+    // If the app server client is connected, the audio server is healthy
+    if (audioServerClientService.isConnected()) {
+      logger.debug('Audio server health check passed (using existing connection)');
+      return true;
+    }
+
+    // If not connected and we're marked as ready, it means we lost connection
+    if (this.isReady) {
+      logger.warn('Audio server client not connected, but server was marked as ready');
+      return false;
+    }
+
+    // Otherwise, do a one-time WebSocket test (for initial startup only)
     return new Promise((resolve) => {
       let ws = null;
       const timeout = setTimeout(() => {
@@ -175,7 +198,7 @@ class AudioServerService {
 
         ws.on('open', () => {
           clearTimeout(timeout);
-          logger.debug('Audio server health check passed');
+          logger.debug('Audio server health check passed (one-time connection test)');
           ws.close();
           resolve(true);
         });
