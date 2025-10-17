@@ -377,12 +377,12 @@ router.post('/callback', async (req, res) => {
  */
 router.get('/waveforms/:trackId', async (req, res) => {
   try {
-    const trackId = parseInt(req.params.trackId);
+    const trackId = req.params.trackId;
 
-    if (isNaN(trackId)) {
+    if (!trackId || trackId.trim() === '') {
       return res.status(400).json({
         error: 'Invalid track ID',
-        message: 'Track ID must be a number',
+        message: 'Track ID is required',
       });
     }
 
@@ -407,13 +407,20 @@ router.get('/waveforms/:trackId', async (req, res) => {
  */
 router.get('/waveforms/:trackId/:zoomLevel', async (req, res) => {
   try {
-    const trackId = parseInt(req.params.trackId);
+    const trackId = req.params.trackId;
     const zoomLevel = parseInt(req.params.zoomLevel);
 
-    if (isNaN(trackId) || isNaN(zoomLevel)) {
+    if (!trackId || trackId.trim() === '') {
       return res.status(400).json({
-        error: 'Invalid parameters',
-        message: 'Track ID and zoom level must be numbers',
+        error: 'Invalid track ID',
+        message: 'Track ID is required',
+      });
+    }
+
+    if (isNaN(zoomLevel)) {
+      return res.status(400).json({
+        error: 'Invalid zoom level',
+        message: 'Zoom level must be a number',
       });
     }
 
