@@ -1,0 +1,4460 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mismo DJ - WebSocket Test Interface</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        color: #e0e0e0;
+        padding: 20px;
+        min-height: 100vh;
+      }
+
+      .container {
+        max-width: 1400px;
+        margin: 0 auto;
+      }
+
+      header {
+        text-align: center;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      h1 {
+        color: #00d4ff;
+        font-size: 2.5em;
+        margin-bottom: 10px;
+        text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+      }
+
+      .subtitle {
+        color: #888;
+        font-size: 1.1em;
+      }
+
+      .connection-panel {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .connection-status {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        margin-bottom: 15px;
+      }
+
+      .status-indicator {
+        width: 15px;
+        height: 15px;
+        border-radius: 50%;
+        background: #ff4444;
+        box-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+        animation: pulse 2s infinite;
+      }
+
+      .status-indicator.connected {
+        background: #44ff44;
+        box-shadow: 0 0 10px rgba(68, 255, 68, 0.5);
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.5;
+        }
+      }
+
+      .connection-controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      input[type="text"] {
+        flex: 1;
+        padding: 10px 15px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 5px;
+        color: #e0e0e0;
+        font-size: 1em;
+      }
+
+      button {
+        padding: 10px 20px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 5px;
+        color: white;
+        font-size: 1em;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-weight: 600;
+      }
+
+      button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+      }
+
+      button:active {
+        transform: translateY(0);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      button.danger {
+        background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+      }
+
+      button.success {
+        background: linear-gradient(135deg, #44ff44 0%, #00cc00 100%);
+      }
+
+      .main-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 20px;
+      }
+
+      @media (max-width: 1024px) {
+        .main-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .deck-panel {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        position: relative;
+      }
+
+      .deck-panel .remove-deck-btn {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        padding: 5px 10px;
+        font-size: 0.8em;
+      }
+
+      .crossfader-assignment {
+        background: rgba(0, 212, 255, 0.1);
+        border: 1px solid rgba(0, 212, 255, 0.3);
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
+      }
+
+      .crossfader-assignment-label {
+        font-size: 0.9em;
+        color: #00d4ff;
+        margin-bottom: 10px;
+        font-weight: bold;
+      }
+
+      .assignment-buttons {
+        display: flex;
+        gap: 10px;
+      }
+
+      .assignment-buttons button {
+        flex: 1;
+        padding: 8px;
+        font-size: 0.9em;
+      }
+
+      .assignment-buttons button.active {
+        background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+        box-shadow: 0 0 15px rgba(0, 212, 255, 0.5);
+      }
+
+      .deck-info {
+        background: rgba(0, 212, 255, 0.05);
+        border: 1px solid rgba(0, 212, 255, 0.2);
+        border-radius: 5px;
+        padding: 10px;
+        margin-top: 10px;
+        font-size: 0.85em;
+      }
+
+      .deck-info-row {
+        display: flex;
+        justify-content: space-between;
+        margin: 5px 0;
+      }
+
+      .deck-info-label {
+        color: #888;
+      }
+
+      .deck-info-value {
+        color: #00d4ff;
+      }
+
+      .deck-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .deck-title {
+        font-size: 1.5em;
+        font-weight: bold;
+        color: #00d4ff;
+      }
+
+      .deck-controls {
+        display: grid;
+        gap: 15px;
+      }
+
+      .control-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      label {
+        font-size: 0.9em;
+        color: #999;
+        font-weight: 600;
+      }
+
+      .button-row {
+        display: flex;
+        gap: 10px;
+      }
+
+      .button-row button {
+        flex: 1;
+      }
+
+      .slider-control {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      input[type="range"] {
+        width: 100%;
+        height: 8px;
+        border-radius: 5px;
+        background: rgba(255, 255, 255, 0.1);
+        outline: none;
+        -webkit-appearance: none;
+      }
+
+      input[type="range"]::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        cursor: pointer;
+        box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+      }
+
+      input[type="range"]::-moz-range-thumb {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        cursor: pointer;
+        box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+        border: none;
+      }
+
+      .value-display {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.9em;
+        color: #00d4ff;
+      }
+
+      .mixer-panel {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        margin-bottom: 20px;
+      }
+
+      .mixer-header {
+        font-size: 1.8em;
+        font-weight: bold;
+        color: #00d4ff;
+        margin-bottom: 20px;
+        text-align: center;
+      }
+
+      .mixer-controls {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+      }
+
+      .crossfader-panel {
+        grid-column: 1 / -1;
+        background: rgba(255, 255, 255, 0.05);
+        padding: 20px;
+        border-radius: 8px;
+        border: 1px solid rgba(0, 212, 255, 0.3);
+      }
+
+      select {
+        padding: 10px 15px;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 5px;
+        color: #e0e0e0;
+        font-size: 1em;
+        width: 100%;
+        cursor: pointer;
+      }
+
+      .toggle-switch {
+        position: relative;
+        display: inline-block;
+        width: 60px;
+        height: 30px;
+      }
+
+      .toggle-switch input {
+        opacity: 0;
+        width: 0;
+        height: 0;
+      }
+
+      .toggle-slider {
+        position: absolute;
+        cursor: pointer;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(255, 255, 255, 0.1);
+        transition: 0.4s;
+        border-radius: 30px;
+      }
+
+      .toggle-slider:before {
+        position: absolute;
+        content: "";
+        height: 22px;
+        width: 22px;
+        left: 4px;
+        bottom: 4px;
+        background-color: white;
+        transition: 0.4s;
+        border-radius: 50%;
+      }
+
+      input:checked + .toggle-slider {
+        background-color: #667eea;
+      }
+
+      input:checked + .toggle-slider:before {
+        transform: translateX(30px);
+      }
+
+      .log-panel {
+        background: rgba(0, 0, 0, 0.3);
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
+      .log-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+      }
+
+      .log-title {
+        font-size: 1.2em;
+        font-weight: bold;
+        color: #00d4ff;
+      }
+
+      .log-entry {
+        padding: 8px 12px;
+        margin-bottom: 5px;
+        border-radius: 5px;
+        font-family: "Courier New", monospace;
+        font-size: 0.9em;
+        background: rgba(255, 255, 255, 0.05);
+        border-left: 3px solid #00d4ff;
+      }
+
+      .log-entry.sent {
+        border-left-color: #667eea;
+      }
+
+      .log-entry.received {
+        border-left-color: #44ff44;
+      }
+
+      .log-entry.error {
+        border-left-color: #ff4444;
+        background: rgba(255, 68, 68, 0.1);
+      }
+
+      .timestamp {
+        color: #666;
+        margin-right: 10px;
+      }
+
+      .deck-management {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        margin-bottom: 20px;
+      }
+
+      .deck-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 15px;
+      }
+
+      .deck-chip {
+        padding: 8px 15px;
+        background: rgba(102, 126, 234, 0.2);
+        border: 1px solid rgba(102, 126, 234, 0.5);
+        border-radius: 20px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .deck-chip button {
+        padding: 2px 8px;
+        font-size: 0.8em;
+        min-width: auto;
+      }
+
+      .add-deck-form {
+        display: flex;
+        gap: 10px;
+        align-items: flex-end;
+      }
+
+      .add-deck-form .control-group {
+        flex: 1;
+      }
+
+      .info-box {
+        background: rgba(0, 212, 255, 0.1);
+        border: 1px solid rgba(0, 212, 255, 0.3);
+        padding: 15px;
+        border-radius: 8px;
+        margin-top: 20px;
+        font-size: 0.9em;
+      }
+
+      .info-box strong {
+        color: #00d4ff;
+      }
+
+      .eq-section {
+        background: rgba(102, 126, 234, 0.1);
+        border: 1px solid rgba(102, 126, 234, 0.3);
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
+      }
+
+      .eq-section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .eq-section-label {
+        font-size: 0.9em;
+        color: #667eea;
+        font-weight: bold;
+      }
+
+      .eq-controls {
+        display: grid;
+        gap: 10px;
+      }
+
+      .eq-band {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .eq-band-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .eq-band-label {
+        font-size: 0.85em;
+        color: #999;
+      }
+
+      .eq-kill-btn {
+        padding: 4px 12px;
+        font-size: 0.75em;
+        min-width: auto;
+      }
+
+      .eq-kill-btn.active {
+        background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+        box-shadow: 0 0 10px rgba(255, 68, 68, 0.5);
+      }
+
+      .settings-panel {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        margin-bottom: 20px;
+      }
+
+      .settings-header {
+        font-size: 1.5em;
+        font-weight: bold;
+        color: #00d4ff;
+        margin-bottom: 15px;
+      }
+
+      .settings-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 15px;
+      }
+
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+
+      ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 10px;
+      }
+
+      ::-webkit-scrollbar-thumb {
+        background: rgba(102, 126, 234, 0.5);
+        border-radius: 10px;
+      }
+
+      ::-webkit-scrollbar-thumb:hover {
+        background: rgba(102, 126, 234, 0.8);
+      }
+
+      .pfl-button.active {
+        background: linear-gradient(135deg, #44ff44 0%, #00cc00 100%);
+        box-shadow: 0 0 15px rgba(68, 255, 68, 0.5);
+      }
+
+      .headphone-panel {
+        background: rgba(102, 126, 234, 0.1);
+        border: 1px solid rgba(102, 126, 234, 0.3);
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+      }
+
+      .headphone-header {
+        font-size: 1.5em;
+        font-weight: bold;
+        color: #667eea;
+        margin-bottom: 15px;
+      }
+
+      .clock-panel {
+        background: rgba(0, 212, 255, 0.1);
+        border: 1px solid rgba(0, 212, 255, 0.3);
+        padding: 20px;
+        border-radius: 10px;
+        margin-bottom: 20px;
+      }
+
+      .clock-header {
+        font-size: 1.5em;
+        font-weight: bold;
+        color: #00d4ff;
+        margin-bottom: 15px;
+      }
+
+      /* Sync Button Styles (Phase 3.2) */
+      .sync-button {
+        transition: all 0.3s;
+        border: 2px solid #333;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .sync-button.sync-off {
+        background: #444;
+        color: #888;
+        border-color: #555;
+      }
+
+      .sync-button.sync-off:hover {
+        background: #555;
+        color: #aaa;
+      }
+
+      .sync-button.sync-bpm {
+        background: linear-gradient(135deg, #00d4ff, #0088ff);
+        color: white;
+        border-color: #00d4ff;
+        animation: pulse-bpm 1s infinite;
+        box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+      }
+
+      @keyframes pulse-bpm {
+        0%, 100% { transform: scale(1); opacity: 1; }
+        50% { transform: scale(1.02); opacity: 0.95; }
+      }
+
+      .sync-button.sync-beat {
+        background: linear-gradient(135deg, #00ff88, #00cc66);
+        color: white;
+        border-color: #00ff88;
+        box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+      }
+
+      .sync-button.sync-beat.flash {
+        animation: flash-beat 0.2s ease-out;
+      }
+
+      @keyframes flash-beat {
+        0% { box-shadow: 0 0 30px rgba(0, 255, 136, 1); transform: scale(1.05); }
+        100% { box-shadow: 0 0 20px rgba(0, 255, 136, 0.5); transform: scale(1); }
+      }
+
+      .sync-button.sync-downbeat {
+        background: linear-gradient(135deg, #ffaa00, #ff7700);
+        color: white;
+        border-color: #ffaa00;
+        box-shadow: 0 0 20px rgba(255, 170, 0, 0.5);
+      }
+
+      .sync-button.sync-downbeat.flash {
+        animation: flash-downbeat 0.3s ease-out;
+      }
+
+      @keyframes flash-downbeat {
+        0% { box-shadow: 0 0 40px rgba(255, 170, 0, 1); transform: scale(1.08); }
+        100% { box-shadow: 0 0 20px rgba(255, 170, 0, 0.5); transform: scale(1); }
+      }
+
+      /* Track Browser Styles */
+      .track-browser-panel {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        margin-bottom: 20px;
+      }
+
+      .track-browser-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
+      }
+
+      .track-browser-content {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+      }
+
+      .track-search-bar {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .track-list-container {
+        max-height: 400px;
+        overflow-y: auto;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 8px;
+        padding: 10px;
+      }
+
+      .track-list-loading {
+        text-align: center;
+        padding: 20px;
+        color: #888;
+        font-style: italic;
+      }
+
+      .track-item {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: all 0.3s;
+        position: relative;
+      }
+
+      .track-item:hover {
+        background: rgba(102, 126, 234, 0.2);
+        border-color: rgba(102, 126, 234, 0.5);
+        transform: translateX(5px);
+      }
+
+      .track-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+      }
+
+      .track-item-title {
+        font-size: 1.1em;
+        font-weight: bold;
+        color: #00d4ff;
+      }
+
+      .track-item-artist {
+        color: #888;
+        font-size: 0.9em;
+      }
+
+      .track-item-info {
+        display: flex;
+        gap: 15px;
+        font-size: 0.85em;
+        color: #999;
+        margin-top: 5px;
+      }
+
+      .track-item-info span {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+      }
+
+      .track-item-actions {
+        display: flex;
+        gap: 5px;
+      }
+
+      .track-item-load-btn {
+        padding: 4px 10px;
+        font-size: 0.8em;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 4px;
+        color: white;
+        cursor: pointer;
+        transition: all 0.2s;
+      }
+
+      .track-item-load-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+      }
+
+      .track-waveform-container {
+        margin-top: 10px;
+        background: rgba(0, 0, 0, 0.3);
+        border-radius: 5px;
+        padding: 8px;
+        height: 60px;
+        position: relative;
+      }
+
+      .track-waveform-canvas {
+        width: 100%;
+        height: 100%;
+        border-radius: 3px;
+      }
+
+      .track-waveform-loading {
+        text-align: center;
+        color: #666;
+        font-size: 0.75em;
+        padding: 20px 0;
+      }
+
+      .deck-select-modal {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: #1a1a2e;
+        border: 2px solid #00d4ff;
+        border-radius: 10px;
+        padding: 20px;
+        z-index: 1000;
+        box-shadow: 0 0 30px rgba(0, 212, 255, 0.5);
+      }
+
+      .deck-select-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        z-index: 999;
+      }
+
+      .deck-select-modal h3 {
+        color: #00d4ff;
+        margin-bottom: 15px;
+      }
+
+      .deck-select-buttons {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+        gap: 10px;
+        margin-top: 15px;
+      }
+
+      .deck-select-btn {
+        padding: 10px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border: none;
+        border-radius: 5px;
+        color: white;
+        cursor: pointer;
+        font-weight: bold;
+        transition: all 0.2s;
+      }
+
+      .deck-select-btn:hover {
+        transform: scale(1.05);
+        box-shadow: 0 0 15px rgba(102, 126, 234, 0.6);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>🎵 Mismo DJ</h1>
+        <div class="subtitle">
+          WebSocket Test Interface - Phase 3.15 (Track Metadata)
+        </div>
+      </header>
+
+      <!-- Connection Panel -->
+      <div class="connection-panel">
+        <div class="connection-status">
+          <div class="status-indicator" id="statusIndicator"></div>
+          <span id="statusText">Disconnected</span>
+        </div>
+        <div class="connection-controls">
+          <input
+            type="text"
+            id="wsUrl"
+            value="ws://localhost:8080"
+            placeholder="WebSocket URL"
+          />
+          <button id="connectBtn" onclick="connect()">Connect</button>
+          <button id="disconnectBtn" onclick="disconnect()" disabled>
+            Disconnect
+          </button>
+        </div>
+      </div>
+
+      <!-- Audio Device Selection -->
+      <div class="settings-panel">
+        <div class="settings-header">🔊 Audio Output Device</div>
+        <div class="settings-grid">
+          <div class="control-group">
+            <label>Current Device</label>
+            <div
+              id="currentDeviceName"
+              style="
+                padding: 10px;
+                background: rgba(0, 212, 255, 0.1);
+                border-radius: 5px;
+                border: 1px solid rgba(0, 212, 255, 0.3);
+                color: #00d4ff;
+              "
+            >
+              Not loaded yet
+            </div>
+          </div>
+          <div class="control-group">
+            <label>Select Output Device</label>
+            <select
+              id="audioDeviceSelect"
+              onchange="changeAudioDevice(this.value)"
+            >
+              <option value="">Click "Refresh" to load devices...</option>
+            </select>
+          </div>
+          <div
+            class="control-group"
+            style="display: flex; align-items: flex-end"
+          >
+            <button onclick="refreshAudioDevices()" style="width: 100%">
+              🔄 Refresh Devices
+            </button>
+          </div>
+        </div>
+        <div
+          id="deviceInfoPanel"
+          style="
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 5px;
+            display: none;
+          "
+        >
+          <div style="font-size: 0.9em; color: #888; margin-bottom: 10px">
+            Device Details:
+          </div>
+          <div
+            id="deviceInfoContent"
+            style="
+              font-size: 0.85em;
+              color: #00d4ff;
+              font-family: 'Courier New', monospace;
+            "
+          ></div>
+        </div>
+      </div>
+
+      <!-- EQ Settings -->
+      <div class="settings-panel">
+        <div class="settings-header">EQ Settings</div>
+        <div class="settings-grid">
+          <div class="control-group">
+            <label>EQ Band Count</label>
+            <select id="eqBandCount" onchange="updateEQBandCount(this.value)">
+              <option value="3" selected>3 Bands (Low, Mid, High)</option>
+              <option value="4">4 Bands (Low, Low-Mid, High-Mid, High)</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label>Low-Mid Crossover (Hz)</label>
+            <input
+              type="number"
+              id="lowMidFreq"
+              value="250"
+              min="20"
+              max="2000"
+              step="10"
+              onchange="updateCrossoverFrequency('lowMid', this.value)"
+            />
+          </div>
+          <div
+            class="control-group"
+            id="lowMidHighMidFreqGroup"
+            style="display: none"
+          >
+            <label>LowMid-HighMid Crossover (Hz) - 4-band only</label>
+            <input
+              type="number"
+              id="lowMidHighMidFreq"
+              value="1000"
+              min="100"
+              max="5000"
+              step="10"
+              onchange="updateCrossoverFrequency('lowMidHighMid', this.value)"
+            />
+          </div>
+          <div class="control-group">
+            <label>Mid-High Crossover (Hz)</label>
+            <input
+              type="number"
+              id="midHighFreq"
+              value="4000"
+              min="1000"
+              max="15000"
+              step="100"
+              onchange="updateCrossoverFrequency('midHigh', this.value)"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- Track Browser Panel -->
+      <div class="track-browser-panel">
+        <div class="track-browser-header">
+          <h3 style="color: #00d4ff; margin-bottom: 15px">📁 Track Browser</h3>
+          <button onclick="refreshTrackList()" style="padding: 8px 15px;">🔄 Refresh Tracks</button>
+        </div>
+        <div class="track-browser-content">
+          <div class="track-search-bar">
+            <input
+              type="text"
+              id="trackSearchInput"
+              placeholder="Search tracks by title, artist, or album..."
+              oninput="filterTracks(this.value)"
+              style="flex: 1;"
+            />
+            <select id="trackSortBy" onchange="sortTracks(this.value)">
+              <option value="title">Sort by Title</option>
+              <option value="artist">Sort by Artist</option>
+              <option value="bpm">Sort by BPM</option>
+              <option value="key">Sort by Key</option>
+            </select>
+          </div>
+          <div class="track-list-container" id="trackListContainer">
+            <div class="track-list-loading">Click "Refresh Tracks" to load available tracks...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Deck Management -->
+      <div class="deck-management">
+        <h3 style="color: #00d4ff; margin-bottom: 15px">Deck Management</h3>
+        <div class="deck-list" id="deckList">
+          <!-- Deck chips will be added here dynamically -->
+        </div>
+        <div class="add-deck-form">
+          <div class="control-group">
+            <label>Deck ID</label>
+            <input
+              type="text"
+              id="newDeckId"
+              placeholder="e.g., C, Sample1, Loop1"
+            />
+          </div>
+          <div class="control-group">
+            <label>Deck Type</label>
+            <select id="newDeckType">
+              <option value="main">Main DJ Deck</option>
+              <option value="sample">Sample Player</option>
+              <option value="loop">Loop Deck</option>
+              <option value="external">External Input</option>
+            </select>
+          </div>
+          <button onclick="addDeck()">➕ Add Deck</button>
+        </div>
+      </div>
+
+      <!-- Main Deck Controls -->
+      <div class="main-grid" id="deckPanelsContainer">
+        <!-- Decks will be dynamically added here -->
+      </div>
+
+      <!-- Mixer Panel -->
+      <div class="mixer-panel">
+        <div class="mixer-header">🎚️ Mixer Controls</div>
+        <div class="mixer-controls">
+          <!-- Channel Fader A -->
+          <div class="slider-control">
+            <label>Channel Fader A</label>
+            <input
+              type="range"
+              id="faderA"
+              min="0"
+              max="1"
+              step="0.01"
+              value="1"
+              oninput="updateChannelFader('A', this.value)"
+            />
+            <div class="value-display">
+              <span>0%</span>
+              <span id="faderA-value">100%</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <!-- Channel Fader B -->
+          <div class="slider-control">
+            <label>Channel Fader B</label>
+            <input
+              type="range"
+              id="faderB"
+              min="0"
+              max="1"
+              step="0.01"
+              value="1"
+              oninput="updateChannelFader('B', this.value)"
+            />
+            <div class="value-display">
+              <span>0%</span>
+              <span id="faderB-value">100%</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <!-- Master Gain -->
+          <div class="slider-control">
+            <label>Master Gain</label>
+            <input
+              type="range"
+              id="masterGain"
+              min="0"
+              max="2"
+              step="0.01"
+              value="0.8"
+              oninput="updateMasterGain(this.value)"
+            />
+            <div class="value-display">
+              <span>0.0</span>
+              <span id="masterGain-value">0.80</span>
+              <span>2.0</span>
+            </div>
+          </div>
+
+          <!-- Limiter Control -->
+          <div class="control-group">
+            <label>Master Limiter</label>
+            <div style="display: flex; align-items: center; gap: 15px">
+              <label class="toggle-switch">
+                <input
+                  type="checkbox"
+                  id="limiterToggle"
+                  checked
+                  onchange="updateLimiter(this.checked)"
+                />
+                <span class="toggle-slider"></span>
+              </label>
+              <span id="limiterStatus">Enabled</span>
+            </div>
+          </div>
+
+          <!-- Crossfader Panel -->
+          <div class="crossfader-panel">
+            <div class="control-group" style="margin-bottom: 15px">
+              <label>Crossfader Curve</label>
+              <select
+                id="crossfaderCurve"
+                onchange="updateCrossfaderCurve(this.value)"
+              >
+                <option value="linear">Linear</option>
+                <option value="constantPower" selected>
+                  Constant Power (Default)
+                </option>
+                <option value="dipped">Dipped (DJ Style)</option>
+              </select>
+            </div>
+            <div class="slider-control">
+              <label>Crossfader Position</label>
+              <input
+                type="range"
+                id="crossfader"
+                min="-1"
+                max="1"
+                step="0.01"
+                value="0"
+                oninput="updateCrossfader(this.value)"
+              />
+              <div class="value-display">
+                <span>◀️ Full A</span>
+                <span id="crossfader-value">Center</span>
+                <span>Full B ▶️</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Headphone / PFL Panel -->
+      <div class="headphone-panel">
+        <div class="headphone-header">🎧 Headphone / PFL Controls</div>
+        <div class="mixer-controls">
+          <!-- Headphone Volume -->
+          <div class="slider-control">
+            <label>Headphone Volume</label>
+            <input
+              type="range"
+              id="headphoneVolume"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0.8"
+              oninput="updateHeadphoneVolume(this.value)"
+            />
+            <div class="value-display">
+              <span>0%</span>
+              <span id="headphoneVolume-value">80%</span>
+              <span>100%</span>
+            </div>
+          </div>
+
+          <!-- Cue/Mix Control -->
+          <div class="slider-control">
+            <label>Cue/Mix Control</label>
+            <input
+              type="range"
+              id="cueMix"
+              min="0"
+              max="1"
+              step="0.01"
+              value="0"
+              oninput="updateCueMix(this.value)"
+            />
+            <div class="value-display">
+              <span>Full Cue</span>
+              <span id="cueMix-value">100% Cue</span>
+              <span>Full Master</span>
+            </div>
+          </div>
+
+          <!-- Headphone Device Selection -->
+          <div
+            class="control-group"
+            style="
+              grid-column: 1 / -1;
+              background: rgba(0, 0, 0, 0.2);
+              padding: 15px;
+              border-radius: 8px;
+              margin-top: 10px;
+            "
+          >
+            <label style="color: #667eea">🎧 Headphone Output Device</label>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: 1fr 1fr auto;
+                gap: 10px;
+                align-items: end;
+                margin-top: 10px;
+              "
+            >
+              <div class="control-group" style="margin: 0">
+                <label style="font-size: 0.85em">Current Device</label>
+                <div
+                  id="currentHeadphoneName"
+                  style="
+                    padding: 10px;
+                    background: rgba(102, 126, 234, 0.1);
+                    border-radius: 5px;
+                    border: 1px solid rgba(102, 126, 234, 0.3);
+                    color: #667eea;
+                  "
+                >
+                  Not loaded yet
+                </div>
+              </div>
+              <div class="control-group" style="margin: 0">
+                <label style="font-size: 0.85em">Select Headphone Device</label>
+                <select
+                  id="headphoneDeviceSelect"
+                  onchange="changeHeadphoneDevice(this.value)"
+                >
+                  <option value="">Click "Refresh" to load devices...</option>
+                </select>
+              </div>
+              <button
+                onclick="refreshHeadphoneDevices()"
+                style="padding: 10px 15px"
+              >
+                🔄 Refresh
+              </button>
+            </div>
+            <div
+              id="headphoneDeviceInfoPanel"
+              style="
+                margin-top: 10px;
+                padding: 12px;
+                background: rgba(0, 0, 0, 0.3);
+                border-radius: 5px;
+                display: none;
+              "
+            >
+              <div
+                style="font-size: 0.85em; color: #667eea; margin-bottom: 8px"
+              >
+                Headphone Device Details:
+              </div>
+              <div
+                id="headphoneDeviceInfoContent"
+                style="
+                  font-size: 0.8em;
+                  color: #888;
+                  font-family: 'Courier New', monospace;
+                "
+              ></div>
+            </div>
+          </div>
+        </div>
+        <div style="margin-top: 15px; font-size: 0.85em; color: #888">
+          <strong>Cue/Mix:</strong> 0% = Only PFL audio | 50% = Mixed | 100% =
+          Only master mix
+        </div>
+      </div>
+
+      <!-- Master Clock Panel (Phase 3.2) -->
+      <div class="clock-panel">
+        <div class="clock-header">🕐 Master Clock Control</div>
+        <div class="mixer-controls">
+          <!-- Clock Status Display -->
+          <div
+            class="control-group"
+            style="
+              grid-column: 1 / -1;
+              background: rgba(0, 212, 255, 0.1);
+              padding: 15px;
+              border-radius: 8px;
+            "
+          >
+            <div
+              style="
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr;
+                gap: 15px;
+              "
+            >
+              <div>
+                <label style="font-size: 0.85em; color: #00d4ff"
+                  >Current BPM</label
+                >
+                <div
+                  id="clockBPM"
+                  style="font-size: 1.8em; font-weight: bold; color: #00d4ff"
+                >
+                  --
+                </div>
+              </div>
+              <div>
+                <label style="font-size: 0.85em; color: #00d4ff"
+                  >Beat Phase</label
+                >
+                <div
+                  id="clockPhase"
+                  style="font-size: 1.8em; font-weight: bold; color: #00d4ff"
+                >
+                  --
+                </div>
+              </div>
+              <div>
+                <label style="font-size: 0.85em; color: #00d4ff"
+                  >Auto-Master Mode</label
+                >
+                <div
+                  id="clockAutoMaster"
+                  style="font-size: 1.5em; font-weight: bold; color: #00d4ff"
+                >
+                  --
+                </div>
+              </div>
+              <div>
+                <label style="font-size: 0.85em; color: #00d4ff"
+                  >Clock Source</label
+                >
+                <div id="clockSource" style="font-size: 1.2em; color: #00d4ff">
+                  --
+                </div>
+              </div>
+              <div>
+                <label style="font-size: 0.85em; color: #00d4ff"
+                  >Master Deck</label
+                >
+                <div
+                  id="clockMasterDeck"
+                  style="font-size: 1.2em; color: #00d4ff"
+                >
+                  --
+                </div>
+              </div>
+              <div>
+                <label style="font-size: 0.85em; color: #00d4ff"
+                  >Ghost Active</label
+                >
+                <div
+                  id="clockGhostActive"
+                  style="font-size: 1.2em; color: #00d4ff"
+                >
+                  --
+                </div>
+              </div>
+            </div>
+            <button
+              onclick="refreshClockState()"
+              style="margin-top: 10px; width: 100%"
+            >
+              🔄 Refresh Clock State
+            </button>
+          </div>
+
+          <!-- Manual Master Selection -->
+          <div
+            class="control-group"
+            style="
+              grid-column: 1 / -1;
+              background: rgba(0, 0, 0, 0.2);
+              padding: 15px;
+              border-radius: 8px;
+            "
+          >
+            <label style="color: #00d4ff">🎯 Manual Master Selection</label>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: 1fr 1fr auto;
+                gap: 10px;
+                margin-top: 10px;
+              "
+            >
+              <button onclick="setMasterDeck('A')" class="deck-button">
+                Set Deck A as Master
+              </button>
+              <button onclick="setMasterDeck('B')" class="deck-button">
+                Set Deck B as Master
+              </button>
+              <button
+                onclick="clearMasterDeck()"
+                class="deck-button"
+                style="
+                  background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+                "
+              >
+                Clear Master (Auto)
+              </button>
+            </div>
+            <div style="margin-top: 10px; font-size: 0.85em; color: #888">
+              <strong>Auto Mode:</strong> System automatically selects most
+              suitable deck as master based on playing state, volume,
+              crossfader, and remaining time.
+            </div>
+          </div>
+
+          <!-- Ghost Clock Controls -->
+          <div
+            class="control-group"
+            style="
+              grid-column: 1 / -1;
+              background: rgba(0, 0, 0, 0.2);
+              padding: 15px;
+              border-radius: 8px;
+            "
+          >
+            <label style="color: #00d4ff">👻 Ghost Clock</label>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 10px;
+                margin-top: 10px;
+              "
+            >
+              <div>
+                <label style="font-size: 0.85em">Ghost BPM</label>
+                <input
+                  type="number"
+                  id="ghostBPM"
+                  value="120"
+                  min="20"
+                  max="300"
+                  step="0.1"
+                  style="
+                    width: 100%;
+                    padding: 10px;
+                    background: rgba(255, 255, 255, 0.1);
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    border-radius: 5px;
+                    color: #e0e0e0;
+                  "
+                />
+              </div>
+              <div>
+                <label style="font-size: 0.85em">Ghost Phase (beats)</label>
+                <input
+                  type="number"
+                  id="ghostPhase"
+                  value="0"
+                  min="0"
+                  max="1000"
+                  step="0.01"
+                  style="
+                    width: 100%;
+                    padding: 10px;
+                    background: rgba(255, 255, 255, 0.1);
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    border-radius: 5px;
+                    color: #e0e0e0;
+                  "
+                />
+              </div>
+            </div>
+            <div
+              style="
+                display: grid;
+                grid-template-columns: 1fr 1fr 1fr;
+                gap: 10px;
+                margin-top: 10px;
+              "
+            >
+              <button
+                onclick="startGhostClock()"
+                class="deck-button"
+                style="
+                  background: linear-gradient(135deg, #44ff44 0%, #00cc00 100%);
+                "
+              >
+                ▶️ Start Ghost
+              </button>
+              <button onclick="setGhostBPM()" class="deck-button">
+                🎵 Update BPM
+              </button>
+              <button
+                onclick="stopGhostClock()"
+                class="deck-button"
+                style="
+                  background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+                "
+              >
+                ⏹️ Stop Ghost
+              </button>
+            </div>
+            <div style="margin-top: 10px; font-size: 0.85em; color: #888">
+              <strong>Ghost Clock:</strong> Fallback clock that maintains
+              tempo/phase when no deck is suitable as master. Useful for
+              transitions or when both decks are stopped.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Log Panel -->
+      <div class="log-panel">
+        <div class="log-header">
+          <div class="log-title">📋 Command Log</div>
+          <button onclick="clearLog()">Clear Log</button>
+        </div>
+        <div id="logContainer">
+          <div class="log-entry">Ready to connect...</div>
+        </div>
+      </div>
+
+      <!-- Info Box -->
+      <div class="info-box">
+        <strong>💡 Quick Start:</strong><br />
+        1. Start the Mismo DJ server:
+        <code>./build/MismoDJ_artefacts/Debug/MismoDJ</code><br />
+        2. Click "Connect" to establish WebSocket connection<br />
+        3. <strong>Select your audio output device</strong> from the dropdown
+        (auto-loads on connect)<br />
+        4. Load tracks by file path OR by track ID (Phase 3.15)<br />
+        5. Start mixing!<br />
+        <br />
+        <strong>🆔 Load by Track ID (Phase 3.15):</strong> Enter a track ID and
+        click "Load by ID". The audio server will request track metadata (BPM,
+        key, beats) from the app server and load the track. This requires the
+        app server to be connected!<br />
+        <br />
+        <strong>📂 Load by Path:</strong> Enter file paths for tracks (<strong
+          >absolute paths only</strong
+        >
+        - no ~/) and click "Load (Path)".<br />
+        <br />
+        <strong>🔊 Audio Device:</strong> You can switch output devices
+        on-the-fly! The audio will briefly pause (~100-500ms) during the
+        switch.<br />
+        <br />
+        <strong>🎧 PFL (Pre-Fader Listen):</strong> Click the "PFL" button on
+        any deck to preview it in your headphones before bringing it into the
+        mix. Use the Cue/Mix control to blend between PFL audio and the master
+        mix. Perfect for beatmatching!<br />
+        <br />
+        <strong>📝 Note:</strong> All commands are queued and executed by the
+        audio engine. Watch the server console for execution results.<br />
+        <br />
+        <strong>⚠️ Path Format:</strong> Use
+        <code>/home/user/Music/song.mp3</code> NOT <code>~/Music/song.mp3</code>
+      </div>
+    </div>
+
+    <script>
+      let ws = null;
+      let activeDecksList = ["A", "B"]; // Track active decks
+      let deckInfo = {
+        A: {
+          assignment: "left",
+          trackLoaded: false,
+          duration: 0,
+          state: "stopped",
+        },
+        B: {
+          assignment: "right",
+          trackLoaded: false,
+          duration: 0,
+          state: "stopped",
+        },
+      };
+
+      // Create a deck panel dynamically
+      function createDeckPanel(deckId) {
+        const container = document.getElementById("deckPanelsContainer");
+        const deckType = deckInfo[deckId]?.type || "main";
+        const canRemove = deckId !== "A" && deckId !== "B";
+
+        const panel = document.createElement("div");
+        panel.className = "deck-panel";
+        panel.id = `deck-panel-${deckId}`;
+
+        const typeIcon =
+          {
+            main: "🎧",
+            sample: "🎵",
+            loop: "🔁",
+            external: "🎤",
+          }[deckType] || "🎧";
+
+        panel.innerHTML = `
+                ${
+                  canRemove
+                    ? `<button class="danger remove-deck-btn" onclick="removeDeck('${deckId}')">✕ Remove</button>`
+                    : ""
+                }
+                <div class="deck-header">
+                    <div class="deck-title">${typeIcon} Deck ${deckId}</div>
+                </div>
+                <div class="deck-controls">
+                    <div class="control-group">
+                        <label>Track File Path</label>
+                        <input type="text" id="deck${deckId}-path" placeholder="/path/to/music/song.mp3">
+                    </div>
+                    <div class="button-row">
+                        <button onclick="loadTrack('${deckId}')">📂 Load (Path)</button>
+                        <button class="danger" onclick="unloadTrack('${deckId}')">🗑️ Unload</button>
+                    </div>
+                    <div class="control-group" style="margin-top: 10px;">
+                        <label>Track ID (Phase 3.15)</label>
+                        <input type="text" id="deck${deckId}-trackId" placeholder="e.g., 12345">
+                    </div>
+                    <div class="button-row">
+                        <button onclick="loadTrackById('${deckId}')" style="background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);">🆔 Load by ID</button>
+                    </div>
+                    <div class="button-row">
+                        <button class="success" onclick="playDeck('${deckId}')">▶️ Play</button>
+                        <button onclick="pauseDeck('${deckId}')">⏸️ Pause</button>
+                        <button onclick="stopDeck('${deckId}')">⏹️ Stop</button>
+                    </div>
+                    <div class="slider-control">
+                        <label>Deck Gain</label>
+                        <input type="range" id="deck${deckId}-gain" min="0" max="2" step="0.01" value="1"
+                               oninput="updateDeckGain('${deckId}', this.value)"
+                               onchange="sendDeckGain('${deckId}', this.value)">
+                        <div class="value-display">
+                            <span>0.0</span>
+                            <span id="deck${deckId}-gain-value">1.00</span>
+                            <span>2.0</span>
+                        </div>
+                    </div>
+                    <div class="slider-control">
+                        <label>Seek Position (seconds)</label>
+                        <input type="range" id="deck${deckId}-seek" min="0" max="300" step="0.1" value="0"
+                               oninput="updateSeekPosition('${deckId}', this.value)">
+                        <div class="value-display">
+                            <span>0s</span>
+                            <span id="deck${deckId}-seek-value">0.0s</span>
+                            <span>300s</span>
+                        </div>
+                    </div>
+                    <button onclick="seekDeck('${deckId}')">🎯 Seek</button>
+
+                    <!-- Tempo Control Section (Phase 3.2) -->
+                    <div class="tempo-section" style="background: rgba(255, 165, 0, 0.1); border: 1px solid rgba(255, 165, 0, 0.3); border-radius: 8px; padding: 15px; margin-top: 15px;">
+                        <div class="tempo-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px;">
+                            <div class="tempo-title" style="font-size: 0.9em; color: #ffa500; font-weight: bold;">🎵 Tempo Control</div>
+                            <label class="toggle-switch" title="Master Tempo (Keylock) - Currently vinyl-style behavior">
+                                <input type="checkbox" id="deck${deckId}-master-tempo" checked
+                                       onchange="toggleMasterTempo('${deckId}', this.checked)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                            <span id="deck${deckId}-master-tempo-label" style="font-size: 0.8em; color: #ffa500;">MT: ON</span>
+                        </div>
+                        <div style="font-size: 0.7em; color: #888; margin-bottom: 10px; font-style: italic;">
+                            💡 Server will auto-detect SoundTouch library at startup.<br>
+                            Without SoundTouch: vinyl-style (pitch changes with tempo)<br>
+                            With SoundTouch: true keylock (pitch preserved)<br>
+                            <span style="color: #667eea;">Install: sudo apt-get install libsoundtouch-dev</span>
+                        </div>
+
+                        <!-- Tempo Slider -->
+                        <div class="slider-control">
+                            <label>Tempo</label>
+                            <input type="range" id="deck${deckId}-tempo" min="0.90" max="1.10" step="0.001" value="1.0"
+                                   oninput="updateTempoDisplay('${deckId}', this.value)"
+                                   onchange="sendTempo('${deckId}', this.value)">
+                            <div class="value-display">
+                                <span id="deck${deckId}-tempo-min">-10%</span>
+                                <span id="deck${deckId}-tempo-value" style="font-weight: bold;">0.0%</span>
+                                <span id="deck${deckId}-tempo-max">+10%</span>
+                            </div>
+                        </div>
+
+                        <!-- BPM Display -->
+                        <div style="display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.85em;">
+                            <div>
+                                <span style="color: #888;">Original BPM:</span>
+                                <span id="deck${deckId}-original-bpm" style="color: #fff;">-</span>
+                            </div>
+                            <div>
+                                <span style="color: #ffa500;">Effective BPM:</span>
+                                <span id="deck${deckId}-effective-bpm" style="color: #ffa500; font-weight: bold;">-</span>
+                            </div>
+                        </div>
+
+                        <!-- Tempo Range Selector -->
+                        <div class="control-group" style="margin-top: 10px;">
+                            <label>Tempo Range</label>
+                            <select id="deck${deckId}-tempo-range" onchange="setTempoRange('${deckId}', this.value)"
+                                    style="width: 100%; padding: 8px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 5px; color: #e0e0e0;">
+                                <option value="0">±6%</option>
+                                <option value="1" selected>±10%</option>
+                                <option value="2">±16%</option>
+                                <option value="3">Wide (±100%)</option>
+                            </select>
+                        </div>
+
+                        <!-- Reset Button -->
+                        <button onclick="resetTempo('${deckId}')" style="width: 100%; margin-top: 10px; background: rgba(255,165,0,0.2); border: 1px solid rgba(255,165,0,0.5);">
+                            🔄 Reset to 100%
+                        </button>
+                    </div>
+
+                    <div class="eq-section">
+                        <div class="eq-section-header">
+                            <div class="eq-section-label">🎚️ EQ Controls</div>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="deck${deckId}-eq-enabled" checked
+                                       onchange="toggleEQ('${deckId}', this.checked)">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <div class="eq-controls" id="deck${deckId}-eq-controls">
+                            <!-- Low Band -->
+                            <div class="eq-band">
+                                <div class="eq-band-header">
+                                    <span class="eq-band-label">🔊 Low</span>
+                                    <button class="eq-kill-btn" id="deck${deckId}-low-kill"
+                                            onclick="toggleEQKill('${deckId}', 'low', this)">KILL</button>
+                                </div>
+                                <input type="range" id="deck${deckId}-low-gain" min="-30" max="12" step="0.5" value="0"
+                                       oninput="updateEQGainDisplay('${deckId}', 'low', this.value)"
+                                       onchange="sendEQGain('${deckId}', 'low', this.value)">
+                                <div class="value-display">
+                                    <span>-30dB</span>
+                                    <span id="deck${deckId}-low-gain-value">0.0 dB</span>
+                                    <span>+12dB</span>
+                                </div>
+                            </div>
+                            <!-- Mid Band -->
+                            <div class="eq-band">
+                                <div class="eq-band-header">
+                                    <span class="eq-band-label">🔊 Mid</span>
+                                    <button class="eq-kill-btn" id="deck${deckId}-mid-kill"
+                                            onclick="toggleEQKill('${deckId}', 'mid', this)">KILL</button>
+                                </div>
+                                <input type="range" id="deck${deckId}-mid-gain" min="-30" max="12" step="0.5" value="0"
+                                       oninput="updateEQGainDisplay('${deckId}', 'mid', this.value)"
+                                       onchange="sendEQGain('${deckId}', 'mid', this.value)">
+                                <div class="value-display">
+                                    <span>-30dB</span>
+                                    <span id="deck${deckId}-mid-gain-value">0.0 dB</span>
+                                    <span>+12dB</span>
+                                </div>
+                            </div>
+                            <!-- High-Mid Band (4-band only) -->
+                            <div class="eq-band" id="deck${deckId}-highmid-band" style="display: none;">
+                                <div class="eq-band-header">
+                                    <span class="eq-band-label">🔊 High-Mid</span>
+                                    <button class="eq-kill-btn" id="deck${deckId}-highmid-kill"
+                                            onclick="toggleEQKill('${deckId}', 'highMid', this)">KILL</button>
+                                </div>
+                                <input type="range" id="deck${deckId}-highmid-gain" min="-30" max="12" step="0.5" value="0"
+                                       oninput="updateEQGainDisplay('${deckId}', 'highmid', this.value)"
+                                       onchange="sendEQGain('${deckId}', 'highMid', this.value)">
+                                <div class="value-display">
+                                    <span>-30dB</span>
+                                    <span id="deck${deckId}-highmid-gain-value">0.0 dB</span>
+                                    <span>+12dB</span>
+                                </div>
+                            </div>
+                            <!-- High Band -->
+                            <div class="eq-band">
+                                <div class="eq-band-header">
+                                    <span class="eq-band-label">🔊 High</span>
+                                    <button class="eq-kill-btn" id="deck${deckId}-high-kill"
+                                            onclick="toggleEQKill('${deckId}', 'high', this)">KILL</button>
+                                </div>
+                                <input type="range" id="deck${deckId}-high-gain" min="-30" max="12" step="0.5" value="0"
+                                       oninput="updateEQGainDisplay('${deckId}', 'high', this.value)"
+                                       onchange="sendEQGain('${deckId}', 'high', this.value)">
+                                <div class="value-display">
+                                    <span>-30dB</span>
+                                    <span id="deck${deckId}-high-gain-value">0.0 dB</span>
+                                    <span>+12dB</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="deck-info" id="deck${deckId}-info">
+                        <div class="deck-info-row">
+                            <span class="deck-info-label">State:</span>
+                            <span class="deck-info-value" id="deck${deckId}-state">Empty</span>
+                        </div>
+                        <div class="deck-info-row">
+                            <span class="deck-info-label">Duration:</span>
+                            <span class="deck-info-value" id="deck${deckId}-duration">-</span>
+                        </div>
+                        <div class="deck-info-row">
+                            <span class="deck-info-label">Position:</span>
+                            <span class="deck-info-value" id="deck${deckId}-position">-</span>
+                        </div>
+                        <div class="deck-info-row" id="deck${deckId}-bpm-row" style="display: none;">
+                            <span class="deck-info-label">BPM:</span>
+                            <span class="deck-info-value" id="deck${deckId}-bpm">-</span>
+                        </div>
+                        <div class="deck-info-row" id="deck${deckId}-key-row" style="display: none;">
+                            <span class="deck-info-label">Key:</span>
+                            <span class="deck-info-value" id="deck${deckId}-key">-</span>
+                        </div>
+                    </div>
+                    
+                    <div style="background: rgba(102, 126, 234, 0.1); border: 1px solid rgba(102, 126, 234, 0.3); border-radius: 8px; padding: 15px; margin-top: 15px;">
+                        <div style="font-size: 0.9em; color: #667eea; margin-bottom: 10px; font-weight: bold;">🎧 PFL (Pre-Fader Listen)</div>
+                        <div style="display: flex; gap: 10px; align-items: center;">
+                            <button id="deck${deckId}-pfl-btn" onclick="togglePFL('${deckId}')" class="pfl-button" style="flex: 1;">
+                                PFL OFF
+                            </button>
+                            <div id="deck${deckId}-pfl-indicator" style="width: 20px; height: 20px; border-radius: 50%; background: #555; transition: all 0.3s;"></div>
+                        </div>
+                        <div style="font-size: 0.75em; color: #888; margin-top: 8px;">
+                            Preview this deck in headphones (pre-fader)
+                        </div>
+                    </div>
+
+                    <!-- Sync Controls (Phase 3.2) -->
+                    <div class="sync-section" style="background: rgba(0, 212, 255, 0.1); border: 1px solid rgba(0, 212, 255, 0.3); border-radius: 8px; padding: 15px; margin-top: 15px;">
+                        <div style="font-size: 0.9em; color: #00d4ff; margin-bottom: 10px; font-weight: bold;">🔄 Sync Control</div>
+
+                        <!-- Sync Button (Main Control) -->
+                        <button id="deck${deckId}-sync-btn" onclick="cycleSyncMode('${deckId}')" class="sync-button sync-off" style="width: 100%; padding: 15px; font-size: 1.1em; font-weight: bold; margin-bottom: 10px; position: relative;">
+                            <span id="deck${deckId}-sync-text">SYNC</span>
+                            <div id="deck${deckId}-sync-indicator" style="position: absolute; top: 5px; right: 10px; width: 10px; height: 10px; border-radius: 50%; background: #555;"></div>
+                        </button>
+
+                        <!-- Sync Mode Selector -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5px; margin-bottom: 10px;">
+                            <button onclick="setSyncMode('${deckId}', 'bpm')" style="padding: 8px; font-size: 0.85em; background: rgba(0, 212, 255, 0.2); border: 1px solid rgba(0, 212, 255, 0.5);">
+                                BPM
+                            </button>
+                            <button onclick="setSyncMode('${deckId}', 'beat')" style="padding: 8px; font-size: 0.85em; background: rgba(0, 255, 136, 0.2); border: 1px solid rgba(0, 255, 136, 0.5);">
+                                BEAT
+                            </button>
+                            <button onclick="setSyncMode('${deckId}', 'downbeat')" style="padding: 8px; font-size: 0.85em; background: rgba(255, 170, 0, 0.2); border: 1px solid rgba(255, 170, 0, 0.5);">
+                                PHRASE
+                            </button>
+                        </div>
+
+                        <!-- Sync State Display -->
+                        <div style="display: flex; justify-content: space-between; font-size: 0.75em; color: #888;">
+                            <span>Status: <span id="deck${deckId}-sync-status" style="color: #00d4ff;">Off</span></span>
+                            <span>Mode: <span id="deck${deckId}-sync-mode-display" style="color: #00d4ff;">None</span></span>
+                        </div>
+
+                        <div style="font-size: 0.75em; color: #888; margin-top: 8px;">
+                            Click SYNC to toggle, or select mode below
+                        </div>
+                    </div>
+
+                    <div class="crossfader-assignment">
+                        <div class="crossfader-assignment-label">🎛️ Crossfader Assignment</div>
+                        <div class="assignment-buttons">
+                            <button id="deck${deckId}-assign-left" onclick="setCrossfaderAssignment('${deckId}', 'left')">
+                                ← Left (A)
+                            </button>
+                            <button id="deck${deckId}-assign-none" onclick="setCrossfaderAssignment('${deckId}', 'none')">
+                                ⊗ None
+                            </button>
+                            <button id="deck${deckId}-assign-right" onclick="setCrossfaderAssignment('${deckId}', 'right')">
+                                Right (B) →
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+        container.appendChild(panel);
+        updateAssignmentButtons(deckId);
+      }
+
+      // Update assignment button states
+      function updateAssignmentButtons(deckId) {
+        const assignment = deckInfo[deckId]?.assignment || "none";
+
+        ["left", "none", "right"].forEach((type) => {
+          const btn = document.getElementById(`deck${deckId}-assign-${type}`);
+          if (btn) {
+            if (type === assignment) {
+              btn.classList.add("active");
+            } else {
+              btn.classList.remove("active");
+            }
+          }
+        });
+      }
+
+      // Initialize deck list display
+      function updateDeckList() {
+        const deckList = document.getElementById("deckList");
+        deckList.innerHTML = "";
+
+        activeDecksList.forEach((deckId) => {
+          const chip = document.createElement("div");
+          chip.className = "deck-chip";
+          const assignment = deckInfo[deckId]?.assignment || "none";
+          const assignmentEmoji =
+            { left: "←", right: "→", none: "⊗" }[assignment] || "⊗";
+          chip.innerHTML = `
+                    <span>🎚️ Deck ${deckId} ${assignmentEmoji}</span>
+                    ${
+                      deckId !== "A" && deckId !== "B"
+                        ? `<button class="danger" onclick="removeDeck('${deckId}')">✕</button>`
+                        : ""
+                    }
+                `;
+          deckList.appendChild(chip);
+        });
+      }
+
+      // Rebuild all deck panels
+      function rebuildDeckPanels() {
+        const container = document.getElementById("deckPanelsContainer");
+        container.innerHTML = "";
+        activeDecksList.forEach((deckId) => {
+          createDeckPanel(deckId);
+        });
+      }
+
+      // Initialize with default decks
+      rebuildDeckPanels();
+      updateDeckList();
+
+      function handleEvent(msg) {
+        const eventType = msg.event;
+
+        // Initial state sync
+        if (eventType === "state.initial") {
+          log("📦 Received initial state - syncing UI...", "received");
+          applyInitialState(msg);
+          return;
+        }
+
+        // Track loaded events
+        if (eventType === "trackLoaded") {
+          log(
+            `✅ Track loaded on Deck ${msg.deck}: ${msg.filePath}`,
+            "received"
+          );
+          log(
+            `   Duration: ${msg.duration?.toFixed(2)}s, Sample Rate: ${
+              msg.sampleRate
+            }Hz, Channels: ${msg.channels}`,
+            "info"
+          );
+
+          // Show metadata if present (Phase 3.15)
+          if (msg.bpm || msg.key || msg.hasBeats || msg.hasDownbeats) {
+            let metadataStr = "   Metadata:";
+            if (msg.bpm) metadataStr += ` BPM=${msg.bpm}`;
+            if (msg.key) metadataStr += ` Key=${msg.key}`;
+            if (msg.mode) metadataStr += ` (${msg.mode})`;
+            if (msg.hasBeats) metadataStr += ` Beats=✓`;
+            if (msg.hasDownbeats) metadataStr += ` Downbeats=✓`;
+            log(metadataStr, "info");
+          }
+
+          // Update deck info
+          if (!deckInfo[msg.deck]) deckInfo[msg.deck] = {};
+          deckInfo[msg.deck].trackLoaded = true;
+          deckInfo[msg.deck].duration = msg.duration || 0;
+          deckInfo[msg.deck].filePath = msg.filePath;
+          deckInfo[msg.deck].sampleRate = msg.sampleRate;
+          deckInfo[msg.deck].channels = msg.channels;
+          deckInfo[msg.deck].bpm = msg.bpm;
+          deckInfo[msg.deck].key = msg.key;
+          deckInfo[msg.deck].mode = msg.mode;
+          updateDeckInfoDisplay(msg.deck);
+        } else if (eventType === "trackLoadRequested") {
+          // Phase 3.15: Track load initiated (before app server responds)
+          log(
+            `🔄 Requesting track ${msg.trackId} for Deck ${msg.deck}...`,
+            "info"
+          );
+        } else if (eventType === "deckLoadFailed") {
+          log(`❌ Failed to load on Deck ${msg.deck}: ${msg.error}`, "error");
+          if (msg.filePath) log(`   File: ${msg.filePath}`, "error");
+          if (msg.trackId) log(`   Track ID: ${msg.trackId}`, "error");
+        }
+
+        // Track unloaded
+        else if (eventType === "trackUnloaded") {
+          log(`✅ Track unloaded from Deck ${msg.deck}`, "received");
+          if (deckInfo[msg.deck]) {
+            deckInfo[msg.deck].trackLoaded = false;
+            deckInfo[msg.deck].duration = 0;
+            deckInfo[msg.deck].state = "empty";
+            updateDeckInfoDisplay(msg.deck);
+          }
+        } else if (eventType === "deckUnloadFailed") {
+          log(`❌ Failed to unload Deck ${msg.deck}: ${msg.error}`, "error");
+        }
+
+        // Deck state changes
+        else if (eventType === "deckStateChanged") {
+          const state = msg.playing ? "▶️ Playing" : "⏸️ Paused";
+          log(`Deck ${msg.deck}: ${state}`, "received");
+          if (deckInfo[msg.deck]) {
+            deckInfo[msg.deck].state = msg.playing ? "playing" : "paused";
+            updateDeckInfoDisplay(msg.deck);
+          }
+
+          // Update sync state if present (Phase 3.2)
+          if (msg.sync) {
+            const syncEnabled = msg.sync.enabled || false;
+            const syncMode = msg.sync.mode || 'none';
+            updateSyncButton(msg.deck, syncEnabled, syncMode);
+          }
+        } else if (
+          eventType === "deckPlayFailed" ||
+          eventType === "deckPauseFailed" ||
+          eventType === "deckStopFailed"
+        ) {
+          log(`❌ Deck ${msg.deck} operation failed: ${msg.error}`, "error");
+        }
+
+        // Position/gain changes
+        else if (eventType === "deckPositionChanged") {
+          log(
+            `Deck ${msg.deck} position: ${msg.position?.toFixed(2)}s`,
+            "info"
+          );
+          if (deckInfo[msg.deck]) {
+            deckInfo[msg.deck].position = msg.position;
+            updateDeckInfoDisplay(msg.deck);
+          }
+        } else if (eventType === "deckPositionUpdate") {
+          // Periodic position update (10Hz) - update silently without logging
+          if (deckInfo[msg.deck]) {
+            deckInfo[msg.deck].position = msg.position;
+            deckInfo[msg.deck].positionFraction = msg.positionFraction;
+            deckInfo[msg.deck].duration = msg.duration;
+            updateDeckInfoDisplay(msg.deck);
+          }
+        } else if (eventType === "deckGainChanged") {
+          log(`Deck ${msg.deck} gain: ${(msg.gain * 100).toFixed(0)}%`, "info");
+        } else if (
+          eventType === "deckSetGainFailed" ||
+          eventType === "deckSeekFailed"
+        ) {
+          log(`❌ Deck ${msg.deck} operation failed: ${msg.error}`, "error");
+        }
+
+        // Tempo control events (Phase 3.2)
+        else if (eventType === "deckTempoChanged") {
+          const percent = msg.tempoPercent?.toFixed(1) || ((msg.tempo - 1.0) * 100).toFixed(1);
+          log(`🎵 Deck ${msg.deck} tempo: ${percent >= 0 ? '+' : ''}${percent}%` +
+              (msg.effectiveBPM ? ` (${msg.effectiveBPM.toFixed(1)} BPM)` : ''), 'info');
+
+          // Update UI
+          const slider = document.getElementById(`deck${msg.deck}-tempo`);
+          if (slider && msg.tempo !== undefined) {
+            slider.value = msg.tempo;
+            updateTempoDisplay(msg.deck, msg.tempo);
+          }
+
+          // Update effective BPM display
+          if (msg.effectiveBPM !== undefined) {
+            const effectiveBPMEl = document.getElementById(`deck${msg.deck}-effective-bpm`);
+            if (effectiveBPMEl) {
+              effectiveBPMEl.textContent = msg.effectiveBPM.toFixed(1);
+            }
+          }
+
+          // Update original BPM if we have track info
+          if (deckInfo[msg.deck]?.bpm) {
+            const originalBPMEl = document.getElementById(`deck${msg.deck}-original-bpm`);
+            if (originalBPMEl) {
+              originalBPMEl.textContent = deckInfo[msg.deck].bpm.toFixed(1);
+            }
+          }
+        }
+        else if (eventType === "deckMasterTempoChanged") {
+          const state = msg.enabled ? 'ON' : 'OFF';
+          log(`🎵 Deck ${msg.deck} Master Tempo (keylock): ${state}`, 'info');
+
+          // Update checkbox and label
+          const checkbox = document.getElementById(`deck${msg.deck}-master-tempo`);
+          if (checkbox) {
+            checkbox.checked = msg.enabled;
+          }
+
+          const label = document.getElementById(`deck${msg.deck}-master-tempo-label`);
+          if (label) {
+            label.textContent = `MT: ${state}`;
+            label.style.color = msg.enabled ? '#ffa500' : '#888';
+          }
+        }
+        else if (eventType === "deckTempoRangeChanged") {
+          log(`🎵 Deck ${msg.deck} tempo range: ${msg.rangeName || 'unknown'}`, 'info');
+
+          // Update dropdown
+          const select = document.getElementById(`deck${msg.deck}-tempo-range`);
+          if (select && msg.range !== undefined) {
+            select.value = msg.range;
+
+            // Update slider range and labels WITHOUT sending command
+            const rangeConfigs = [
+              { min: 0.94, max: 1.06 },   // ±6%
+              { min: 0.90, max: 1.10 },   // ±10%
+              { min: 0.84, max: 1.16 },   // ±16%
+              { min: 0.50, max: 2.00 }    // Wide
+            ];
+
+            const slider = document.getElementById(`deck${msg.deck}-tempo`);
+            if (slider) {
+              const config = rangeConfigs[msg.range];
+              slider.min = config.min;
+              slider.max = config.max;
+
+              // Update min/max labels
+              const minPercent = (config.min - 1.0) * 100;
+              const maxPercent = (config.max - 1.0) * 100;
+              document.getElementById(`deck${msg.deck}-tempo-min`).textContent = minPercent.toFixed(0) + '%';
+              document.getElementById(`deck${msg.deck}-tempo-max`).textContent = '+' + maxPercent.toFixed(0) + '%';
+            }
+          }
+        }
+        else if (
+          eventType === "deckSetTempoFailed" ||
+          eventType === "deckSetMasterTempoFailed" ||
+          eventType === "deckSetTempoRangeFailed"
+        ) {
+          log(`❌ Deck ${msg.deck} tempo operation failed: ${msg.error}`, 'error');
+        }
+
+        // Sync events (Phase 3.2)
+        else if (eventType === "deck.syncModeChanged") {
+          const modeNames = { none: 'None', bpm: 'BPM', beat: 'Beat', downbeat: 'Downbeat/Phrase' };
+          const modeName = modeNames[msg.mode] || msg.mode;
+          log(`🔄 Deck ${msg.deck} sync mode: ${modeName}`, 'info');
+          updateSyncButton(msg.deck, msg.enabled || false, msg.mode || 'none');
+        }
+        else if (eventType === "deck.syncEnabled") {
+          const modeNames = { none: 'None', bpm: 'BPM', beat: 'Beat', downbeat: 'Downbeat/Phrase' };
+          const modeName = modeNames[msg.mode] || msg.mode;
+          log(`🔄 Deck ${msg.deck} sync enabled: ${modeName}`, 'received');
+          updateSyncButton(msg.deck, true, msg.mode || 'none');
+        }
+        else if (eventType === "deck.syncDisabled") {
+          log(`🔄 Deck ${msg.deck} sync disabled`, 'received');
+          updateSyncButton(msg.deck, false, 'none');
+        }
+        else if (eventType === "deck.syncState") {
+          const modeNames = { none: 'None', bpm: 'BPM', beat: 'Beat', downbeat: 'Downbeat/Phrase' };
+          const modeName = modeNames[msg.mode] || msg.mode;
+          log(`🔄 Deck ${msg.deck} sync state: ${msg.enabled ? 'Enabled' : 'Disabled'}, Mode: ${modeName}`, 'info');
+          updateSyncButton(msg.deck, msg.enabled || false, msg.mode || 'none');
+        }
+        else if (
+          eventType === "deck.setSyncModeFailed" ||
+          eventType === "deck.enableSyncFailed" ||
+          eventType === "deck.disableSyncFailed"
+        ) {
+          log(`❌ Deck ${msg.deck} sync operation failed: ${msg.error}`, 'error');
+        }
+
+        // Mixer changes
+        else if (eventType === "mixerChannelFaderChanged") {
+          log(
+            `🎚️ Channel fader ${msg.deck}: ${(msg.level * 100).toFixed(0)}%`,
+            "info"
+          );
+        } else if (eventType === "mixerCrossfaderChanged") {
+          log(`🎛️ Crossfader: ${msg.position.toFixed(2)}`, "info");
+        } else if (eventType === "mixerMasterGainChanged") {
+          log(`🔊 Master gain: ${(msg.gain * 100).toFixed(0)}%`, "info");
+        } else if (eventType === "mixerLimiterChanged") {
+          const state = msg.enabled ? "ON 🔴" : "OFF";
+          log(`🛡️ Limiter: ${state}`, "info");
+        } else if (eventType === "mixerCrossfaderCurveChanged") {
+          log(`📊 Crossfader curve: ${msg.curve}`, "info");
+        } else if (eventType === "mixerCrossfaderCurveFailed") {
+          log(`❌ Crossfader curve failed: ${msg.error}`, "error");
+        } else if (eventType === "mixerCrossfaderAssignmentChanged") {
+          log(
+            `🎛️ Deck ${msg.deck} crossfader assignment: ${msg.assignment}`,
+            "info"
+          );
+          if (!deckInfo[msg.deck]) deckInfo[msg.deck] = {};
+          deckInfo[msg.deck].assignment = msg.assignment;
+          updateAssignmentButtons(msg.deck);
+          updateDeckList();
+        } else if (eventType === "mixerCrossfaderAssignmentFailed") {
+          log(
+            `❌ Crossfader assignment failed for Deck ${msg.deck}: ${msg.error}`,
+            "error"
+          );
+        }
+
+        // Deck management
+        else if (eventType === "deckAdded") {
+          log(`✅ Deck ${msg.deck} added (type: ${msg.type})`, "received");
+          if (!activeDecksList.includes(msg.deck)) {
+            activeDecksList.push(msg.deck);
+            if (!deckInfo[msg.deck]) {
+              deckInfo[msg.deck] = {
+                assignment: "none",
+                trackLoaded: false,
+                duration: 0,
+                state: "empty",
+                type: msg.type || "main",
+              };
+            }
+            createDeckPanel(msg.deck);
+            updateDeckList();
+          }
+        } else if (eventType === "deckAddFailed") {
+          log(`❌ Failed to add deck ${msg.deck}: ${msg.error}`, "error");
+        } else if (eventType === "deckRemoved") {
+          log(`✅ Deck ${msg.deck} removed`, "received");
+          const index = activeDecksList.indexOf(msg.deck);
+          if (index > -1) {
+            activeDecksList.splice(index, 1);
+            updateDeckList();
+          }
+        } else if (eventType === "deckRemoveFailed") {
+          log(`❌ Failed to remove deck ${msg.deck}: ${msg.error}`, "error");
+        }
+
+        // Unknown event
+        else {
+          log("◀ Event: " + JSON.stringify(msg, null, 2), "received");
+        }
+      }
+
+      // Apply initial state received from server
+      function applyInitialState(state) {
+        log("✨ Applying initial state to UI...", "info");
+
+        // Apply mixer state
+        if (state.mixer) {
+          const mixer = state.mixer;
+
+          // Crossfader
+          if (mixer.crossfaderPosition !== undefined) {
+            const slider = document.getElementById("crossfader");
+            if (slider) {
+              slider.value = mixer.crossfaderPosition;
+              updateCrossfaderDisplay(mixer.crossfaderPosition);
+            }
+          }
+
+          // Crossfader curve
+          if (mixer.crossfaderCurve) {
+            const select = document.getElementById("crossfaderCurve");
+            if (select) select.value = mixer.crossfaderCurve;
+          }
+
+          // Master gain
+          if (mixer.masterGain !== undefined) {
+            const slider = document.getElementById("masterGain");
+            if (slider) {
+              slider.value = mixer.masterGain;
+              document.getElementById("masterGain-value").textContent = mixer.masterGain.toFixed(2);
+            }
+          }
+
+          // Limiter
+          if (mixer.limiterEnabled !== undefined) {
+            const checkbox = document.getElementById("limiterToggle");
+            if (checkbox) {
+              checkbox.checked = mixer.limiterEnabled;
+              document.getElementById("limiterStatus").textContent = mixer.limiterEnabled ? "Enabled" : "Disabled";
+            }
+          }
+
+          // Headphone volume
+          if (mixer.headphoneVolume !== undefined) {
+            const slider = document.getElementById("headphoneVolume");
+            if (slider) {
+              slider.value = mixer.headphoneVolume;
+              document.getElementById("headphoneVolume-value").textContent = Math.round(mixer.headphoneVolume * 100) + "%";
+            }
+          }
+
+          // Cue mix
+          if (mixer.cueMix !== undefined) {
+            const slider = document.getElementById("cueMix");
+            if (slider) {
+              slider.value = mixer.cueMix;
+              updateCueMixDisplay(mixer.cueMix);
+            }
+          }
+        }
+
+        // Apply clock state
+        if (state.clock) {
+          const clock = state.clock;
+          updateClockDisplay(clock);
+        }
+
+        // Apply audio device state
+        if (state.audioDevice) {
+          const device = state.audioDevice;
+          const nameEl = document.getElementById("currentDeviceName");
+          if (nameEl && device.name) {
+            nameEl.textContent = device.name;
+          }
+        }
+
+        // Apply headphone device state
+        if (state.headphoneDevice) {
+          const device = state.headphoneDevice;
+          const nameEl = document.getElementById("currentHeadphoneName");
+          if (nameEl && device.name) {
+            nameEl.textContent = device.name;
+          }
+        }
+
+        // Apply deck states
+        if (state.decks) {
+          for (const [deckId, deckState] of Object.entries(state.decks)) {
+            applyDeckState(deckId, deckState);
+          }
+        }
+
+        log("✅ UI synchronized with server state", "received");
+      }
+
+      // Apply individual deck state
+      function applyDeckState(deckId, deckState) {
+        // Update deckInfo
+        if (!deckInfo[deckId]) deckInfo[deckId] = {};
+        Object.assign(deckInfo[deckId], {
+          state: deckState.state,
+          trackLoaded: deckState.hasTrack,
+          duration: deckState.duration || 0,
+          position: deckState.position || 0,
+          positionFraction: deckState.positionFraction || 0,
+          trackPath: deckState.trackPath,
+          bpm: deckState.bpm,
+          key: deckState.key,
+          mode: deckState.mode,
+          assignment: deckState.crossfaderAssignment || "none"
+        });
+
+        // Update deck info display
+        updateDeckInfoDisplay(deckId);
+
+        // Update gain slider
+        if (deckState.gain !== undefined) {
+          const gainSlider = document.getElementById(`deck${deckId}-gain`);
+          if (gainSlider) {
+            gainSlider.value = deckState.gain;
+            document.getElementById(`deck${deckId}-gain-value`).textContent = deckState.gain.toFixed(2);
+          }
+        }
+
+        // Update tempo controls
+        if (deckState.tempo !== undefined) {
+          const tempoSlider = document.getElementById(`deck${deckId}-tempo`);
+          if (tempoSlider) {
+            tempoSlider.value = deckState.tempo;
+            updateTempoDisplay(deckId, deckState.tempo);
+          }
+        }
+
+        if (deckState.tempoRange !== undefined) {
+          const rangeSelect = document.getElementById(`deck${deckId}-tempo-range`);
+          if (rangeSelect) rangeSelect.value = deckState.tempoRange;
+        }
+
+        if (deckState.masterTempoEnabled !== undefined) {
+          const checkbox = document.getElementById(`deck${deckId}-master-tempo`);
+          if (checkbox) checkbox.checked = deckState.masterTempoEnabled;
+          const label = document.getElementById(`deck${deckId}-master-tempo-label`);
+          if (label) {
+            label.textContent = `MT: ${deckState.masterTempoEnabled ? 'ON' : 'OFF'}`;
+            label.style.color = deckState.masterTempoEnabled ? '#ffa500' : '#888';
+          }
+        }
+
+        // Update BPM displays
+        if (deckState.bpm) {
+          const originalBPMEl = document.getElementById(`deck${deckId}-original-bpm`);
+          if (originalBPMEl) originalBPMEl.textContent = deckState.bpm.toFixed(1);
+        }
+        if (deckState.effectiveBPM) {
+          const effectiveBPMEl = document.getElementById(`deck${deckId}-effective-bpm`);
+          if (effectiveBPMEl) effectiveBPMEl.textContent = deckState.effectiveBPM.toFixed(1);
+        }
+
+        // Update EQ controls
+        if (deckState.eq) {
+          const eq = deckState.eq;
+
+          // EQ enabled
+          const eqCheckbox = document.getElementById(`deck${deckId}-eq-enabled`);
+          if (eqCheckbox) eqCheckbox.checked = eq.enabled;
+
+          // EQ gains
+          if (eq.lowGain !== undefined) {
+            const slider = document.getElementById(`deck${deckId}-low-gain`);
+            if (slider) {
+              slider.value = eq.lowGain;
+              updateEQGainDisplay(deckId, 'low', eq.lowGain);
+            }
+          }
+          if (eq.midGain !== undefined) {
+            const slider = document.getElementById(`deck${deckId}-mid-gain`);
+            if (slider) {
+              slider.value = eq.midGain;
+              updateEQGainDisplay(deckId, 'mid', eq.midGain);
+            }
+          }
+          if (eq.highGain !== undefined) {
+            const slider = document.getElementById(`deck${deckId}-high-gain`);
+            if (slider) {
+              slider.value = eq.highGain;
+              updateEQGainDisplay(deckId, 'high', eq.highGain);
+            }
+          }
+          if (eq.highMidGain !== undefined) {
+            const slider = document.getElementById(`deck${deckId}-highmid-gain`);
+            if (slider) {
+              slider.value = eq.highMidGain;
+              updateEQGainDisplay(deckId, 'highmid', eq.highMidGain);
+            }
+          }
+
+          // EQ kill buttons
+          if (eq.lowKill) {
+            const btn = document.getElementById(`deck${deckId}-low-kill`);
+            if (btn) btn.classList.add('active');
+          }
+          if (eq.midKill) {
+            const btn = document.getElementById(`deck${deckId}-mid-kill`);
+            if (btn) btn.classList.add('active');
+          }
+          if (eq.highKill) {
+            const btn = document.getElementById(`deck${deckId}-high-kill`);
+            if (btn) btn.classList.add('active');
+          }
+          if (eq.highMidKill) {
+            const btn = document.getElementById(`deck${deckId}-highmid-kill`);
+            if (btn) btn.classList.add('active');
+          }
+        }
+
+        // Update channel fader
+        if (deckState.channelFader !== undefined) {
+          const faderSlider = document.getElementById(`fader${deckId}`);
+          if (faderSlider) {
+            faderSlider.value = deckState.channelFader;
+            const valueEl = document.getElementById(`fader${deckId}-value`);
+            if (valueEl) valueEl.textContent = Math.round(deckState.channelFader * 100) + "%";
+          }
+        }
+
+        // Update crossfader assignment
+        if (deckState.crossfaderAssignment) {
+          updateAssignmentButtons(deckId);
+        }
+
+        // Update PFL state
+        if (deckState.pflEnabled !== undefined) {
+          updatePFLButton(deckId, deckState.pflEnabled);
+        }
+
+        // Update sync state (Phase 3.2)
+        if (deckState.sync) {
+          const syncEnabled = deckState.sync.enabled || false;
+          const syncMode = deckState.sync.mode || 'none';
+          updateSyncButton(deckId, syncEnabled, syncMode);
+        }
+      }
+
+      // Helper to update crossfader display
+      function updateCrossfaderDisplay(position) {
+        const valueEl = document.getElementById("crossfader-value");
+        if (valueEl) {
+          if (position < -0.8) {
+            valueEl.textContent = "Full A";
+          } else if (position > 0.8) {
+            valueEl.textContent = "Full B";
+          } else {
+            valueEl.textContent = "Center";
+          }
+        }
+      }
+
+      // Helper to update cue mix display
+      function updateCueMixDisplay(mix) {
+        const valueEl = document.getElementById("cueMix-value");
+        if (valueEl) {
+          if (mix < 0.2) {
+            valueEl.textContent = "100% Cue";
+          } else if (mix > 0.8) {
+            valueEl.textContent = "100% Master";
+          } else {
+            const cuePercent = Math.round((1 - mix) * 100);
+            const masterPercent = Math.round(mix * 100);
+            valueEl.textContent = `${cuePercent}% Cue / ${masterPercent}% Master`;
+          }
+        }
+      }
+
+      // Helper to update clock display
+      function updateClockDisplay(clock) {
+        if (clock.bpm !== undefined) {
+          const bpmEl = document.getElementById("clockBPM");
+          if (bpmEl) bpmEl.textContent = clock.bpm.toFixed(1);
+        }
+        if (clock.phase !== undefined) {
+          const phaseEl = document.getElementById("clockPhase");
+          if (phaseEl) phaseEl.textContent = clock.phase.toFixed(2);
+        }
+        if (clock.source) {
+          const sourceEl = document.getElementById("clockSource");
+          if (sourceEl) sourceEl.textContent = clock.source;
+        }
+        if (clock.masterDeckId !== undefined) {
+          const masterEl = document.getElementById("clockMasterDeck");
+          if (masterEl) masterEl.textContent = clock.masterDeckId || "None";
+        }
+        if (clock.ghostActive !== undefined) {
+          const ghostEl = document.getElementById("clockGhostActive");
+          if (ghostEl) ghostEl.textContent = clock.ghostActive ? "Yes" : "No";
+        }
+        if (clock.autoMasterEnabled !== undefined) {
+          const autoEl = document.getElementById("clockAutoMaster");
+          if (autoEl) autoEl.textContent = clock.autoMasterEnabled ? "Enabled" : "Disabled";
+        }
+      }
+
+      // Helper to update PFL button state
+      function updatePFLButton(deckId, enabled) {
+        const btn = document.getElementById(`deck${deckId}-pfl-btn`);
+        const indicator = document.getElementById(`deck${deckId}-pfl-indicator`);
+
+        if (btn) {
+          btn.textContent = enabled ? "PFL ON" : "PFL OFF";
+          if (enabled) {
+            btn.classList.add('active');
+          } else {
+            btn.classList.remove('active');
+          }
+        }
+
+        if (indicator) {
+          indicator.style.background = enabled ? "#44ff44" : "#555";
+          indicator.style.boxShadow = enabled ? "0 0 10px rgba(68, 255, 68, 0.8)" : "none";
+        }
+      }
+
+      //==========================================================================
+      // SYNC CONTROL FUNCTIONS (Phase 3.2)
+      //==========================================================================
+
+      // Track sync state for each deck
+      const syncState = {
+        A: { enabled: false, mode: 'none' },
+        B: { enabled: false, mode: 'none' }
+      };
+
+      // Update sync button visual state
+      function updateSyncButton(deckId, enabled, mode) {
+        const btn = document.getElementById(`deck${deckId}-sync-btn`);
+        const text = document.getElementById(`deck${deckId}-sync-text`);
+        const indicator = document.getElementById(`deck${deckId}-sync-indicator`);
+        const status = document.getElementById(`deck${deckId}-sync-status`);
+        const modeDisplay = document.getElementById(`deck${deckId}-sync-mode-display`);
+
+        if (!btn) return;
+
+        // Update state tracking
+        if (!syncState[deckId]) syncState[deckId] = {};
+        syncState[deckId].enabled = enabled;
+        syncState[deckId].mode = mode;
+
+        // Remove all sync classes
+        btn.classList.remove('sync-off', 'sync-bpm', 'sync-beat', 'sync-downbeat');
+
+        // Update button based on state
+        if (!enabled || mode === 'none') {
+          btn.classList.add('sync-off');
+          if (text) text.textContent = 'SYNC';
+          if (indicator) {
+            indicator.style.background = '#555';
+            indicator.style.boxShadow = 'none';
+          }
+        } else if (mode === 'bpm') {
+          btn.classList.add('sync-bpm');
+          if (text) text.textContent = 'BPM';
+          if (indicator) {
+            indicator.style.background = '#00d4ff';
+            indicator.style.boxShadow = '0 0 10px rgba(0, 212, 255, 0.8)';
+          }
+        } else if (mode === 'beat') {
+          btn.classList.add('sync-beat');
+          if (text) text.textContent = 'BEAT';
+          if (indicator) {
+            indicator.style.background = '#00ff88';
+            indicator.style.boxShadow = '0 0 10px rgba(0, 255, 136, 0.8)';
+          }
+        } else if (mode === 'downbeat') {
+          btn.classList.add('sync-downbeat');
+          if (text) text.textContent = 'PHRASE';
+          if (indicator) {
+            indicator.style.background = '#ffaa00';
+            indicator.style.boxShadow = '0 0 10px rgba(255, 170, 0, 0.8)';
+          }
+        }
+
+        // Update status text
+        if (status) {
+          status.textContent = enabled ? 'On' : 'Off';
+          status.style.color = enabled ? '#44ff44' : '#ff4444';
+        }
+
+        if (modeDisplay) {
+          const modeNames = { none: 'None', bpm: 'BPM', beat: 'Beat', downbeat: 'Downbeat' };
+          modeDisplay.textContent = modeNames[mode] || 'None';
+        }
+      }
+
+      // Cycle sync mode (for main button click)
+      function cycleSyncMode(deckId) {
+        const state = syncState[deckId] || { enabled: false, mode: 'none' };
+
+        if (!state.enabled) {
+          // Enable with BPM mode
+          setSyncMode(deckId, 'bpm');
+        } else {
+          // Cycle through modes or disable
+          const modes = ['bpm', 'beat', 'downbeat', 'none'];
+          const currentIndex = modes.indexOf(state.mode);
+          const nextMode = modes[(currentIndex + 1) % modes.length];
+
+          if (nextMode === 'none') {
+            disableSync(deckId);
+          } else {
+            setSyncMode(deckId, nextMode);
+          }
+        }
+      }
+
+      // Set specific sync mode
+      function setSyncMode(deckId, mode) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          log("❌ Not connected to server", "error");
+          return;
+        }
+
+        const cmd = {
+          command: "deck.setSyncMode",
+          deck: deckId,
+          mode: mode
+        };
+
+        ws.send(JSON.stringify(cmd));
+        log(`▶ Set sync mode: Deck ${deckId} → ${mode.toUpperCase()}`, "sent");
+      }
+
+      // Quick enable sync
+      function enableSync(deckId, mode = null) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          log("❌ Not connected to server", "error");
+          return;
+        }
+
+        const cmd = {
+          command: "deck.enableSync",
+          deck: deckId
+        };
+
+        if (mode) {
+          cmd.mode = mode;
+        }
+
+        ws.send(JSON.stringify(cmd));
+        log(`▶ Enable sync: Deck ${deckId}`, "sent");
+      }
+
+      // Disable sync
+      function disableSync(deckId) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          log("❌ Not connected to server", "error");
+          return;
+        }
+
+        const cmd = {
+          command: "deck.disableSync",
+          deck: deckId
+        };
+
+        ws.send(JSON.stringify(cmd));
+        log(`▶ Disable sync: Deck ${deckId}`, "sent");
+      }
+
+      // Query sync state
+      function getSyncState(deckId) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          log("❌ Not connected to server", "error");
+          return;
+        }
+
+        const cmd = {
+          command: "deck.getSyncState",
+          deck: deckId
+        };
+
+        ws.send(JSON.stringify(cmd));
+        log(`▶ Get sync state: Deck ${deckId}`, "sent");
+      }
+
+      // Flash sync button for beat/downbeat indication
+      function flashSyncButton(deckId) {
+        const btn = document.getElementById(`deck${deckId}-sync-btn`);
+        if (btn && (btn.classList.contains('sync-beat') || btn.classList.contains('sync-downbeat'))) {
+          btn.classList.add('flash');
+          setTimeout(() => btn.classList.remove('flash'), 300);
+        }
+      }
+
+      function connect() {
+        const url = document.getElementById("wsUrl").value;
+        log("Connecting to " + url + "...", "info");
+
+        try {
+          ws = new WebSocket(url);
+
+          ws.onopen = function () {
+            log("✅ Connected to Mismo DJ!", "received");
+            document
+              .getElementById("statusIndicator")
+              .classList.add("connected");
+            document.getElementById("statusText").textContent = "Connected";
+            document.getElementById("connectBtn").disabled = true;
+            document.getElementById("disconnectBtn").disabled = false;
+
+            // Request initial state immediately after connection
+            log("📡 Requesting initial state...", "info");
+            sendCommand({ command: "getState" });
+          };
+
+          ws.onmessage = function (event) {
+            const msg = JSON.parse(event.data);
+
+            // Handle different message types
+            if (msg.event) {
+              handleEvent(msg);
+            } else {
+              // Generic message (like command queued)
+              log("◀ Received: " + JSON.stringify(msg, null, 2), "received");
+            }
+          };
+
+          ws.onerror = function (error) {
+            log("❌ WebSocket error: " + error, "error");
+          };
+
+          ws.onclose = function () {
+            log("Disconnected from server", "error");
+            document
+              .getElementById("statusIndicator")
+              .classList.remove("connected");
+            document.getElementById("statusText").textContent = "Disconnected";
+            document.getElementById("connectBtn").disabled = false;
+            document.getElementById("disconnectBtn").disabled = true;
+            ws = null;
+          };
+        } catch (error) {
+          log("❌ Connection failed: " + error.message, "error");
+        }
+      }
+
+      function disconnect() {
+        if (ws) {
+          ws.close();
+          ws = null;
+        }
+      }
+
+      function sendCommand(command) {
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+          log("❌ Not connected! Please connect first.", "error");
+          return false;
+        }
+
+        const json = JSON.stringify(command);
+        ws.send(json);
+        log("▶ Sent: " + JSON.stringify(command, null, 2), "sent");
+        return true;
+      }
+
+      function log(message, type = "info") {
+        const logContainer = document.getElementById("logContainer");
+        const entry = document.createElement("div");
+        entry.className = "log-entry " + type;
+
+        const timestamp = new Date().toLocaleTimeString();
+        entry.innerHTML = `<span class="timestamp">[${timestamp}]</span>${message}`;
+
+        logContainer.appendChild(entry);
+        logContainer.scrollTop = logContainer.scrollHeight;
+      }
+
+      function clearLog() {
+        document.getElementById("logContainer").innerHTML = "";
+        log("Log cleared", "info");
+      }
+
+      // Update deck info display
+      function updateDeckInfoDisplay(deckId) {
+        const info = deckInfo[deckId];
+        if (!info) return;
+
+        const stateEl = document.getElementById(`deck${deckId}-state`);
+        const durationEl = document.getElementById(`deck${deckId}-duration`);
+        const positionEl = document.getElementById(`deck${deckId}-position`);
+        const bpmEl = document.getElementById(`deck${deckId}-bpm`);
+        const bpmRowEl = document.getElementById(`deck${deckId}-bpm-row`);
+        const keyEl = document.getElementById(`deck${deckId}-key`);
+        const keyRowEl = document.getElementById(`deck${deckId}-key-row`);
+
+        if (stateEl) {
+          const stateMap = {
+            empty: "Empty",
+            stopped: "Stopped",
+            playing: "▶️ Playing",
+            paused: "⏸️ Paused",
+          };
+          stateEl.textContent = stateMap[info.state] || "Unknown";
+        }
+
+        if (durationEl && info.duration) {
+          durationEl.textContent = `${info.duration.toFixed(2)}s`;
+        }
+
+        if (positionEl && info.position !== undefined) {
+          const mins = Math.floor(info.position / 60);
+          const secs = (info.position % 60).toFixed(1);
+          const durationMins = Math.floor(info.duration / 60);
+          const durationSecs = (info.duration % 60).toFixed(0);
+          positionEl.textContent = `${mins}:${secs.padStart(
+            4,
+            "0"
+          )} / ${durationMins}:${durationSecs.padStart(2, "0")}`;
+
+          // Show percentage if available
+          if (info.positionFraction !== undefined) {
+            const percentage = (info.positionFraction * 100).toFixed(1);
+            positionEl.textContent += ` (${percentage}%)`;
+          }
+        }
+
+        // Update BPM display (Phase 3.15)
+        if (bpmEl && bpmRowEl) {
+          if (info.bpm) {
+            bpmEl.textContent = info.bpm.toFixed(2);
+            bpmRowEl.style.display = "flex";
+          } else {
+            bpmRowEl.style.display = "none";
+          }
+        }
+
+        // Update Key display (Phase 3.15)
+        if (keyEl && keyRowEl) {
+          if (info.key) {
+            let keyText = info.key;
+            if (info.mode) keyText += ` (${info.mode})`;
+            keyEl.textContent = keyText;
+            keyRowEl.style.display = "flex";
+          } else {
+            keyRowEl.style.display = "none";
+          }
+        }
+      }
+
+      // Set crossfader assignment
+      function setCrossfaderAssignment(deckId, assignment) {
+        sendCommand({
+          command: "mixer.setCrossfaderAssignment",
+          deck: deckId,
+          assignment: assignment,
+        });
+      }
+
+      // Deck Commands
+      function loadTrack(deck) {
+        const path = document.getElementById(`deck${deck}-path`).value;
+        if (!path) {
+          log(`❌ Please enter a file path for Deck ${deck}`, "error");
+          return;
+        }
+
+        sendCommand({
+          command: "deck.load",
+          deck: deck,
+          filePath: path,
+        });
+      }
+
+      function loadTrackById(deck) {
+        const trackId = document.getElementById(`deck${deck}-trackId`).value;
+        if (!trackId) {
+          log(`❌ Please enter a track ID for Deck ${deck}`, "error");
+          return;
+        }
+
+        log(`🆔 Loading track ID ${trackId} on Deck ${deck}...`, "info");
+        sendCommand({
+          command: "deck.loadById",
+          deck: deck,
+          id: trackId,
+        });
+      }
+
+      function unloadTrack(deck) {
+        sendCommand({
+          command: "deck.unload",
+          deck: deck,
+        });
+      }
+
+      function playDeck(deck) {
+        sendCommand({
+          command: "deck.play",
+          deck: deck,
+        });
+      }
+
+      function pauseDeck(deck) {
+        sendCommand({
+          command: "deck.pause",
+          deck: deck,
+        });
+      }
+
+      function stopDeck(deck) {
+        sendCommand({
+          command: "deck.stop",
+          deck: deck,
+        });
+      }
+
+      function seekDeck(deck) {
+        const position = parseFloat(
+          document.getElementById(`deck${deck}-seek`).value
+        );
+        sendCommand({
+          command: "deck.seek",
+          deck: deck,
+          position: position,
+        });
+      }
+
+      function updateDeckGain(deck, value) {
+        const valueEl = document.getElementById(`deck${deck}-gain-value`);
+        if (valueEl) {
+          valueEl.textContent = parseFloat(value).toFixed(2);
+        }
+      }
+
+      function sendDeckGain(deck, value) {
+        sendCommand({
+          command: "deck.setGain",
+          deck: deck,
+          gain: parseFloat(value),
+        });
+      }
+
+      function updateSeekPosition(deck, value) {
+        const valueEl = document.getElementById(`deck${deck}-seek-value`);
+        if (valueEl) {
+          valueEl.textContent = parseFloat(value).toFixed(1) + "s";
+        }
+      }
+
+      // Mixer Commands
+      function updateChannelFader(deck, value) {
+        const percentage = Math.round(parseFloat(value) * 100);
+        document.getElementById(`fader${deck}-value`).textContent =
+          percentage + "%";
+      }
+
+      document.getElementById("faderA").addEventListener("change", function () {
+        sendCommand({
+          command: "mixer.setChannelFader",
+          deck: "A",
+          level: parseFloat(this.value),
+        });
+      });
+
+      document.getElementById("faderB").addEventListener("change", function () {
+        sendCommand({
+          command: "mixer.setChannelFader",
+          deck: "B",
+          level: parseFloat(this.value),
+        });
+      });
+
+      function updateMasterGain(value) {
+        document.getElementById("masterGain-value").textContent =
+          parseFloat(value).toFixed(2);
+      }
+
+      document
+        .getElementById("masterGain")
+        .addEventListener("change", function () {
+          sendCommand({
+            command: "mixer.setMasterGain",
+            gain: parseFloat(this.value),
+          });
+        });
+
+      function updateCrossfader(value) {
+        const val = parseFloat(value);
+        let displayText;
+        if (val < -0.3) {
+          displayText = `◀️ A (${Math.abs(val).toFixed(2)})`;
+        } else if (val > 0.3) {
+          displayText = `B (${val.toFixed(2)}) ▶️`;
+        } else {
+          displayText = "Center";
+        }
+        document.getElementById("crossfader-value").textContent = displayText;
+      }
+
+      document
+        .getElementById("crossfader")
+        .addEventListener("change", function () {
+          sendCommand({
+            command: "mixer.setCrossfader",
+            position: parseFloat(this.value),
+          });
+        });
+
+      function updateCrossfaderCurve(curve) {
+        sendCommand({
+          command: "mixer.setCrossfaderCurve",
+          curve: curve,
+        });
+      }
+
+      function updateLimiter(enabled) {
+        document.getElementById("limiterStatus").textContent = enabled
+          ? "Enabled"
+          : "Disabled";
+        sendCommand({
+          command: "mixer.setLimiter",
+          enabled: enabled,
+        });
+      }
+
+      // Deck Management
+      function addDeck() {
+        const deckId = document.getElementById("newDeckId").value.trim();
+        const deckType = document.getElementById("newDeckType").value;
+
+        if (!deckId) {
+          log("❌ Please enter a deck ID", "error");
+          return;
+        }
+
+        if (activeDecksList.includes(deckId)) {
+          log(`❌ Deck ${deckId} already exists!`, "error");
+          return;
+        }
+
+        // Initialize deck info
+        deckInfo[deckId] = {
+          assignment: "none",
+          trackLoaded: false,
+          duration: 0,
+          state: "empty",
+          type: deckType,
+        };
+
+        sendCommand({
+          command: "mixer.addDeck",
+          deck: deckId,
+          type: deckType,
+        });
+
+        document.getElementById("newDeckId").value = "";
+      }
+
+      function removeDeck(deckId) {
+        if (deckId === "A" || deckId === "B") {
+          log(`⚠️ Cannot remove main decks A or B`, "error");
+          return;
+        }
+
+        sendCommand({
+          command: "mixer.removeDeck",
+          deck: deckId,
+        });
+
+        // Remove from local state
+        activeDecksList = activeDecksList.filter((id) => id !== deckId);
+        delete deckInfo[deckId];
+
+        // Remove the panel
+        const panel = document.getElementById(`deck-panel-${deckId}`);
+        if (panel) {
+          panel.remove();
+        }
+
+        updateDeckList();
+      }
+
+      // Keyboard shortcuts
+      document.addEventListener("keydown", function (e) {
+        // Space bar: Play/Pause Deck A
+        if (e.code === "Space" && e.target.tagName !== "INPUT") {
+          e.preventDefault();
+          playDeck("A");
+        }
+        // P: Play Deck B
+        if (e.key === "p" && e.target.tagName !== "INPUT") {
+          playDeck("B");
+        }
+      });
+
+      //==========================================================================
+      // EQ Functions
+      //==========================================================================
+
+      // Global EQ state
+      let eqBandCount = 3; // 3 or 4
+      let eqKillStates = {}; // Track kill button states per deck
+
+      /**
+       * Update EQ band count (3 or 4 bands)
+       */
+      function updateEQBandCount(count) {
+        eqBandCount = parseInt(count);
+        log(`Setting EQ band count to ${eqBandCount}`, "info");
+
+        // Show/hide 4-band frequency control
+        const highMidFreqGroup = document.getElementById(
+          "lowMidHighMidFreqGroup"
+        );
+        if (highMidFreqGroup) {
+          highMidFreqGroup.style.display = eqBandCount === 4 ? "block" : "none";
+        }
+
+        // Show/hide High-Mid band for all decks
+        activeDecksList.forEach((deckId) => {
+          const highMidBand = document.getElementById(
+            `deck${deckId}-highmid-band`
+          );
+          if (highMidBand) {
+            highMidBand.style.display = eqBandCount === 4 ? "block" : "none";
+          }
+
+          // Send command to backend
+          sendCommand({
+            command: "deck.setEQBandCount",
+            deck: deckId,
+            count: eqBandCount,
+          });
+        });
+      }
+
+      /**
+       * Update crossover frequency
+       */
+      function updateCrossoverFrequency(type, frequency) {
+        const freq = parseFloat(frequency);
+        log(`Setting ${type} crossover frequency to ${freq} Hz`, "info");
+
+        // Apply to all decks
+        activeDecksList.forEach((deckId) => {
+          let command = "";
+          if (type === "lowMid") {
+            command = "deck.setEQLowMidFrequency";
+          } else if (type === "lowMidHighMid") {
+            command = "deck.setEQLowMidHighMidFrequency";
+          } else if (type === "midHigh") {
+            command = "deck.setEQMidHighFrequency";
+          }
+
+          if (command) {
+            sendCommand({
+              command: command,
+              deck: deckId,
+              frequency: freq,
+            });
+          }
+        });
+      }
+
+      /**
+       * Toggle EQ on/off for a deck
+       */
+      function toggleEQ(deckId, enabled) {
+        log(
+          `${enabled ? "Enabling" : "Disabling"} EQ for Deck ${deckId}`,
+          "info"
+        );
+        sendCommand({
+          command: "deck.setEQEnabled",
+          deck: deckId,
+          enabled: enabled,
+        });
+      }
+
+      /**
+       * Update EQ gain display
+       */
+      function updateEQGainDisplay(deckId, band, gainDB) {
+        const valueEl = document.getElementById(
+          `deck${deckId}-${band}-gain-value`
+        );
+        if (valueEl) {
+          valueEl.textContent = parseFloat(gainDB).toFixed(1) + " dB";
+        }
+      }
+
+      /**
+       * Send EQ gain command
+       */
+      function sendEQGain(deckId, band, gainDB) {
+        const gain = parseFloat(gainDB);
+        log(
+          `Setting Deck ${deckId} ${band} EQ to ${gain.toFixed(1)} dB`,
+          "info"
+        );
+
+        // Map band names to command format
+        const bandMap = {
+          low: "low",
+          mid: "mid",
+          highMid: "highMid",
+          high: "high",
+        };
+
+        sendCommand({
+          command: "deck.setEQGain",
+          deck: deckId,
+          band: bandMap[band],
+          gainDB: gain,
+        });
+      }
+
+      /**
+       * Toggle EQ kill switch
+       */
+      function toggleEQKill(deckId, band, button) {
+        // Initialize kill state tracking for this deck if needed
+        if (!eqKillStates[deckId]) {
+          eqKillStates[deckId] = {};
+        }
+
+        // Toggle the kill state
+        const currentState = eqKillStates[deckId][band] || false;
+        const newState = !currentState;
+        eqKillStates[deckId][band] = newState;
+
+        // Update button visual state
+        if (newState) {
+          button.classList.add("active");
+        } else {
+          button.classList.remove("active");
+        }
+
+        log(
+          `${
+            newState ? "Killing" : "Un-killing"
+          } ${band} band on Deck ${deckId}`,
+          "info"
+        );
+
+        // Map band names to command format
+        const bandMap = {
+          low: "low",
+          mid: "mid",
+          highMid: "highMid",
+          high: "high",
+        };
+
+        sendCommand({
+          command: "deck.setEQKill",
+          deck: deckId,
+          band: bandMap[band],
+          kill: newState,
+        });
+      }
+
+      //==========================================================================
+      // Tempo Control Functions (Phase 3.2)
+      //==========================================================================
+
+      /**
+       * Update tempo display (called on slider input)
+       */
+      function updateTempoDisplay(deckId, tempoRatio) {
+        const tempo = parseFloat(tempoRatio);
+        const percent = (tempo - 1.0) * 100.0;
+
+        const valueEl = document.getElementById(`deck${deckId}-tempo-value`);
+        if (valueEl) {
+          valueEl.textContent = (percent >= 0 ? '+' : '') + percent.toFixed(1) + '%';
+        }
+      }
+
+      /**
+       * Send tempo command to server
+       */
+      function sendTempo(deckId, tempoRatio) {
+        const tempo = parseFloat(tempoRatio);
+        log(`Setting Deck ${deckId} tempo to ${tempo.toFixed(3)} (${((tempo - 1.0) * 100).toFixed(1)}%)`, 'info');
+
+        sendCommand({
+          command: 'deck.setTempo',
+          deck: deckId,
+          tempo: tempo
+        });
+      }
+
+      /**
+       * Toggle Master Tempo (keylock)
+       */
+      function toggleMasterTempo(deckId, enabled) {
+        log(`${enabled ? 'Enabling' : 'Disabling'} Master Tempo (keylock) for Deck ${deckId}`, 'info');
+
+        const label = document.getElementById(`deck${deckId}-master-tempo-label`);
+        if (label) {
+          label.textContent = enabled ? 'MT: ON' : 'MT: OFF';
+          label.style.color = enabled ? '#ffa500' : '#888';
+        }
+
+        sendCommand({
+          command: 'deck.setMasterTempo',
+          deck: deckId,
+          enabled: enabled
+        });
+      }
+
+      /**
+       * Set tempo range (±6%, ±10%, ±16%, Wide)
+       */
+      function setTempoRange(deckId, rangeValue) {
+        const rangeInt = parseInt(rangeValue);
+        const rangeNames = ['±6%', '±10%', '±16%', 'Wide (±100%)'];
+        const rangeConfigs = [
+          { min: 0.94, max: 1.06 },   // ±6%
+          { min: 0.90, max: 1.10 },   // ±10%
+          { min: 0.84, max: 1.16 },   // ±16%
+          { min: 0.50, max: 2.00 }    // Wide
+        ];
+
+        log(`Setting Deck ${deckId} tempo range to ${rangeNames[rangeInt]}`, 'info');
+
+        // Update slider range
+        const slider = document.getElementById(`deck${deckId}-tempo`);
+        if (slider) {
+          const config = rangeConfigs[rangeInt];
+          slider.min = config.min;
+          slider.max = config.max;
+
+          // Update min/max labels
+          const minPercent = (config.min - 1.0) * 100;
+          const maxPercent = (config.max - 1.0) * 100;
+          document.getElementById(`deck${deckId}-tempo-min`).textContent = minPercent.toFixed(0) + '%';
+          document.getElementById(`deck${deckId}-tempo-max`).textContent = '+' + maxPercent.toFixed(0) + '%';
+        }
+
+        sendCommand({
+          command: 'deck.setTempoRange',
+          deck: deckId,
+          range: rangeInt
+        });
+      }
+
+      /**
+       * Reset tempo to 100% (1.0)
+       */
+      function resetTempo(deckId) {
+        log(`Resetting Deck ${deckId} tempo to 100%`, 'info');
+
+        const slider = document.getElementById(`deck${deckId}-tempo`);
+        if (slider) {
+          slider.value = 1.0;
+          updateTempoDisplay(deckId, 1.0);
+        }
+
+        sendCommand({
+          command: 'deck.setTempo',
+          deck: deckId,
+          tempo: 1.0
+        });
+      }
+
+      //==========================================================================
+      // Audio Device Management Functions
+      //==========================================================================
+
+      let availableDevices = [];
+      let currentDevice = "";
+
+      /**
+       * Refresh the list of available audio devices
+       */
+      function refreshAudioDevices() {
+        log("🔊 Requesting available audio devices...", "info");
+        sendCommand({
+          command: "audio.getDevices",
+        });
+
+        // Also get current device info
+        sendCommand({
+          command: "audio.getCurrentDevice",
+        });
+      }
+
+      /**
+       * Change the audio output device
+       */
+      function changeAudioDevice(deviceName) {
+        if (!deviceName || deviceName === "") {
+          log("⚠️ Please select a device", "error");
+          return;
+        }
+
+        if (deviceName === currentDevice) {
+          log(`ℹ️ Already using device: ${deviceName}`, "info");
+          return;
+        }
+
+        log(`🔊 Changing audio device to: ${deviceName}`, "info");
+        sendCommand({
+          command: "audio.setDevice",
+          deviceName: deviceName,
+        });
+      }
+
+      /**
+       * Update the device list dropdown
+       */
+      function updateDeviceList(devices) {
+        const select = document.getElementById("audioDeviceSelect");
+        select.innerHTML = "";
+
+        if (!devices || devices.length === 0) {
+          const option = document.createElement("option");
+          option.value = "";
+          option.textContent = "No devices found";
+          select.appendChild(option);
+          return;
+        }
+
+        // Add all devices
+        devices.forEach((device) => {
+          const option = document.createElement("option");
+          option.value = device;
+          option.textContent = device;
+
+          // Mark current device
+          if (device === currentDevice) {
+            option.selected = true;
+            option.textContent += " (current)";
+          }
+
+          select.appendChild(option);
+        });
+
+        log(`✅ Found ${devices.length} audio output device(s)`, "received");
+      }
+
+      /**
+       * Update current device display
+       */
+      function updateCurrentDeviceDisplay(deviceName, deviceInfo) {
+        currentDevice = deviceName;
+
+        const currentDeviceEl = document.getElementById("currentDeviceName");
+        if (currentDeviceEl) {
+          currentDeviceEl.textContent = deviceName || "Unknown";
+        }
+
+        // Update device info panel
+        if (deviceInfo) {
+          const infoPanelEl = document.getElementById("deviceInfoPanel");
+          const infoContentEl = document.getElementById("deviceInfoContent");
+
+          if (infoPanelEl && infoContentEl) {
+            infoPanelEl.style.display = "block";
+
+            let infoHtml = "";
+            if (deviceInfo.sampleRate)
+              infoHtml += `Sample Rate: ${deviceInfo.sampleRate} Hz<br>`;
+            if (deviceInfo.bufferSize)
+              infoHtml += `Buffer Size: ${deviceInfo.bufferSize} samples<br>`;
+            if (deviceInfo.outputChannels)
+              infoHtml += `Output Channels: ${deviceInfo.outputChannels}<br>`;
+            if (deviceInfo.typeName)
+              infoHtml += `Device Type: ${deviceInfo.typeName}<br>`;
+
+            infoContentEl.innerHTML = infoHtml;
+          }
+        }
+
+        log(`✅ Current audio device: ${deviceName}`, "received");
+      }
+
+      // Add device management event handlers to handleEvent function
+      const originalHandleEvent = handleEvent;
+      handleEvent = function (msg) {
+        const eventType = msg.event;
+
+        // Audio device events
+        if (eventType === "audioDevicesList") {
+          availableDevices = msg.devices || [];
+          updateDeviceList(availableDevices);
+          return;
+        } else if (eventType === "currentAudioDevice") {
+          updateCurrentDeviceDisplay(msg.deviceName, msg.deviceInfo);
+          return;
+        } else if (eventType === "audioDeviceChanged") {
+          log(
+            `✅ Audio device changed successfully to: ${msg.deviceName}`,
+            "received"
+          );
+          updateCurrentDeviceDisplay(msg.deviceName, msg.deviceInfo);
+
+          // Refresh the device list to update selection
+          if (availableDevices.length > 0) {
+            updateDeviceList(availableDevices);
+          }
+          return;
+        } else if (eventType === "audioDeviceChangeFailed") {
+          log(`❌ Failed to change audio device: ${msg.error}`, "error");
+          return;
+        }
+
+        // Call original handler for other events
+        originalHandleEvent(msg);
+      };
+
+      // Auto-load devices on connect
+      const originalConnect = connect;
+      connect = function () {
+        originalConnect();
+
+        // Wait a bit for connection to establish, then load devices
+        setTimeout(() => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            refreshAudioDevices();
+          }
+        }, 500);
+      };
+
+      //==========================================================================
+      // PFL (Pre-Fader Listen) Functions
+      //==========================================================================
+
+      // Track PFL state for each deck
+      let pflStates = {};
+
+      /**
+       * Toggle PFL for a deck
+       */
+      function togglePFL(deckId) {
+        const currentState = pflStates[deckId] || false;
+        const newState = !currentState;
+        pflStates[deckId] = newState;
+
+        // Update button and indicator
+        updatePFLUI(deckId, newState);
+
+        // Send command
+        log(
+          `${newState ? "Enabling" : "Disabling"} PFL on Deck ${deckId}`,
+          "info"
+        );
+        sendCommand({
+          command: "pfl.setDeck",
+          deck: deckId,
+          enabled: newState,
+        });
+      }
+
+      /**
+       * Update PFL UI elements
+       */
+      function updatePFLUI(deckId, enabled) {
+        const btn = document.getElementById(`deck${deckId}-pfl-btn`);
+        const indicator = document.getElementById(
+          `deck${deckId}-pfl-indicator`
+        );
+
+        if (btn) {
+          if (enabled) {
+            btn.classList.add("active");
+            btn.textContent = "PFL ON";
+          } else {
+            btn.classList.remove("active");
+            btn.textContent = "PFL OFF";
+          }
+        }
+
+        if (indicator) {
+          if (enabled) {
+            indicator.style.background = "#44ff44";
+            indicator.style.boxShadow = "0 0 15px rgba(68, 255, 68, 0.8)";
+          } else {
+            indicator.style.background = "#555";
+            indicator.style.boxShadow = "none";
+          }
+        }
+      }
+
+      /**
+       * Update headphone volume
+       */
+      function updateHeadphoneVolume(value) {
+        const percentage = Math.round(parseFloat(value) * 100);
+        document.getElementById("headphoneVolume-value").textContent =
+          percentage + "%";
+      }
+
+      // Send command when slider released
+      document
+        .getElementById("headphoneVolume")
+        .addEventListener("change", function () {
+          const volume = parseFloat(this.value);
+          log(
+            `Setting headphone volume to ${(volume * 100).toFixed(0)}%`,
+            "info"
+          );
+          sendCommand({
+            command: "pfl.setVolume",
+            volume: volume,
+          });
+        });
+
+      /**
+       * Update cue/mix control
+       */
+      function updateCueMix(value) {
+        const val = parseFloat(value);
+        let label;
+        const cuePercent = Math.round((1 - val) * 100);
+        const masterPercent = Math.round(val * 100);
+
+        if (val < 0.05) {
+          label = "100% Cue";
+        } else if (val > 0.95) {
+          label = "100% Master";
+        } else {
+          label = `${cuePercent}% Cue / ${masterPercent}% Master`;
+        }
+
+        document.getElementById("cueMix-value").textContent = label;
+      }
+
+      // Send command when slider released
+      document.getElementById("cueMix").addEventListener("change", function () {
+        const mix = parseFloat(this.value);
+        log(
+          `Setting cue/mix to ${mix.toFixed(2)} (0=full cue, 1=full master)`,
+          "info"
+        );
+        sendCommand({
+          command: "pfl.setCueMix",
+          mix: mix,
+        });
+      });
+
+      // Handle PFL-related events
+      const originalHandleEvent2 = handleEvent;
+      handleEvent = function (msg) {
+        const eventType = msg.event;
+
+        // PFL events
+        if (eventType === "pflChanged") {
+          pflStates[msg.deck] = msg.enabled;
+          updatePFLUI(msg.deck, msg.enabled);
+          log(
+            `✅ PFL ${msg.enabled ? "enabled" : "disabled"} on Deck ${
+              msg.deck
+            }`,
+            "received"
+          );
+          return;
+        } else if (eventType === "pflChangeFailed") {
+          log(
+            `❌ Failed to change PFL on Deck ${msg.deck}: ${msg.error}`,
+            "error"
+          );
+          return;
+        } else if (eventType === "headphoneVolumeChanged") {
+          log(
+            `✅ Headphone volume set to ${(msg.volume * 100).toFixed(0)}%`,
+            "received"
+          );
+          return;
+        } else if (eventType === "cueMixChanged") {
+          const cuePercent = Math.round((1 - msg.mix) * 100);
+          const masterPercent = Math.round(msg.mix * 100);
+          log(
+            `✅ Cue/mix set to ${cuePercent}% cue / ${masterPercent}% master`,
+            "received"
+          );
+          return;
+        }
+
+        // Call original handler
+        originalHandleEvent2(msg);
+      };
+
+      //==========================================================================
+      // Headphone Device Management Functions
+      //==========================================================================
+
+      let availableHeadphoneDevices = [];
+      let currentHeadphoneDevice = "";
+
+      /**
+       * Refresh the list of available headphone devices
+       */
+      function refreshHeadphoneDevices() {
+        log("🎧 Requesting available headphone devices...", "info");
+        sendCommand({
+          command: "pfl.getDevices",
+        });
+
+        // Also get current headphone device info
+        sendCommand({
+          command: "pfl.getCurrentDevice",
+        });
+      }
+
+      /**
+       * Change the headphone output device
+       */
+      function changeHeadphoneDevice(deviceName) {
+        if (!deviceName || deviceName === "") {
+          log("⚠️ Please select a headphone device", "error");
+          return;
+        }
+
+        if (deviceName === currentHeadphoneDevice) {
+          log(`ℹ️ Already using headphone device: ${deviceName}`, "info");
+          return;
+        }
+
+        log(`🎧 Changing headphone device to: ${deviceName}`, "info");
+        sendCommand({
+          command: "pfl.setDevice",
+          deviceName: deviceName,
+        });
+      }
+
+      /**
+       * Update the headphone device list dropdown
+       */
+      function updateHeadphoneDeviceList(devices) {
+        const select = document.getElementById("headphoneDeviceSelect");
+        select.innerHTML = "";
+
+        if (!devices || devices.length === 0) {
+          const option = document.createElement("option");
+          option.value = "";
+          option.textContent = "No devices found";
+          select.appendChild(option);
+          return;
+        }
+
+        // Add all devices
+        devices.forEach((device) => {
+          const option = document.createElement("option");
+          option.value = device;
+          option.textContent = device;
+
+          // Mark current device
+          if (device === currentHeadphoneDevice) {
+            option.selected = true;
+            option.textContent += " (current)";
+          }
+
+          select.appendChild(option);
+        });
+
+        log(
+          `✅ Found ${devices.length} headphone output device(s)`,
+          "received"
+        );
+      }
+
+      /**
+       * Update current headphone device display
+       */
+      function updateCurrentHeadphoneDeviceDisplay(deviceName, deviceInfo) {
+        currentHeadphoneDevice = deviceName;
+
+        const currentDeviceEl = document.getElementById("currentHeadphoneName");
+        if (currentDeviceEl) {
+          currentDeviceEl.textContent = deviceName || "Unknown";
+        }
+
+        // Update device info panel
+        if (deviceInfo) {
+          const infoPanelEl = document.getElementById(
+            "headphoneDeviceInfoPanel"
+          );
+          const infoContentEl = document.getElementById(
+            "headphoneDeviceInfoContent"
+          );
+
+          if (infoPanelEl && infoContentEl) {
+            infoPanelEl.style.display = "block";
+
+            let infoHtml = "";
+            if (deviceInfo.sampleRate)
+              infoHtml += `Sample Rate: ${deviceInfo.sampleRate} Hz<br>`;
+            if (deviceInfo.bufferSize)
+              infoHtml += `Buffer Size: ${deviceInfo.bufferSize} samples<br>`;
+            if (deviceInfo.outputChannels)
+              infoHtml += `Output Channels: ${deviceInfo.outputChannels}<br>`;
+            if (deviceInfo.typeName)
+              infoHtml += `Device Type: ${deviceInfo.typeName}<br>`;
+
+            infoContentEl.innerHTML = infoHtml;
+          }
+        }
+
+        log(`✅ Current headphone device: ${deviceName}`, "received");
+      }
+
+      // Add headphone device management event handlers
+      const originalHandleEvent3 = handleEvent;
+      handleEvent = function (msg) {
+        const eventType = msg.event;
+
+        // Headphone device events
+        if (eventType === "headphoneDevicesList") {
+          availableHeadphoneDevices = msg.devices || [];
+          updateHeadphoneDeviceList(availableHeadphoneDevices);
+          return;
+        } else if (eventType === "currentHeadphoneDevice") {
+          updateCurrentHeadphoneDeviceDisplay(msg.deviceName, msg.deviceInfo);
+          return;
+        } else if (eventType === "headphoneDeviceChanged") {
+          log(
+            `✅ Headphone device changed successfully to: ${msg.deviceName}`,
+            "received"
+          );
+          updateCurrentHeadphoneDeviceDisplay(msg.deviceName, msg.deviceInfo);
+
+          // Refresh the device list to update selection
+          if (availableHeadphoneDevices.length > 0) {
+            updateHeadphoneDeviceList(availableHeadphoneDevices);
+          }
+          return;
+        } else if (eventType === "headphoneDeviceChangeFailed") {
+          log(`❌ Failed to change headphone device: ${msg.error}`, "error");
+          return;
+        }
+
+        // Call original handler for other events
+        originalHandleEvent3(msg);
+      };
+
+      // Auto-load headphone devices on connect
+      const originalConnect2 = connect;
+      connect = function () {
+        originalConnect2();
+
+        // Wait a bit for connection to establish, then load devices
+        setTimeout(() => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            refreshHeadphoneDevices();
+          }
+        }, 700); // Slightly after main audio devices
+      };
+
+      // ============================================================================
+      // PHASE 3.2: Master Clock Control Functions
+      // ============================================================================
+
+      /**
+       * Refresh clock state display
+       */
+      function refreshClockState() {
+        log("🕐 Requesting clock state...", "sent");
+        sendCommand({
+          command: "clock.getState",
+        });
+      }
+
+      /**
+       * Set manual master deck
+       */
+      function setMasterDeck(deckId) {
+        log(`🎯 Setting deck ${deckId} as master...`, "sent");
+        sendCommand({
+          command: "clock.setMasterDeck",
+          deck: deckId,
+        });
+      }
+
+      /**
+       * Clear master deck (re-enable auto mode)
+       */
+      function clearMasterDeck() {
+        log("🔄 Clearing master deck (re-enabling auto mode)...", "sent");
+        sendCommand({
+          command: "clock.clearMasterDeck",
+        });
+      }
+
+      /**
+       * Start ghost clock
+       */
+      function startGhostClock() {
+        const bpm = parseFloat(document.getElementById("ghostBPM").value);
+        const phase = parseFloat(document.getElementById("ghostPhase").value);
+
+        if (isNaN(bpm) || bpm < 20 || bpm > 300) {
+          log("❌ Invalid BPM (must be between 20 and 300)", "error");
+          return;
+        }
+
+        log(
+          `👻 Starting ghost clock (BPM: ${bpm}, Phase: ${phase})...`,
+          "sent"
+        );
+        sendCommand({
+          command: "clock.startGhost",
+          bpm: bpm,
+          phase: phase,
+        });
+      }
+
+      /**
+       * Stop ghost clock
+       */
+      function stopGhostClock() {
+        log("⏹️ Stopping ghost clock...", "sent");
+        sendCommand({
+          command: "clock.stopGhost",
+        });
+      }
+
+      /**
+       * Update ghost clock BPM
+       */
+      function setGhostBPM() {
+        const bpm = parseFloat(document.getElementById("ghostBPM").value);
+
+        if (isNaN(bpm) || bpm < 20 || bpm > 300) {
+          log("❌ Invalid BPM (must be between 20 and 300)", "error");
+          return;
+        }
+
+        log(`🎵 Setting ghost BPM to ${bpm}...`, "sent");
+        sendCommand({
+          command: "clock.setGhostBPM",
+          bpm: bpm,
+        });
+      }
+
+      /**
+       * Update clock state display
+       */
+      function updateClockDisplay(clockData) {
+        document.getElementById("clockBPM").textContent = clockData.isValid
+          ? clockData.bpm.toFixed(2)
+          : "--";
+
+        document.getElementById("clockPhase").textContent = clockData.isValid
+          ? clockData.phase.toFixed(2)
+          : "--";
+
+        document.getElementById("clockSource").textContent =
+          clockData.source || "--";
+
+        document.getElementById("clockMasterDeck").textContent =
+          clockData.masterDeckId ||
+          (clockData.ghostActive ? "Ghost Clock" : "None");
+
+        // Update auto-master indicator
+        const autoMasterEl = document.getElementById("clockAutoMaster");
+        if (autoMasterEl) {
+          if (clockData.isAutoMaster) {
+            autoMasterEl.textContent = "✅ AUTO";
+            autoMasterEl.style.color = "#44ff44";
+          } else {
+            autoMasterEl.textContent = "🎯 MANUAL";
+            autoMasterEl.style.color = "#ff9944";
+          }
+        }
+
+        // Update ghost active indicator
+        const ghostActiveEl = document.getElementById("clockGhostActive");
+        if (ghostActiveEl) {
+          if (clockData.ghostActive) {
+            ghostActiveEl.textContent = "👻 YES";
+            ghostActiveEl.style.color = "#44ff44";
+          } else {
+            ghostActiveEl.textContent = "NO";
+            ghostActiveEl.style.color = "#888";
+          }
+        }
+      }
+
+      // Add clock event handlers
+      const originalHandleEvent4 = handleEvent;
+      handleEvent = function (msg) {
+        const msgType = msg.type;
+        const eventType = msg.event;
+
+        // Broadcast event: clockStateChanged (automatic updates from server)
+        if (eventType === "clockStateChanged") {
+          if (msg.clock) {
+            updateClockDisplay(msg.clock);
+            // Only log significant changes to avoid spam
+            const logLevel = msg.clock.isValid ? "info" : "received";
+            log(
+              `🕐 Clock: ${msg.clock.source} @ ${msg.clock.bpm.toFixed(1)} BPM`,
+              logLevel
+            );
+          }
+          return;
+        }
+
+        // Response: clock.state (manual query response)
+        if (eventType === "clock.state") {
+          log(`✅ Clock state received`, "received");
+          if (msg.clock) {
+            updateClockDisplay(msg.clock);
+          }
+          return;
+        } else if (eventType === "clock.setMasterDeck") {
+          if (msg.success) {
+            log(
+              `✅ Master deck set to ${msg.deckId} (BPM: ${msg.bpm.toFixed(
+                2
+              )})`,
+              "received"
+            );
+            // Refresh clock state
+            setTimeout(refreshClockState, 100);
+          } else {
+            log(`❌ Failed to set master deck: ${msg.error}`, "error");
+          }
+          return;
+        } else if (eventType === "clock.clearMasterDeck") {
+          log("✅ Master deck cleared, auto-master re-enabled", "received");
+          setTimeout(refreshClockState, 100);
+          return;
+        } else if (eventType === "clock.startGhost") {
+          log(
+            `✅ Ghost clock started (BPM: ${msg.bpm.toFixed(2)})`,
+            "received"
+          );
+          setTimeout(refreshClockState, 100);
+          return;
+        } else if (eventType === "clock.stopGhost") {
+          log("✅ Ghost clock stopped", "received");
+          setTimeout(refreshClockState, 100);
+          return;
+        } else if (eventType === "clock.setGhostBPM") {
+          log(`✅ Ghost BPM set to ${msg.bpm.toFixed(2)}`, "received");
+          setTimeout(refreshClockState, 100);
+          return;
+        }
+
+        // Call original handler for other events
+        originalHandleEvent4(msg);
+      };
+
+      // Note: We now receive automatic clock state updates via clockStateChanged events
+      // so we don't need to poll every 2 seconds. The manual refresh button is still available.
+
+      // ============================================================================
+      // Track Browser Functions
+      // ============================================================================
+
+      let allTracks = [];
+      let filteredTracks = [];
+      const APP_SERVER_URL = 'http://localhost:3000'; // App server for track metadata
+
+      /**
+       * Convert musical key number to string (Camelot/Open Key notation)
+       */
+      function musicalKeyToString(keyNum, mode) {
+        if (keyNum === null || keyNum === undefined) return null;
+
+        // Key names in major and minor
+        const majorKeys = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+        const minorKeys = ['Am', 'Bbm', 'Bm', 'Cm', 'C#m', 'Dm', 'Ebm', 'Em', 'Fm', 'F#m', 'Gm', 'G#m'];
+
+        const keyIndex = keyNum % 12;
+        return mode === 1 ? majorKeys[keyIndex] : minorKeys[keyIndex];
+      }
+
+      /**
+       * Refresh track list from app server
+       */
+      async function refreshTrackList() {
+        const container = document.getElementById('trackListContainer');
+        container.innerHTML = '<div class="track-list-loading">Loading tracks...</div>';
+
+        try {
+          const response = await fetch(`${APP_SERVER_URL}/api/tracks?is_missing=false`);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          const responseData = await response.json();
+          // Handle both {tracks: [...]} and {success: true, data: [...]} formats
+          allTracks = responseData.tracks || responseData.data || [];
+          filteredTracks = [...allTracks];
+
+          log(`✅ Loaded ${allTracks.length} tracks from database`, 'received');
+          renderTrackList();
+        } catch (error) {
+          log(`❌ Failed to load tracks: ${error.message}`, 'error');
+          container.innerHTML = `<div class="track-list-loading" style="color: #ff4444;">Failed to load tracks: ${error.message}</div>`;
+        }
+      }
+
+      /**
+       * Render track list in UI
+       */
+      function renderTrackList() {
+        const container = document.getElementById('trackListContainer');
+
+        if (filteredTracks.length === 0) {
+          container.innerHTML = '<div class="track-list-loading">No tracks found</div>';
+          return;
+        }
+
+        container.innerHTML = '';
+
+        filteredTracks.forEach(track => {
+          const trackItem = createTrackItem(track);
+          container.appendChild(trackItem);
+        });
+      }
+
+      /**
+       * Create track item element
+       */
+      function createTrackItem(track) {
+        const item = document.createElement('div');
+        item.className = 'track-item';
+        item.dataset.trackId = track.id;
+
+        // Track header
+        const header = document.createElement('div');
+        header.className = 'track-item-header';
+
+        const titleSection = document.createElement('div');
+        const title = document.createElement('div');
+        title.className = 'track-item-title';
+        title.textContent = track.title || 'Unknown Title';
+
+        const artist = document.createElement('div');
+        artist.className = 'track-item-artist';
+        artist.textContent = track.artist || 'Unknown Artist';
+
+        titleSection.appendChild(title);
+        titleSection.appendChild(artist);
+
+        // Actions
+        const actions = document.createElement('div');
+        actions.className = 'track-item-actions';
+
+        activeDecksList.forEach(deckId => {
+          const btn = document.createElement('button');
+          btn.className = 'track-item-load-btn';
+          btn.textContent = `→ ${deckId}`;
+          btn.onclick = (e) => {
+            e.stopPropagation();
+            loadTrackToDeck(track, deckId);
+          };
+          actions.appendChild(btn);
+        });
+
+        header.appendChild(titleSection);
+        header.appendChild(actions);
+
+        // Track info
+        const info = document.createElement('div');
+        info.className = 'track-item-info';
+
+        if (track.album) {
+          const albumSpan = document.createElement('span');
+          albumSpan.textContent = `💿 ${track.album}`;
+          info.appendChild(albumSpan);
+        }
+
+        if (track.bpm) {
+          const bpmSpan = document.createElement('span');
+          bpmSpan.textContent = `🎵 ${track.bpm.toFixed(1)} BPM`;
+          info.appendChild(bpmSpan);
+        }
+
+        // Convert musical_key number to readable key string
+        const musicalKey = track.key || musicalKeyToString(track.musical_key, track.mode);
+        if (musicalKey) {
+          const keySpan = document.createElement('span');
+          keySpan.textContent = `🎹 ${musicalKey}`;
+          info.appendChild(keySpan);
+        }
+
+        const duration = track.duration || track.duration_seconds;
+        if (duration) {
+          const durationSpan = document.createElement('span');
+          const mins = Math.floor(duration / 60);
+          const secs = Math.floor(duration % 60);
+          durationSpan.textContent = `⏱️ ${mins}:${secs.toString().padStart(2, '0')}`;
+          info.appendChild(durationSpan);
+        }
+
+        item.appendChild(header);
+        item.appendChild(info);
+
+        // Waveform container (lazy load)
+        const waveformContainer = document.createElement('div');
+        waveformContainer.className = 'track-waveform-container';
+        waveformContainer.innerHTML = '<div class="track-waveform-loading">Click to load waveform</div>';
+        item.appendChild(waveformContainer);
+
+        // Load waveform on click
+        item.addEventListener('click', async () => {
+          if (!waveformContainer.querySelector('canvas')) {
+            await loadWaveform(track.id, waveformContainer);
+          }
+        });
+
+        return item;
+      }
+
+      /**
+       * Load waveform for a track
+       */
+      async function loadWaveform(trackId, container) {
+        try {
+          container.innerHTML = '<div class="track-waveform-loading">Loading waveform...</div>';
+
+          const response = await fetch(`${APP_SERVER_URL}/api/analysis/waveforms/${trackId}`);
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+
+          const data = await response.json();
+          const waveforms = data.waveforms || [];
+
+          if (waveforms.length === 0) {
+            container.innerHTML = '<div class="track-waveform-loading">No waveform data</div>';
+            return;
+          }
+
+          // Use the lowest zoom level (most detailed for overview)
+          const waveform = waveforms.reduce((prev, curr) =>
+            curr.zoom_level < prev.zoom_level ? curr : prev
+          );
+
+          // Create canvas and render
+          const canvas = document.createElement('canvas');
+          canvas.className = 'track-waveform-canvas';
+          container.innerHTML = '';
+          container.appendChild(canvas);
+
+          renderWaveform(canvas, waveform);
+        } catch (error) {
+          container.innerHTML = '<div class="track-waveform-loading" style="color: #ff4444;">Failed to load waveform</div>';
+          log(`❌ Failed to load waveform for track ${trackId}: ${error.message}`, 'error');
+        }
+      }
+
+      /**
+       * Render waveform on canvas
+       */
+      function renderWaveform(canvas, waveform) {
+        const ctx = canvas.getContext('2d');
+        const containerWidth = canvas.parentElement.offsetWidth;
+        const containerHeight = canvas.parentElement.offsetHeight;
+
+        canvas.width = containerWidth;
+        canvas.height = containerHeight;
+
+        // Clear canvas
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Get waveform data
+        const lowAmp = waveform.low_freq_amplitude || [];
+        const midAmp = waveform.mid_freq_amplitude || [];
+        const highAmp = waveform.high_freq_amplitude || [];
+
+        const numPixels = waveform.num_pixels || lowAmp.length;
+        if (numPixels === 0) return;
+
+        const barWidth = canvas.width / numPixels;
+        const centerY = canvas.height / 2;
+
+        // Draw waveform (low, mid, high stacked)
+        for (let i = 0; i < numPixels; i++) {
+          const x = i * barWidth;
+
+          // Normalize amplitudes (0-1 range)
+          const low = (lowAmp[i] || 0) / 255;
+          const mid = (midAmp[i] || 0) / 255;
+          const high = (highAmp[i] || 0) / 255;
+
+          // Calculate heights
+          const lowHeight = low * centerY * 0.8;
+          const midHeight = mid * centerY * 0.6;
+          const highHeight = high * centerY * 0.4;
+
+          // Draw low frequency (bass) - blue
+          ctx.fillStyle = 'rgba(0, 212, 255, 0.6)';
+          ctx.fillRect(x, centerY - lowHeight, barWidth - 1, lowHeight * 2);
+
+          // Draw mid frequency - cyan
+          ctx.fillStyle = 'rgba(0, 255, 136, 0.7)';
+          ctx.fillRect(x, centerY - midHeight, barWidth - 1, midHeight * 2);
+
+          // Draw high frequency (treble) - white
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+          ctx.fillRect(x, centerY - highHeight, barWidth - 1, highHeight * 2);
+        }
+
+        // Draw center line
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(0, centerY);
+        ctx.lineTo(canvas.width, centerY);
+        ctx.stroke();
+      }
+
+      /**
+       * Filter tracks by search query
+       */
+      function filterTracks(query) {
+        const lowerQuery = query.toLowerCase().trim();
+
+        if (!lowerQuery) {
+          filteredTracks = [...allTracks];
+        } else {
+          filteredTracks = allTracks.filter(track => {
+            const title = (track.title || '').toLowerCase();
+            const artist = (track.artist || '').toLowerCase();
+            const album = (track.album || '').toLowerCase();
+            return title.includes(lowerQuery) ||
+                   artist.includes(lowerQuery) ||
+                   album.includes(lowerQuery);
+          });
+        }
+
+        renderTrackList();
+        log(`🔍 Filtered to ${filteredTracks.length} tracks`, 'info');
+      }
+
+      /**
+       * Sort tracks
+       */
+      function sortTracks(sortBy) {
+        filteredTracks.sort((a, b) => {
+          if (sortBy === 'title') {
+            return (a.title || '').localeCompare(b.title || '');
+          } else if (sortBy === 'artist') {
+            return (a.artist || '').localeCompare(b.artist || '');
+          } else if (sortBy === 'bpm') {
+            return (a.bpm || 0) - (b.bpm || 0);
+          } else if (sortBy === 'key') {
+            return (a.key || '').localeCompare(b.key || '');
+          }
+          return 0;
+        });
+
+        renderTrackList();
+        log(`🔢 Sorted by ${sortBy}`, 'info');
+      }
+
+      /**
+       * Load track to deck
+       */
+      function loadTrackToDeck(track, deckId) {
+        if (!track.file_path) {
+          log(`❌ Track ${track.id} has no file path`, 'error');
+          return;
+        }
+
+        log(`📂 Loading "${track.title}" by ${track.artist} to Deck ${deckId}...`, 'info');
+
+        // Load by track ID (Phase 3.15 feature)
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          sendCommand({
+            command: 'deck.loadById',
+            deck: deckId,
+            id: track.id
+          });
+        } else {
+          log('❌ Not connected to audio server', 'error');
+        }
+      }
+
+      // Auto-refresh track list on connect
+      const originalConnect3 = connect;
+      connect = function () {
+        originalConnect3();
+
+        // Wait for connection, then load tracks
+        setTimeout(() => {
+          if (ws && ws.readyState === WebSocket.OPEN) {
+            refreshTrackList();
+          }
+        }, 1000);
+      };
+    </script>
+  </body>
+</html>
