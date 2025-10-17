@@ -50,6 +50,7 @@
     "joi": "^18.0.1",
     "music-metadata": "^11.9.0",
     "node-id3": "^0.2.9",
+    "rotating-file-stream": "^3.2.7",
     "winston": "^3.18.3",
     "ws": "^8.18.3",
     "xxhash-wasm": "^1.1.0"

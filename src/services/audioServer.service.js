@@ -1,7 +1,7 @@
 import { spawn } from 'child_process';
-import { createWriteStream } from 'fs';
 import { mkdir } from 'fs/promises';
 import { dirname } from 'path';
+import { createStream } from 'rotating-file-stream';
 import WebSocket from 'ws';
 import logger from '../utils/logger.js';
 
@@ -258,8 +258,13 @@ class AudioServerService {
       // Create logs directory if it doesn't exist
       await mkdir(dirname(this.logFilePath), { recursive: true });
 
-      // Create log stream
-      this.logStream = createWriteStream(this.logFilePath, { flags: 'a' });
+      // Create rotating log stream (10MB per file, keep 7 files like Winston)
+      this.logStream = createStream('audio_server.log', {
+        path: dirname(this.logFilePath),
+        size: '10M',      // Rotate at 10MB
+        maxFiles: 7,      // Keep 7 rotated files
+        compress: false,  // Don't compress old logs
+      });
       this.logStream.write(`\n\n=== Audio Server Started: ${new Date().toISOString()} ===\n\n`);
 
       logger.info(`Starting audio server: ${this.executablePath}`);

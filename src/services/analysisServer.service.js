@@ -1,7 +1,7 @@
 import { spawn } from 'child_process';
-import { createWriteStream } from 'fs';
 import { mkdir } from 'fs/promises';
 import { dirname } from 'path';
+import { createStream } from 'rotating-file-stream';
 import axios from 'axios';
 import logger from '../utils/logger.js';
 import { getAllDirectories } from './libraryDirectory.service.js';
@@ -202,8 +202,13 @@ class AnalysisServerService {
       // Create logs directory if it doesn't exist
       await mkdir(dirname(this.logFilePath), { recursive: true });
 
-      // Create log stream
-      this.logStream = createWriteStream(this.logFilePath, { flags: 'a' });
+      // Create rotating log stream (10MB per file, keep 7 files like Winston)
+      this.logStream = createStream('analysis.log', {
+        path: dirname(this.logFilePath),
+        size: '10M',      // Rotate at 10MB
+        maxFiles: 7,      // Keep 7 rotated files
+        compress: false,  // Don't compress old logs
+      });
       this.logStream.write(`\n\n=== Analysis Server Started: ${new Date().toISOString()} ===\n\n`);
 
       // Get allowed path prefixes from library directories
