@@ -174,11 +174,16 @@ GET    /api/tracks                             # List all tracks (paginated, fil
 GET    /api/tracks/search?q=query              # Search tracks
 GET    /api/tracks/stats                       # Get track statistics
 GET    /api/tracks/:id                         # Get single track
+GET    /api/tracks/:id/waveform?zoom={0-2}     # Get waveform data (optional zoom level)
+GET    /api/tracks/:id/verify                  # Verify track file exists
 POST   /api/tracks                             # Add new track manually
 PUT    /api/tracks/:id                         # Update track metadata
 DELETE /api/tracks/:id                         # Delete track from database
 POST   /api/tracks/:id/mark-missing            # Mark track as missing
 POST   /api/tracks/:id/mark-found              # Mark track as found
+POST   /api/tracks/:id/move                    # Move track file
+POST   /api/tracks/:id/rename                  # Rename track file
+DELETE /api/tracks/:id/file                    # Delete track file from disk
 ```
 
 **Query Parameters for GET /api/tracks:**
@@ -191,6 +196,12 @@ POST   /api/tracks/:id/mark-found              # Mark track as found
 - `library_id` - Filter by library directory
 - `is_missing` - Filter missing tracks (true/false)
 - `search` - Full-text search
+
+**Waveform Endpoint:**
+- `GET /api/tracks/:id/waveform?zoom=1` - Returns waveform at specific zoom level (0-2)
+- `GET /api/tracks/:id/waveform` - Returns all waveform zoom levels
+- Waveforms include 6 frequency bands (low/mid/high amplitude + intensity)
+- Uses hash-based deduplication (waveforms shared across duplicate tracks)
 
 ### Duplicates API ✅
 ```

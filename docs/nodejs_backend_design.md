@@ -597,6 +597,14 @@ GET    /api/tracks              - List all tracks (with pagination, filtering)
 GET    /api/tracks/search       - Search tracks by query parameter q
 GET    /api/tracks/stats        - Get track statistics (total, by genre, by key, etc.)
 GET    /api/tracks/:id          - Get single track by ID
+GET    /api/tracks/:id/waveform - Get all waveforms for a track (zoom levels 0-2)
+                                  Query param: zoom (optional, 0-2)
+                                  - Without zoom: returns all waveform levels
+                                  - With zoom: returns specific zoom level
+                                  Waveforms include 6 frequency bands:
+                                  low/mid/high_freq_amplitude and intensity
+                                  Uses hash-based deduplication for storage efficiency
+GET    /api/tracks/:id/verify   - Verify track file exists and is accessible
 POST   /api/tracks              - Add new track manually (validates file exists)
 PUT    /api/tracks/:id          - Update track metadata
 DELETE /api/tracks/:id          - Delete track from database (not disk)
@@ -608,7 +616,6 @@ POST   /api/tracks/:id/rename   - Rename track file
                                   Body: { newName }
 DELETE /api/tracks/:id/file     - Delete track file from disk (requires confirmation)
                                   Body: { confirm: true }
-GET    /api/tracks/:id/verify   - Verify track file exists and is accessible
 ```
 
 **Playlists** *(Not yet implemented)*
@@ -715,11 +722,9 @@ POST   /api/analysis/callback   - Receive results from Python (internal)
                                   Stages: basic_features, characteristics, genre, stems,
                                   segments, transitions, job_completed, job_failed, error
 
-# Waveforms
-GET    /api/analysis/waveforms/:trackId
-                                - Get all waveforms for a track
-GET    /api/analysis/waveforms/:trackId/:zoomLevel
-                                - Get waveform at specific zoom level (0-3)
+# Waveforms (NOTE: Waveform retrieval is now under /api/tracks/:id/waveform)
+# The Python server still generates waveforms and sends them via callback,
+# but clients should use the tracks endpoint to retrieve them.
 ```
 
 **Settings**
