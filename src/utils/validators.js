@@ -250,6 +250,11 @@ export const schemas = {
     keepMetadata: Joi.boolean().default(true),
     updatePlaylists: Joi.boolean().default(true),
   }),
+
+  // Waveform query
+  waveformQuery: Joi.object({
+    zoom: Joi.number().integer().min(0).max(2).optional(),
+  }),
 };
 
 /**

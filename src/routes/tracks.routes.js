@@ -1,6 +1,7 @@
 import express from 'express';
 import * as trackService from '../services/track.service.js';
 import * as fileOpsService from '../services/fileOperations.service.js';
+import * as waveformService from '../services/waveform.service.js';
 import logger from '../utils/logger.js';
 import { validate, schemas } from '../utils/validators.js';
 
@@ -458,6 +459,115 @@ router.get('/:id/verify', validate(schemas.trackId, 'params'), async (req, res) 
     res.status(500).json({
       success: false,
       error: 'Failed to verify track',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/tracks/:id/waveform
+ * Get waveform data for a track
+ *
+ * Query Parameters:
+ * - zoom: number (0-2, optional) - Specific zoom level to retrieve
+ *
+ * If zoom parameter is provided, returns waveform for that specific zoom level.
+ * If zoom parameter is omitted, returns all available waveforms for the track.
+ *
+ * Response formats:
+ * Single zoom level:
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "file_hash": "abc123...",
+ *     "zoom_level": 1,
+ *     "sample_rate": 44100,
+ *     "samples_per_pixel": 512,
+ *     "num_pixels": 1800,
+ *     "low_freq_amplitude": [...],
+ *     "low_freq_intensity": [...],
+ *     "mid_freq_amplitude": [...],
+ *     "mid_freq_intensity": [...],
+ *     "high_freq_amplitude": [...],
+ *     "high_freq_intensity": [...]
+ *   }
+ * }
+ *
+ * All zoom levels:
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "file_hash": "abc123...",
+ *     "waveforms": [
+ *       { zoom_level: 0, ... },
+ *       { zoom_level: 1, ... },
+ *       { zoom_level: 2, ... }
+ *     ]
+ *   }
+ * }
+ *
+ * Error Responses:
+ * - 404 Not Found: Track doesn't exist or has no waveform data
+ * - 400 Bad Request: Invalid zoom level (must be 0-2)
+ * - 500 Internal Server Error: Database error
+ */
+router.get('/:id/waveform', validate(schemas.trackId, 'params'), validate(schemas.waveformQuery, 'query'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { zoom } = req.query;
+
+    // Check if track exists
+    const track = trackService.getTrackById(id);
+    if (!track) {
+      return res.status(404).json({
+        success: false,
+        error: 'Track not found',
+        message: `Track with ID ${id} does not exist`,
+      });
+    }
+
+    // If zoom level specified, return single waveform
+    if (zoom !== undefined) {
+      const zoomLevel = parseInt(zoom);
+      const waveform = waveformService.getWaveform(id, zoomLevel);
+
+      if (!waveform) {
+        return res.status(404).json({
+          success: false,
+          error: 'Waveform not found',
+          message: `No waveform data available for track ${id} at zoom level ${zoomLevel}`,
+        });
+      }
+
+      res.json({
+        success: true,
+        data: waveform,
+      });
+    } else {
+      // Return all waveforms for this track
+      const waveforms = waveformService.getAllWaveforms(id);
+
+      if (!waveforms || waveforms.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Waveform not found',
+          message: `No waveform data available for track ${id}`,
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          file_hash: track.file_hash,
+          waveforms: waveforms,
+        },
+      });
+    }
+  } catch (error) {
+    logger.error(`Error getting waveform for track ${req.params.id}:`, error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get waveform',
       message: error.message,
     });
   }

@@ -592,17 +592,26 @@ GET /api/tracks/:id/file
 
 ```javascript
 GET    /api/tracks              - List all tracks (with pagination, filtering)
-GET    /api/tracks/:id          - Get single track
-POST   /api/tracks              - Add new track
+                                  Query params: artist, genre, bpm_min, bpm_max, key,
+                                  library_id, is_missing, search, page, limit
+GET    /api/tracks/search       - Search tracks by query parameter q
+GET    /api/tracks/stats        - Get track statistics (total, by genre, by key, etc.)
+GET    /api/tracks/:id          - Get single track by ID
+POST   /api/tracks              - Add new track manually (validates file exists)
 PUT    /api/tracks/:id          - Update track metadata
-DELETE /api/tracks/:id          - Delete track
-GET    /api/tracks/search       - Search tracks (q, artist, genre, bpm range, key)
-POST   /api/tracks/:id/move     - Move track to different location
+DELETE /api/tracks/:id          - Delete track from database (not disk)
+POST   /api/tracks/:id/mark-missing - Mark track as missing
+POST   /api/tracks/:id/mark-found   - Mark track as found (when media reconnects)
+POST   /api/tracks/:id/move     - Move track file to new location
+                                  Body: { newPath, library_directory_id }
 POST   /api/tracks/:id/rename   - Rename track file
-DELETE /api/tracks/:id/file     - Delete actual file
+                                  Body: { newName }
+DELETE /api/tracks/:id/file     - Delete track file from disk (requires confirmation)
+                                  Body: { confirm: true }
+GET    /api/tracks/:id/verify   - Verify track file exists and is accessible
 ```
 
-**Playlists**
+**Playlists** *(Not yet implemented)*
 
 ```javascript
 GET    /api/playlists           - List all playlists
@@ -619,52 +628,113 @@ PUT    /api/playlists/:id/tracks/reorder - Reorder tracks
 
 ```javascript
 GET    /api/library/directories           - List all library directories
+                                            Query params: is_active, is_available
+GET    /api/library/directories/:id       - Get single library directory by ID
 POST   /api/library/directories           - Add new library directory
+                                            Body: { path, name, settings }
 PUT    /api/library/directories/:id       - Update directory settings
-DELETE /api/library/directories/:id       - Remove directory (keep tracks)
-POST   /api/library/directories/:id/scan  - Scan specific directory
-GET    /api/library/directories/:id/stats - Get directory statistics
-GET    /api/library/directories/:id/browse?path=subdir - Browse directory contents
-POST   /api/library/directories/:id/cleanup - Remove missing tracks
+DELETE /api/library/directories/:id       - Remove directory
+                                            Query param: delete_tracks (boolean)
+POST   /api/library/directories/:id/check-availability
+                                          - Check if directory path is available
+POST   /api/library/directories/check-all-availability
+                                          - Check availability for all directories
+GET    /api/library/directories/:id/browse
+                                          - Browse subdirectories and tracks
+                                            Query param: path (relative path within library)
+POST   /api/library/directories/:id/cleanup
+                                          - Cleanup missing tracks
+                                            Body: { remove_missing_older_than_days,
+                                                   keep_playlists_intact, backup_metadata }
+POST   /api/library/directories/:id/restore
+                                          - Restore tracks when media reconnects
+GET    /api/library/directories/:id/missing
+                                          - Get missing tracks for a library directory
+GET    /api/library/directories/:id/missing/stats
+                                          - Get missing track statistics
+```
+
+**Scanning**
+
+```javascript
+POST   /api/scan/library/:id    - Start scanning a library directory
+                                  Body: { strategy: 'hybrid'|'fast'|'full',
+                                         priority: 'low'|'normal'|'high' }
+                                  Returns: 202 Accepted (async operation)
+GET    /api/scan/library/:id/status - Get scan status for a library directory
+GET    /api/scan/active         - Get all active scans
+DELETE /api/scan/library/:id    - Cancel an active scan
+```
+
+**File Watching**
+
+```javascript
+GET    /api/watcher/status      - Get status of all active file watchers
+POST   /api/watcher/start/:id   - Start watching a specific library directory
+POST   /api/watcher/stop/:id    - Stop watching a specific library directory
+POST   /api/watcher/start-all   - Start watching all active library directories
+POST   /api/watcher/stop-all    - Stop watching all library directories
 ```
 
 **Duplicate Management**
 
 ```javascript
-GET    /api/duplicates                   - List duplicate groups
-POST   /api/duplicates/:id/resolve       - Choose canonical version, merge metadata
-GET    /api/duplicates/:id/tracks        - Get all tracks in duplicate group
+GET    /api/duplicates          - List all duplicate groups (with pagination)
+                                  Query params: page, limit
+GET    /api/duplicates/stats    - Get duplicate statistics
+GET    /api/duplicates/:id      - Get duplicate group with all tracks
+POST   /api/duplicates/:id/resolve
+                                - Resolve duplicates by selecting canonical track
+                                  Body: { canonicalTrackId, deleteFiles,
+                                         keepMetadata, updatePlaylists }
+POST   /api/duplicates/scan     - Scan entire library for duplicates
 ```
 
-**Library**
+**Analysis Server**
 
 ```javascript
-GET    /api/library/stats       - Get library statistics
-POST   /api/library/import      - Import single file
-```
+# Server Management
+GET    /api/analysis/status     - Get analysis server status
+POST   /api/analysis/start      - Start the analysis server
+POST   /api/analysis/stop       - Stop the analysis server
+POST   /api/analysis/restart    - Restart the analysis server
+GET    /api/analysis/health     - Check if analysis server is healthy
 
-**Analysis**
+# Analysis Requests
+POST   /api/analysis/request    - Request analysis for a track
+                                  Body: { trackId, analysisTypes: [...], priority }
+                                  Analysis types: basic_features, characteristics,
+                                  genre, stems, segments, transitions
+GET    /api/analysis/jobs/:jobId - Get status of an analysis job
+DELETE /api/analysis/jobs/:jobId - Cancel an analysis job
+GET    /api/analysis/queue      - Get analysis queue status
 
-```javascript
-POST   /api/analysis/request    - Request analysis for track
-GET    /api/analysis/status/:jobId - Get analysis status
+# Callback (from Python server)
 POST   /api/analysis/callback   - Receive results from Python (internal)
-GET   /api/analysis/queue      - View analysis queue
+                                  Body: { jobId, trackId, stage, results, progress }
+                                  Stages: basic_features, characteristics, genre, stems,
+                                  segments, transitions, job_completed, job_failed, error
+
+# Waveforms
+GET    /api/analysis/waveforms/:trackId
+                                - Get all waveforms for a track
+GET    /api/analysis/waveforms/:trackId/:zoomLevel
+                                - Get waveform at specific zoom level (0-3)
 ```
 
 **Settings**
 
 ```javascript
 GET    /api/settings            - Get all settings
-GET    /api/settings/:key       - Get single setting
-PUT    /api/settings/:key       - Update setting
-```
-
-**Waveforms**
-
-```javascript
-GET    /api/tracks/:id/waveform?zoom=0  - Get waveform data
-POST   /api/tracks/:id/waveform         - Generate/update waveform
+                                  Query param: category (filter by category)
+GET    /api/settings/categories - Get all setting categories
+GET    /api/settings/:key       - Get single setting by key
+PUT    /api/settings/:key       - Update a single setting
+                                  Body: { value, type, category, description }
+                                  Types: string, int, float, bool, json
+PUT    /api/settings            - Update multiple settings at once
+                                  Body: { settings: [...] }
+DELETE /api/settings/:key       - Delete a setting
 ```
 
 ---
