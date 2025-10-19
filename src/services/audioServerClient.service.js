@@ -160,7 +160,8 @@ class AudioServerClientService {
   async handleMessage(data) {
     try {
       const message = JSON.parse(data.toString());
-      logger.info(`Received message from audio server: ${data}`);
+      if (message && (!message.event || message.event !== 'deckStateUpdate'))
+        logger.info(`Received message from audio server: ${data}`);
 
       if (message.event) {
         // TODO: in the future deal with server event messages, at the moment ignore
@@ -271,7 +272,9 @@ class AudioServerClientService {
           this.currentReconnectDelay * 2,
           this.maxReconnectDelay
         );
-        logger.info(`[WS-RECONNECT] Increasing backoff delay from ${oldDelay}ms to ${this.currentReconnectDelay}ms`);
+        logger.info(
+          `[WS-RECONNECT] Increasing backoff delay from ${oldDelay}ms to ${this.currentReconnectDelay}ms`
+        );
         this.scheduleReconnect();
       }
     }, this.currentReconnectDelay);
@@ -342,7 +345,9 @@ class AudioServerClientService {
             }
           );
 
-          logger.info(`Analysis job created for track ${trackId}, will notify audio server when complete`);
+          logger.info(
+            `Analysis job created for track ${trackId}, will notify audio server when complete`
+          );
           this.sendError(trackId, 'Analysis in progress');
         } catch (error) {
           logger.error(`Failed to create analysis job for track ${trackId}:`, error);
@@ -353,7 +358,9 @@ class AudioServerClientService {
 
       // Check if stems are requested and not available
       if (stems && !track.stems_path) {
-        logger.info(`Stems requested for track ${trackId} but not available, creating stem separation job`);
+        logger.info(
+          `Stems requested for track ${trackId} but not available, creating stem separation job`
+        );
 
         // Create stem separation job with callback metadata
         try {
@@ -368,7 +375,9 @@ class AudioServerClientService {
             }
           );
 
-          logger.info(`Stem separation job created for track ${trackId}, will notify audio server when ready`);
+          logger.info(
+            `Stem separation job created for track ${trackId}, will notify audio server when ready`
+          );
         } catch (error) {
           logger.error(`Failed to create stem separation job for track ${trackId}:`, error);
         }

@@ -134,116 +134,56 @@ router.get('/stats', async (req, res) => {
 });
 
 /**
- * GET /api/tracks/:id
- * Get single track by ID
+ * GET /api/tracks/:id/waveform
+ * Get waveform data for a track
+ *
+ * Query Parameters:
+ * - zoom: number (0-2, optional) - Specific zoom level to retrieve
+ *
+ * If zoom parameter is provided, returns waveform for that specific zoom level.
+ * If zoom parameter is omitted, returns all available waveforms for the track.
+ *
+ * Response formats:
+ * Single zoom level:
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "file_hash": "abc123...",
+ *     "zoom_level": 1,
+ *     "sample_rate": 44100,
+ *     "samples_per_pixel": 512,
+ *     "num_pixels": 1800,
+ *     "low_freq_amplitude": [...],
+ *     "low_freq_intensity": [...],
+ *     "mid_freq_amplitude": [...],
+ *     "mid_freq_intensity": [...],
+ *     "high_freq_amplitude": [...],
+ *     "high_freq_intensity": [...]
+ *   }
+ * }
+ *
+ * All zoom levels:
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "file_hash": "abc123...",
+ *     "waveforms": [
+ *       { zoom_level: 0, ... },
+ *       { zoom_level: 1, ... },
+ *       { zoom_level: 2, ... }
+ *     ]
+ *   }
+ * }
+ *
+ * Error Responses:
+ * - 404 Not Found: Track doesn't exist or has no waveform data
+ * - 400 Bad Request: Invalid zoom level (must be 0-2)
+ * - 500 Internal Server Error: Database error
  */
-router.get('/:id', validate(schemas.trackId, 'params'), async (req, res) => {
+router.get('/:id/waveform', validate(schemas.trackId, 'params'), validate(schemas.waveformQuery, 'query'), async (req, res) => {
   try {
     const { id } = req.params;
-    const track = trackService.getTrackById(id);
-
-    if (!track) {
-      return res.status(404).json({
-        success: false,
-        error: 'Track not found',
-        message: `Track with ID ${id} does not exist`,
-      });
-    }
-
-    res.json({
-      success: true,
-      data: track,
-    });
-  } catch (error) {
-    logger.error(`Error getting track ${req.params.id}:`, error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get track',
-      message: error.message,
-    });
-  }
-});
-
-/**
- * POST /api/tracks
- * Add new track manually
- */
-router.post('/', validate(schemas.trackCreate, 'body'), async (req, res) => {
-  try {
-    const trackData = req.body;
-
-    // Basic validation - file must exist
-    const fs = await import('fs/promises');
-    try {
-      await fs.access(trackData.file_path);
-    } catch (err) {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid file path',
-        message: 'The specified file does not exist',
-      });
-    }
-
-    const track = trackService.upsertTrack(trackData);
-
-    res.status(201).json({
-      success: true,
-      data: track,
-      message: 'Track created successfully',
-    });
-  } catch (error) {
-    logger.error('Error creating track:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to create track',
-      message: error.message,
-    });
-  }
-});
-
-/**
- * PUT /api/tracks/:id
- * Update track metadata
- */
-router.put('/:id', validate(schemas.trackId, 'params'), validate(schemas.trackUpdate, 'body'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updates = req.body;
-
-    // Check if track exists
-    const existingTrack = trackService.getTrackById(id);
-    if (!existingTrack) {
-      return res.status(404).json({
-        success: false,
-        error: 'Track not found',
-        message: `Track with ID ${id} does not exist`,
-      });
-    }
-
-    const updatedTrack = trackService.updateTrackMetadata(id, updates);
-
-    res.json({
-      success: true,
-      data: updatedTrack,
-      message: 'Track updated successfully',
-    });
-  } catch (error) {
-    logger.error(`Error updating track ${req.params.id}:`, error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update track',
-      message: error.message,
-    });
-  }
-});
-
-/**
- * DELETE /api/tracks/:id
- * Delete track from database (not from disk)
- */
-router.delete('/:id', validate(schemas.trackId, 'params'), async (req, res) => {
-  try {
-    const { id } = req.params;
+    const { zoom } = req.query;
 
     // Check if track exists
     const track = trackService.getTrackById(id);
@@ -255,24 +195,71 @@ router.delete('/:id', validate(schemas.trackId, 'params'), async (req, res) => {
       });
     }
 
-    const deleted = trackService.deleteTrack(id);
+    // If zoom level specified, return single waveform
+    if (zoom !== undefined) {
+      const zoomLevel = parseInt(zoom);
+      const waveform = waveformService.getWaveform(id, zoomLevel);
 
-    if (deleted) {
+      if (!waveform) {
+        return res.status(404).json({
+          success: false,
+          error: 'Waveform not found',
+          message: `No waveform data available for track ${id} at zoom level ${zoomLevel}`,
+        });
+      }
+
       res.json({
         success: true,
-        message: 'Track deleted from database',
+        data: waveform,
       });
     } else {
-      res.status(500).json({
-        success: false,
-        error: 'Failed to delete track',
+      // Return all waveforms for this track
+      const waveforms = waveformService.getAllWaveforms(id);
+
+      if (!waveforms || waveforms.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Waveform not found',
+          message: `No waveform data available for track ${id}`,
+        });
+      }
+
+      res.json({
+        success: true,
+        data: {
+          file_hash: track.file_hash,
+          waveforms: waveforms,
+        },
       });
     }
   } catch (error) {
-    logger.error(`Error deleting track ${req.params.id}:`, error);
+    logger.error(`Error getting waveform for track ${req.params.id}:`, error);
     res.status(500).json({
       success: false,
-      error: 'Failed to delete track',
+      error: 'Failed to get waveform',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/tracks/:id/verify
+ * Verify track file exists and is accessible
+ */
+router.get('/:id/verify', validate(schemas.trackId, 'params'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await fileOpsService.verifyTrackFile(id);
+
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    logger.error(`Error verifying track ${req.params.id}:`, error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to verify track',
       message: error.message,
     });
   }
@@ -442,79 +429,116 @@ router.delete('/:id/file', validate(schemas.trackId, 'params'), validate(schemas
 });
 
 /**
- * GET /api/tracks/:id/verify
- * Verify track file exists and is accessible
+ * GET /api/tracks/:id
+ * Get single track by ID
  */
-router.get('/:id/verify', validate(schemas.trackId, 'params'), async (req, res) => {
+router.get('/:id', validate(schemas.trackId, 'params'), async (req, res) => {
   try {
     const { id } = req.params;
-    const result = await fileOpsService.verifyTrackFile(id);
+    const track = trackService.getTrackById(id);
+
+    if (!track) {
+      return res.status(404).json({
+        success: false,
+        error: 'Track not found',
+        message: `Track with ID ${id} does not exist`,
+      });
+    }
 
     res.json({
       success: true,
-      data: result,
+      data: track,
     });
   } catch (error) {
-    logger.error(`Error verifying track ${req.params.id}:`, error);
+    logger.error(`Error getting track ${req.params.id}:`, error);
     res.status(500).json({
       success: false,
-      error: 'Failed to verify track',
+      error: 'Failed to get track',
       message: error.message,
     });
   }
 });
 
 /**
- * GET /api/tracks/:id/waveform
- * Get waveform data for a track
- *
- * Query Parameters:
- * - zoom: number (0-2, optional) - Specific zoom level to retrieve
- *
- * If zoom parameter is provided, returns waveform for that specific zoom level.
- * If zoom parameter is omitted, returns all available waveforms for the track.
- *
- * Response formats:
- * Single zoom level:
- * {
- *   "success": true,
- *   "data": {
- *     "file_hash": "abc123...",
- *     "zoom_level": 1,
- *     "sample_rate": 44100,
- *     "samples_per_pixel": 512,
- *     "num_pixels": 1800,
- *     "low_freq_amplitude": [...],
- *     "low_freq_intensity": [...],
- *     "mid_freq_amplitude": [...],
- *     "mid_freq_intensity": [...],
- *     "high_freq_amplitude": [...],
- *     "high_freq_intensity": [...]
- *   }
- * }
- *
- * All zoom levels:
- * {
- *   "success": true,
- *   "data": {
- *     "file_hash": "abc123...",
- *     "waveforms": [
- *       { zoom_level: 0, ... },
- *       { zoom_level: 1, ... },
- *       { zoom_level: 2, ... }
- *     ]
- *   }
- * }
- *
- * Error Responses:
- * - 404 Not Found: Track doesn't exist or has no waveform data
- * - 400 Bad Request: Invalid zoom level (must be 0-2)
- * - 500 Internal Server Error: Database error
+ * POST /api/tracks
+ * Add new track manually
  */
-router.get('/:id/waveform', validate(schemas.trackId, 'params'), validate(schemas.waveformQuery, 'query'), async (req, res) => {
+router.post('/', validate(schemas.trackCreate, 'body'), async (req, res) => {
+  try {
+    const trackData = req.body;
+
+    // Basic validation - file must exist
+    const fs = await import('fs/promises');
+    try {
+      await fs.access(trackData.file_path);
+    } catch (err) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid file path',
+        message: 'The specified file does not exist',
+      });
+    }
+
+    const track = trackService.upsertTrack(trackData);
+
+    res.status(201).json({
+      success: true,
+      data: track,
+      message: 'Track created successfully',
+    });
+  } catch (error) {
+    logger.error('Error creating track:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create track',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * PUT /api/tracks/:id
+ * Update track metadata
+ */
+router.put('/:id', validate(schemas.trackId, 'params'), validate(schemas.trackUpdate, 'body'), async (req, res) => {
   try {
     const { id } = req.params;
-    const { zoom } = req.query;
+    const updates = req.body;
+
+    // Check if track exists
+    const existingTrack = trackService.getTrackById(id);
+    if (!existingTrack) {
+      return res.status(404).json({
+        success: false,
+        error: 'Track not found',
+        message: `Track with ID ${id} does not exist`,
+      });
+    }
+
+    const updatedTrack = trackService.updateTrackMetadata(id, updates);
+
+    res.json({
+      success: true,
+      data: updatedTrack,
+      message: 'Track updated successfully',
+    });
+  } catch (error) {
+    logger.error(`Error updating track ${req.params.id}:`, error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update track',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * DELETE /api/tracks/:id
+ * Delete track from database (not from disk)
+ */
+router.delete('/:id', validate(schemas.trackId, 'params'), async (req, res) => {
+  try {
+    const { id } = req.params;
 
     // Check if track exists
     const track = trackService.getTrackById(id);
@@ -526,48 +550,24 @@ router.get('/:id/waveform', validate(schemas.trackId, 'params'), validate(schema
       });
     }
 
-    // If zoom level specified, return single waveform
-    if (zoom !== undefined) {
-      const zoomLevel = parseInt(zoom);
-      const waveform = waveformService.getWaveform(id, zoomLevel);
+    const deleted = trackService.deleteTrack(id);
 
-      if (!waveform) {
-        return res.status(404).json({
-          success: false,
-          error: 'Waveform not found',
-          message: `No waveform data available for track ${id} at zoom level ${zoomLevel}`,
-        });
-      }
-
+    if (deleted) {
       res.json({
         success: true,
-        data: waveform,
+        message: 'Track deleted from database',
       });
     } else {
-      // Return all waveforms for this track
-      const waveforms = waveformService.getAllWaveforms(id);
-
-      if (!waveforms || waveforms.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Waveform not found',
-          message: `No waveform data available for track ${id}`,
-        });
-      }
-
-      res.json({
-        success: true,
-        data: {
-          file_hash: track.file_hash,
-          waveforms: waveforms,
-        },
+      res.status(500).json({
+        success: false,
+        error: 'Failed to delete track',
       });
     }
   } catch (error) {
-    logger.error(`Error getting waveform for track ${req.params.id}:`, error);
+    logger.error(`Error deleting track ${req.params.id}:`, error);
     res.status(500).json({
       success: false,
-      error: 'Failed to get waveform',
+      error: 'Failed to delete track',
       message: error.message,
     });
   }
