@@ -1186,3 +1186,4 @@ By implementing analysis first, we can build playlist features that leverage thi
 - rating icon - smiley, dancing couple, raging face
 - search for tracks that match musically to current track, as next track, recommend based on drop, increase or decrease energy, etc
 - pull info from other sources - discogs, spotify, google music, tunebat, 1001tracklist
+- fix beatgrid
