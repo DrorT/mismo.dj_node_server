@@ -259,8 +259,8 @@ export function updateJobProgress(jobId, stage) {
       stagesCompleted.push(stage);
     }
 
-    // Calculate progress percentage
-    const progressPercent = Math.round((stagesCompleted.length / job.stages_total) * 100);
+    // Calculate progress percentage (capped at 100%)
+    const progressPercent = Math.min(100, Math.round((stagesCompleted.length / job.stages_total) * 100));
 
     const stmt = db.prepare(`
       UPDATE analysis_jobs

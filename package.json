@@ -15,7 +15,10 @@
     "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
     "lint": "eslint src/**/*.js",
     "lint:fix": "eslint src/**/*.js --fix",
-    "serve:test": "python3 -m http.server 8080"
+    "serve:test": "python3 -m http.server 8080",
+    "reanalyze:all": "node scripts/reanalyze-tracks.js --all",
+    "reanalyze:library": "node scripts/reanalyze-tracks.js --library",
+    "reanalyze:dry-run": "node scripts/reanalyze-tracks.js --all --dry-run"
   },
   "repository": {
     "type": "git",

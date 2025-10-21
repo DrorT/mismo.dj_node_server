@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS tracks (
     energy REAL,
     loudness REAL,
     valence REAL,
+    arousal REAL,
     acousticness REAL,
     instrumentalness REAL,
     spectral_centroid REAL,

@@ -142,7 +142,7 @@ router.get('/health', async (req, res) => {
  *
  * Body:
  * {
- *   track_id: number,
+ *   track_id: string (UUID),
  *   options?: {
  *     basic_features?: boolean,
  *     characteristics?: boolean,
@@ -151,18 +151,19 @@ router.get('/health', async (req, res) => {
  *     segments?: boolean,
  *     transitions?: boolean
  *   },
- *   priority?: 'low' | 'normal' | 'high'
+ *   priority?: 'low' | 'normal' | 'high',
+ *   force?: boolean  // Force re-analysis even if already completed
  * }
  */
 router.post('/request', async (req, res) => {
   try {
-    const { track_id, options = {}, priority = 'normal' } = req.body;
+    const { track_id, options = {}, priority = 'normal', force = false } = req.body;
 
     // Validate track_id
-    if (!track_id || typeof track_id !== 'number') {
+    if (!track_id || typeof track_id !== 'string') {
       return res.status(400).json({
         error: 'Invalid request',
-        message: 'track_id must be a number',
+        message: 'track_id must be a string (UUID)',
       });
     }
 
@@ -174,10 +175,16 @@ router.post('/request', async (req, res) => {
       });
     }
 
-    logger.info(`Analysis request for track ${track_id}`, { options, priority });
+    logger.info(`Analysis request for track ${track_id}`, { options, priority, force });
 
     // Queue the job
-    const job = await analysisQueueService.requestAnalysis(track_id, options, priority);
+    const job = await analysisQueueService.requestAnalysis(
+      track_id,
+      options,
+      priority,
+      null,
+      force
+    );
 
     res.json({
       message: 'Analysis requested successfully',
@@ -194,6 +201,81 @@ router.post('/request', async (req, res) => {
     logger.error('Error requesting analysis:', error);
     res.status(500).json({
       error: 'Failed to request analysis',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * POST /api/analysis/reanalyze
+ * Bulk re-analyze tracks (forces re-analysis even if already completed)
+ *
+ * Body:
+ * {
+ *   track_ids?: Array<string>,  // Specific track IDs to re-analyze
+ *   library_id?: string,         // Or all tracks in a library
+ *   all?: boolean,               // Or all tracks in database
+ *   options?: {
+ *     basic_features?: boolean,  // Default: true
+ *     characteristics?: boolean  // Default: false
+ *   },
+ *   priority?: 'low' | 'normal' | 'high'
+ * }
+ */
+router.post('/reanalyze', async (req, res) => {
+  try {
+    const { track_ids, library_id, all = false, options, priority = 'normal' } = req.body;
+    const trackService = await import('../services/track.service.js');
+
+    // Determine which tracks to re-analyze
+    let trackIds = [];
+
+    if (track_ids && Array.isArray(track_ids)) {
+      trackIds = track_ids;
+    } else if (library_id) {
+      const libraryTracks = trackService.getTracksByLibrary(library_id);
+      trackIds = libraryTracks.map(t => t.id);
+    } else if (all) {
+      const allTracks = trackService.searchTracks({}, { page: 1, limit: 999999 });
+      trackIds = allTracks.tracks.map(t => t.id);
+    } else {
+      return res.status(400).json({
+        error: 'Invalid request',
+        message: 'Must provide track_ids, library_id, or all=true',
+      });
+    }
+
+    if (trackIds.length === 0) {
+      return res.status(400).json({
+        error: 'No tracks found',
+        message: 'No tracks match the specified criteria',
+      });
+    }
+
+    logger.info(`Bulk re-analysis requested for ${trackIds.length} tracks`);
+
+    // Default options: only basic_features for efficiency
+    const analysisOptions = {
+      basic_features: options?.basic_features !== false,
+      characteristics: options?.characteristics === true,
+    };
+
+    // Queue re-analysis
+    const results = await analysisQueueService.bulkReanalyze(trackIds, analysisOptions, priority);
+
+    res.json({
+      message: `Re-analysis queued for ${results.queued} tracks`,
+      summary: {
+        total_requested: trackIds.length,
+        queued: results.queued,
+        failed: results.failed,
+        errors: results.errors,
+      },
+    });
+  } catch (error) {
+    logger.error('Error bulk re-analyzing tracks:', error);
+    res.status(500).json({
+      error: 'Failed to queue bulk re-analysis',
       message: error.message,
     });
   }

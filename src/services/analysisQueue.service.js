@@ -66,11 +66,12 @@ class AnalysisQueueService extends EventEmitter {
    * @param {Object} options - Analysis options
    * @param {string} priority - Priority: 'low', 'normal', 'high'
    * @param {Object} callback_metadata - Optional callback metadata
+   * @param {boolean} force - If true, re-analyze even if already completed
    * @returns {Promise<Object>} Created/existing job
    */
-  async requestAnalysis(trackId, options = {}, priority = 'normal', callback_metadata = null) {
+  async requestAnalysis(trackId, options = {}, priority = 'normal', callback_metadata = null, force = false) {
     try {
-      // Get track info
+      // Get track info (exclude BLOBs for performance)
       const track = getTrackById(trackId);
       if (!track) {
         throw new Error(`Track ${trackId} not found`);
@@ -90,8 +91,13 @@ class AnalysisQueueService extends EventEmitter {
         }
 
         if (job.status === 'completed') {
-          logger.info(`Track already analyzed: ${jobId}`);
-          return job;
+          if (force) {
+            logger.info(`Force re-analyzing completed track: ${jobId}`);
+            analysisJobService.deleteJob(jobId);
+          } else {
+            logger.info(`Track already analyzed: ${jobId}`);
+            return job;
+          }
         }
 
         // If failed or cancelled, allow retry by deleting old job
@@ -379,6 +385,40 @@ class AnalysisQueueService extends EventEmitter {
       queuedCount: stats.queued.total,
       stats,
     };
+  }
+
+  /**
+   * Re-analyze multiple tracks with basic features
+   * @param {Array<string>} trackIds - Array of track IDs to re-analyze
+   * @param {Object} options - Analysis options (defaults to basic_features only)
+   * @param {string} priority - Priority level
+   * @returns {Promise<Object>} Summary of queued jobs
+   */
+  async bulkReanalyze(trackIds, options = { basic_features: true, characteristics: false }, priority = 'normal') {
+    const results = {
+      queued: 0,
+      failed: 0,
+      errors: [],
+    };
+
+    logger.info(`Starting bulk re-analysis for ${trackIds.length} tracks`);
+
+    for (const trackId of trackIds) {
+      try {
+        await this.requestAnalysis(trackId, options, priority, null, true); // force = true
+        results.queued++;
+      } catch (error) {
+        results.failed++;
+        results.errors.push({
+          trackId,
+          error: error.message,
+        });
+        logger.error(`Failed to queue re-analysis for track ${trackId}:`, error);
+      }
+    }
+
+    logger.info(`Bulk re-analysis complete: ${results.queued} queued, ${results.failed} failed`);
+    return results;
   }
 
   /**
