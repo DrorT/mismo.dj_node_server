@@ -392,10 +392,11 @@ class AudioServerClientService {
         requestId: message.requestId,
         trackId: trackId,
         filePath: absolutePath,
-        tempo: track.bpm || 0,
+        bpm: track.bpm || 0,
         key: String(track.musical_key),
         mode: String(track.mode),
         firstBeatOffset: track.first_beat_offset || 0,
+        firstPhraseBeatNo: track.first_phrase_beat_no || 0,
       };
 
       // Include stems if requested and available
@@ -579,10 +580,11 @@ class AudioServerClientService {
         requestId: requestId,
         trackId: trackId,
         filePath: absolutePath,
-        tempo: track.bpm || 0,
+        bpm: track.bpm || 0,
         key: String(track.musical_key),
         mode: String(track.mode),
         firstBeatOffset: track.first_beat_offset || 0,
+        firstPhraseBeatNo: track.first_phrase_beat_no || 0,
       };
 
       this.send(response);
