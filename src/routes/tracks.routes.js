@@ -429,6 +429,100 @@ router.delete('/:id/file', validate(schemas.trackId, 'params'), validate(schemas
 });
 
 /**
+ * GET /api/tracks/:id/beats
+ * Get beats data for a track
+ */
+router.get('/:id/beats', validate(schemas.trackId, 'params'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if track exists
+    const track = trackService.getTrackById(id);
+    if (!track) {
+      return res.status(404).json({
+        success: false,
+        error: 'Track not found',
+        message: `Track with ID ${id} does not exist`,
+      });
+    }
+
+    // Get beats data
+    const beats = trackService.getTrackBeats(id);
+
+    if (!beats) {
+      return res.status(404).json({
+        success: false,
+        error: 'Beats data not found',
+        message: `No beats data available for track ${id}`,
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        track_id: id,
+        beats: beats,
+        count: beats.length,
+      },
+    });
+  } catch (error) {
+    logger.error(`Error getting beats for track ${req.params.id}:`, error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get beats data',
+      message: error.message,
+    });
+  }
+});
+
+/**
+ * GET /api/tracks/:id/downbeats
+ * Get downbeats data for a track
+ */
+router.get('/:id/downbeats', validate(schemas.trackId, 'params'), async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Check if track exists
+    const track = trackService.getTrackById(id);
+    if (!track) {
+      return res.status(404).json({
+        success: false,
+        error: 'Track not found',
+        message: `Track with ID ${id} does not exist`,
+      });
+    }
+
+    // Get downbeats data
+    const downbeats = trackService.getTrackDownbeats(id);
+
+    if (!downbeats) {
+      return res.status(404).json({
+        success: false,
+        error: 'Downbeats data not found',
+        message: `No downbeats data available for track ${id}`,
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        track_id: id,
+        downbeats: downbeats,
+        count: downbeats.length,
+      },
+    });
+  } catch (error) {
+    logger.error(`Error getting downbeats for track ${req.params.id}:`, error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get downbeats data',
+      message: error.message,
+    });
+  }
+});
+
+/**
  * GET /api/tracks/:id
  * Get single track by ID
  */

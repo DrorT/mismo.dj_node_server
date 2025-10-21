@@ -1,6 +1,5 @@
 import { getDatabase } from '../config/database.js';
 import logger from '../utils/logger.js';
-import path from 'path';
 import * as waveformService from './waveform.service.js';
 import { generateUUID, isValidUUID } from '../utils/uuid.js';
 
@@ -10,11 +9,35 @@ import { generateUUID, isValidUUID } from '../utils/uuid.js';
  */
 
 /**
+ * Get columns for track SELECT queries
+ * @param {boolean} excludeBlobs - If true, excludes BLOB fields (beats_data, downbeats_data)
+ * @returns {string} Column list for SELECT statement
+ */
+function getTrackColumns(excludeBlobs = false) {
+  if (excludeBlobs) {
+    // Exclude BLOB fields for API responses to reduce memory usage and network overhead
+    return `
+      id, file_path, file_size, file_modified, file_hash,
+      library_directory_id, relative_path, is_missing, missing_since, duplicate_group_id,
+      title, artist, album, album_artist, genre, year, track_number, comment,
+      duration_seconds, sample_rate, bit_rate, channels,
+      bpm, musical_key, mode, time_signature, first_beat_offset, first_phrase_beat_no, stems_path,
+      danceability, energy, loudness, valence, arousal, acousticness, instrumentalness,
+      spectral_centroid, spectral_rolloff, spectral_bandwidth, zero_crossing_rate,
+      date_added, date_analyzed, analysis_version,
+      last_played, play_count, rating, color_tag, energy_level
+    `;
+  }
+  return '*';
+}
+
+/**
  * Get track by ID
  * @param {string} id - Track UUID
+ * @param {boolean} excludeBlobs - If true, excludes BLOB fields from result (default: true)
  * @returns {Object|null} Track or null
  */
-export function getTrackById(id) {
+export function getTrackById(id, excludeBlobs = true) {
   try {
     // Validate UUID format
     if (!isValidUUID(id)) {
@@ -22,10 +45,73 @@ export function getTrackById(id) {
     }
 
     const db = getDatabase();
-    const stmt = db.prepare('SELECT * FROM tracks WHERE id = ?');
+    const columns = getTrackColumns(excludeBlobs);
+    const stmt = db.prepare(`SELECT ${columns} FROM tracks WHERE id = ?`);
     return stmt.get(id) || null;
   } catch (error) {
     logger.error(`Error getting track ${id}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get beats data for a track
+ * @param {string} id - Track UUID
+ * @returns {Array|null} Beats array or null
+ */
+export function getTrackBeats(id) {
+  try {
+    if (!isValidUUID(id)) {
+      throw new Error(`Invalid track ID: ${id} is not a valid UUID`);
+    }
+
+    const db = getDatabase();
+    const stmt = db.prepare('SELECT beats_data FROM tracks WHERE id = ?');
+    const result = stmt.get(id);
+
+    if (!result || !result.beats_data) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(result.beats_data);
+    } catch (error) {
+      logger.warn(`Failed to parse beats_data for track ${id}`);
+      return null;
+    }
+  } catch (error) {
+    logger.error(`Error getting beats for track ${id}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get downbeats data for a track
+ * @param {string} id - Track UUID
+ * @returns {Array|null} Downbeats array or null
+ */
+export function getTrackDownbeats(id) {
+  try {
+    if (!isValidUUID(id)) {
+      throw new Error(`Invalid track ID: ${id} is not a valid UUID`);
+    }
+
+    const db = getDatabase();
+    const stmt = db.prepare('SELECT downbeats_data FROM tracks WHERE id = ?');
+    const result = stmt.get(id);
+
+    if (!result || !result.downbeats_data) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(result.downbeats_data);
+    } catch (error) {
+      logger.warn(`Failed to parse downbeats_data for track ${id}`);
+      return null;
+    }
+  } catch (error) {
+    logger.error(`Error getting downbeats for track ${id}:`, error);
     throw error;
   }
 }
@@ -50,12 +136,14 @@ export function getTrackByPath(filePath) {
  * Get tracks by library directory
  * @param {number} libraryDirectoryId - Library directory ID
  * @param {Object} filters - Optional filters
+ * @param {boolean} excludeBlobs - If true, excludes BLOB fields from results
  * @returns {Array} Array of tracks
  */
-export function getTracksByLibrary(libraryDirectoryId, filters = {}) {
+export function getTracksByLibrary(libraryDirectoryId, filters = {}, excludeBlobs = true) {
   try {
     const db = getDatabase();
-    let sql = 'SELECT * FROM tracks WHERE library_directory_id = ?';
+    const columns = getTrackColumns(excludeBlobs);
+    let sql = `SELECT ${columns} FROM tracks WHERE library_directory_id = ?`;
     const params = [libraryDirectoryId];
 
     if (filters.is_missing !== undefined) {
@@ -77,14 +165,16 @@ export function getTracksByLibrary(libraryDirectoryId, filters = {}) {
  * Search tracks
  * @param {Object} filters - Search filters
  * @param {Object} pagination - Pagination options
+ * @param {boolean} excludeBlobs - If true, excludes BLOB fields from results
  * @returns {Object} {tracks, total}
  */
-export function searchTracks(filters = {}, pagination = {}) {
+export function searchTracks(filters = {}, pagination = {}, excludeBlobs = true) {
   try {
     const db = getDatabase();
     const { page = 1, limit = 50, sort = 'date_added', order = 'DESC' } = pagination;
 
-    let sql = 'SELECT * FROM tracks WHERE 1=1';
+    const columns = getTrackColumns(excludeBlobs);
+    let sql = `SELECT ${columns} FROM tracks WHERE 1=1`;
     const params = [];
 
     // Apply filters
@@ -130,7 +220,8 @@ export function searchTracks(filters = {}, pagination = {}) {
     }
 
     // Get total count
-    const countStmt = db.prepare(sql.replace('SELECT *', 'SELECT COUNT(*) as count'));
+    const countSql = sql.replace(/SELECT .+ FROM/, 'SELECT COUNT(*) as count FROM');
+    const countStmt = db.prepare(countSql);
     const { count } = countStmt.get(...params);
 
     // Apply sorting
@@ -297,6 +388,8 @@ export function updateTrackMetadata(id, updates) {
       'time_signature',
       'beats_data',
       'downbeats_data',
+      'first_beat_offset',
+      'first_phrase_beat_no',
       'stems_path',
       'danceability',
       'energy',
@@ -473,8 +566,8 @@ export function copyAnalysisData(fromTrackId, toTrackId) {
   try {
     const db = getDatabase();
 
-    // Get source track analysis data
-    const sourceTrack = getTrackById(fromTrackId);
+    // Get source track analysis data (including BLOBs)
+    const sourceTrack = getTrackById(fromTrackId, false);
     if (!sourceTrack || !sourceTrack.date_analyzed) {
       logger.warn(`Source track ${fromTrackId} has no analysis data to copy`);
       return false;
@@ -489,6 +582,8 @@ export function copyAnalysisData(fromTrackId, toTrackId) {
         time_signature = ?,
         beats_data = ?,
         downbeats_data = ?,
+        first_beat_offset = ?,
+        first_phrase_beat_no = ?,
         danceability = ?,
         energy = ?,
         loudness = ?,
@@ -512,6 +607,8 @@ export function copyAnalysisData(fromTrackId, toTrackId) {
       sourceTrack.time_signature,
       sourceTrack.beats_data,
       sourceTrack.downbeats_data,
+      sourceTrack.first_beat_offset,
+      sourceTrack.first_phrase_beat_no,
       sourceTrack.danceability,
       sourceTrack.energy,
       sourceTrack.loudness,
@@ -550,6 +647,8 @@ export function copyAnalysisData(fromTrackId, toTrackId) {
 
 export default {
   getTrackById,
+  getTrackBeats,
+  getTrackDownbeats,
   getTrackByPath,
   getTracksByLibrary,
   searchTracks,

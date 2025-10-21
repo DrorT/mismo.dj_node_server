@@ -104,6 +104,8 @@ CREATE TABLE IF NOT EXISTS tracks (
     time_signature INTEGER,
     beats_data BLOB,
     downbeats_data BLOB,
+    first_beat_offset REAL,                 -- Time offset in seconds to first beat
+    first_phrase_beat_no INTEGER,           -- Beat number where first musical phrase starts
     stems_path TEXT,
 
     -- Audio features (from Essentia)

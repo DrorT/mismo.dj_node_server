@@ -386,37 +386,16 @@ class AudioServerClientService {
         // The audio server will receive stems later via a separate notification
       }
 
-      // Parse beats and downbeats data
-      let beatsData = [];
-      let downbeatsData = [];
-
-      if (track.beats_data) {
-        try {
-          beatsData = JSON.parse(track.beats_data);
-        } catch (error) {
-          logger.warn(`Failed to parse beats_data for track ${trackId}`);
-        }
-      }
-
-      if (track.downbeats_data) {
-        try {
-          downbeatsData = JSON.parse(track.downbeats_data);
-        } catch (error) {
-          logger.warn(`Failed to parse downbeats_data for track ${trackId}`);
-        }
-      }
-
       // Send success response
       const response = {
         success: true,
         requestId: message.requestId,
         trackId: trackId,
         filePath: absolutePath,
-        bpm: track.bpm || 0,
+        tempo: track.bpm || 0,
         key: String(track.musical_key),
         mode: String(track.mode),
-        beats_data: beatsData,
-        downbeats_data: downbeatsData,
+        firstBeatOffset: track.first_beat_offset || 0,
       };
 
       // Include stems if requested and available
@@ -594,37 +573,16 @@ class AudioServerClientService {
 
       const absolutePath = path.join(libraryDirectory.path, track.relative_path);
 
-      // Parse beats and downbeats data
-      let beatsData = [];
-      let downbeatsData = [];
-
-      if (track.beats_data) {
-        try {
-          beatsData = JSON.parse(track.beats_data);
-        } catch (error) {
-          logger.warn(`Failed to parse beats_data for track ${trackId}`);
-        }
-      }
-
-      if (track.downbeats_data) {
-        try {
-          downbeatsData = JSON.parse(track.downbeats_data);
-        } catch (error) {
-          logger.warn(`Failed to parse downbeats_data for track ${trackId}`);
-        }
-      }
-
       // Send success response
       const response = {
         success: true,
         requestId: requestId,
         trackId: trackId,
         filePath: absolutePath,
-        bpm: track.bpm || 0,
+        tempo: track.bpm || 0,
         key: String(track.musical_key),
         mode: String(track.mode),
-        beats_data: beatsData,
-        downbeats_data: downbeatsData,
+        firstBeatOffset: track.first_beat_offset || 0,
       };
 
       this.send(response);
