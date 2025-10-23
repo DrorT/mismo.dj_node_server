@@ -19,11 +19,13 @@ This document outlines creative features and enhancements for the Mismo DJ playl
 ---
 
 ## Tier 1: Must-Have Extensions
+
 **Timeline**: Phase 6-7 (Post-MVP Core)
 
 These features significantly enhance the core playlist experience and align with professional DJ workflows.
 
 ### 🎯 Harmonic Mixing Intelligence
+
 **Priority**: High | **Complexity**: Medium | **Dependencies**: Key analysis data
 
 - **Auto-arrange playlist by key**: Automatically reorder tracks using Camelot Wheel rules
@@ -32,6 +34,7 @@ These features significantly enhance the core playlist experience and align with
 - **Key clash warnings**: Flag transitions that will sound bad (e.g., incompatible keys, large BPM jumps)
 
 **Implementation Notes**:
+
 - Requires Camelot Wheel mapping (already have key data from analysis server)
 - Transition score algorithm: `score = keyCompatibility * 0.4 + bpmCompatibility * 0.3 + energyFlow * 0.3`
 - Real-time validation as tracks are added/moved
@@ -39,6 +42,7 @@ These features significantly enhance the core playlist experience and align with
 ---
 
 ### 📊 Energy Arc Visualization & Planning
+
 **Priority**: High | **Complexity**: High | **Dependencies**: Energy/arousal analysis data
 
 - **Visual energy curve**: Graph showing energy/arousal over the playlist duration
@@ -48,30 +52,32 @@ These features significantly enhance the core playlist experience and align with
 - **"Dead zones" detection**: Identify spots where energy flatlines for too long
 
 **Implementation Notes**:
+
 - Use Chart.js or D3.js for visualization
 - Arc templates stored as JSON curves with target energy values at time intervals
 - Validation thresholds: energy jump > 0.3 in single transition = warning
 - Dead zone: < 0.1 energy variance over 3+ consecutive tracks
 
 **Energy Arc Template Examples**:
+
 ```json
 {
   "Warm-up to Peak": {
     "description": "Gradual build from chill to high energy",
     "curve": [
-      {"position": 0, "energy": 0.2},
-      {"position": 0.25, "energy": 0.4},
-      {"position": 0.5, "energy": 0.6},
-      {"position": 0.75, "energy": 0.8},
-      {"position": 1.0, "energy": 0.9}
+      { "position": 0, "energy": 0.2 },
+      { "position": 0.25, "energy": 0.4 },
+      { "position": 0.5, "energy": 0.6 },
+      { "position": 0.75, "energy": 0.8 },
+      { "position": 1.0, "energy": 0.9 }
     ]
   },
   "Peak Time Hold": {
     "description": "Maintain high energy throughout",
     "curve": [
-      {"position": 0, "energy": 0.8},
-      {"position": 0.5, "energy": 0.9},
-      {"position": 1.0, "energy": 0.85}
+      { "position": 0, "energy": 0.8 },
+      { "position": 0.5, "energy": 0.9 },
+      { "position": 1.0, "energy": 0.85 }
     ]
   }
 }
@@ -80,6 +86,7 @@ These features significantly enhance the core playlist experience and align with
 ---
 
 ### ⏱️ Set Timing & Duration Tools
+
 **Priority**: High | **Complexity**: Low | **Dependencies**: Track duration data
 
 - **Target duration**: "I need a 2-hour set" - system helps you hit the time
@@ -89,6 +96,7 @@ These features significantly enhance the core playlist experience and align with
 - **Pacing tools**: "Your average track length is 6 minutes - set will be 2.5 hours"
 
 **Implementation Notes**:
+
 - Store custom in/out points in `playlist_tracks` table
 - Use `audible_start_offset_ms` and track duration from analysis
 - Real-time WebSocket updates for duration changes
@@ -97,6 +105,7 @@ These features significantly enhance the core playlist experience and align with
 ---
 
 ### 🎯 Intelligent Track Suggestions
+
 **Priority**: High | **Complexity**: High | **Dependencies**: Full analysis data, ML optional
 
 - **"What comes next?"**: Based on current track's key/BPM/energy, suggest next tracks
@@ -106,6 +115,7 @@ These features significantly enhance the core playlist experience and align with
 - **Avoid repetition**: Warn when adding similar-sounding tracks too close together
 
 **Implementation Notes**:
+
 - Similarity algorithm uses key, BPM, energy, genre, first_phrase_beat_number
 - Repetition detection: same artist within 3 tracks, same key within 2 tracks
 - Gap filling queries library with specific criteria
@@ -114,6 +124,7 @@ These features significantly enhance the core playlist experience and align with
 ---
 
 ### 🏥 Library Health & Standards System
+
 **Priority**: High | **Complexity**: Medium | **Dependencies**: Track analysis status
 
 - **Prep quality scoring**: Rate each track's "gig readiness" (has cues, analyzed, tagged, etc.)
@@ -123,22 +134,24 @@ These features significantly enhance the core playlist experience and align with
 - **Prep checklist per track**: Visual checklist showing what's missing
 
 **Prep Quality Score Formula**:
+
 ```javascript
 // Each criterion contributes to total score (0-100)
 const prepScore = {
-  analyzed: 30,           // Has analysis_id
-  hasKey: 15,             // Key detected
-  hasBPM: 15,             // BPM detected
-  hasEnergy: 10,          // Energy/arousal analyzed
-  hasGenre: 10,           // Genre tagged
-  hasAudibleStart: 10,    // Audible start detected
-  hasFirstPhraseBeat: 10  // First phrase beat detected
+  analyzed: 30, // Has analysis_id
+  hasKey: 15, // Key detected
+  hasBPM: 15, // BPM detected
+  hasEnergy: 10, // Energy/arousal analyzed
+  hasGenre: 10, // Genre tagged
+  hasAudibleStart: 10, // Audible start detected
+  hasFirstPhraseBeat: 10, // First phrase beat detected
 };
 
 // Example: Track with analysis, key, BPM, energy = 70/100 "Good"
 ```
 
 **Prep Standards Configuration**:
+
 ```json
 {
   "gig_ready": {
@@ -156,6 +169,7 @@ const prepScore = {
 ---
 
 ### 📈 Playlist Statistics Dashboard
+
 **Priority**: High | **Complexity**: Medium | **Dependencies**: Analysis data
 
 - **Key distribution chart**: See all keys represented in the playlist
@@ -167,6 +181,7 @@ const prepScore = {
 - **Average track age**: How "current" vs. "classic" is the playlist?
 
 **Implementation Notes**:
+
 - Chart.js for all visualizations
 - Stats calculated on-demand (cache for large playlists)
 - Color-coded key distribution using Camelot Wheel colors
@@ -175,11 +190,13 @@ const prepScore = {
 ---
 
 ## Tier 2: Should-Have Enhancements
+
 **Timeline**: Phase 8-9 (Post-Core Extensions)
 
 Features that enhance workflow efficiency and provide deeper insights.
 
 ### 🎯 Mission System for Playlists
+
 **Priority**: Medium | **Complexity**: Medium | **Dependencies**: Track analysis, usage tracking
 
 Inspired by DJ Chris M's "system quality" approach - proactive suggestions to improve library and playlist health.
@@ -194,12 +211,14 @@ Inspired by DJ Chris M's "system quality" approach - proactive suggestions to im
 - **Incomplete sets**: Playlists with < 10 tracks or < 60 minutes duration
 
 **Mission Types**:
+
 1. **Health Missions**: Fix missing/incomplete data
 2. **Diversity Missions**: Improve variety in playlists
 3. **Curation Missions**: Reduce redundancy, improve quality
 4. **Maintenance Missions**: Update stale playlists
 
 **Implementation Notes**:
+
 - Background job runs daily to generate missions
 - Missions stored in database with priority/status
 - UI shows mission count badge on playlists
@@ -208,6 +227,7 @@ Inspired by DJ Chris M's "system quality" approach - proactive suggestions to im
 ---
 
 ### 🧠 Pattern Recognition & Behavioral Insights
+
 **Priority**: Medium | **Complexity**: High | **Dependencies**: Usage tracking, play history
 
 Learn from DJ's habits and suggest improvements.
@@ -219,17 +239,19 @@ Learn from DJ's habits and suggest improvements.
 - **Overplayed tracks**: "This track is in 8 playlists - reduce redundancy?"
 
 **Diversity Scoring Formula**:
+
 ```javascript
 // Higher score = more diverse (0-100)
 const diversityScore = {
-  artistVariety: uniqueArtists / totalTracks * 40,
-  genreVariety: uniqueGenres / totalTracks * 30,
-  keyVariety: uniqueKeys / totalTracks * 15,
-  bpmRange: (maxBPM - minBPM) / 100 * 15
+  artistVariety: (uniqueArtists / totalTracks) * 40,
+  genreVariety: (uniqueGenres / totalTracks) * 30,
+  keyVariety: (uniqueKeys / totalTracks) * 15,
+  bpmRange: ((maxBPM - minBPM) / 100) * 15,
 };
 ```
 
 **Pattern Detection Examples**:
+
 - Same artist in 3+ consecutive tracks
 - Same key for 4+ consecutive tracks
 - BPM variance < 5 across entire playlist
@@ -238,6 +260,7 @@ const diversityScore = {
 ---
 
 ### 📊 Progress & Learning System
+
 **Priority**: Medium | **Complexity**: Medium | **Dependencies**: Change tracking
 
 Track how playlists evolve and help DJs improve.
@@ -249,6 +272,7 @@ Track how playlists evolve and help DJs improve.
 - **Improvement suggestions**: "Last month you averaged 15 tracks/playlist, now 22 - good depth improvement"
 
 **Version History Schema**:
+
 ```sql
 CREATE TABLE playlist_versions (
   id INTEGER PRIMARY KEY,
@@ -265,6 +289,7 @@ CREATE TABLE playlist_versions (
 ---
 
 ### 🔍 Advanced Smart Playlist Criteria
+
 **Priority**: Medium | **Complexity**: High | **Dependencies**: Query engine enhancement
 
 More powerful filtering for smart playlists.
@@ -278,6 +303,7 @@ More powerful filtering for smart playlists.
 - **Cue point count**: "Tracks with 3+ memory cues" (future integration with audio server)
 
 **Criteria Query Language (JSON)**:
+
 ```json
 {
   "operator": "AND",
@@ -285,21 +311,21 @@ More powerful filtering for smart playlists.
     {
       "operator": "OR",
       "conditions": [
-        {"field": "genre", "op": "equals", "value": "House"},
-        {"field": "genre", "op": "equals", "value": "Techno"}
+        { "field": "genre", "op": "equals", "value": "House" },
+        { "field": "genre", "op": "equals", "value": "Techno" }
       ]
     },
     {
       "operator": "OR",
       "conditions": [
-        {"field": "energy", "op": "greaterThan", "value": 0.7},
-        {"field": "bpm", "op": "greaterThan", "value": 130}
+        { "field": "energy", "op": "greaterThan", "value": 0.7 },
+        { "field": "bpm", "op": "greaterThan", "value": 130 }
       ]
     },
     {
       "field": "playlist_membership",
       "op": "notIn",
-      "value": [5, 12, 18]  // Playlist IDs to exclude
+      "value": [5, 12, 18] // Playlist IDs to exclude
     }
   ]
 }
@@ -308,6 +334,7 @@ More powerful filtering for smart playlists.
 ---
 
 ### 🔄 Import/Export & Interoperability
+
 **Priority**: Medium | **Complexity**: High | **Dependencies**: Parser libraries
 
 Integrate with other DJ software and music services.
@@ -322,12 +349,14 @@ Integrate with other DJ software and music services.
 - **YouTube Music playlist import**: Same as Spotify
 
 **Import Strategy**:
+
 1. Parse external playlist format
 2. Match tracks by metadata (artist + title, fuzzy matching)
 3. Create new playlist with matched tracks
 4. Report unmatched tracks for manual review
 
 **Export Formats**:
+
 - **M3U8**: Standard with `#EXTINF` metadata
 - **CSV**: All track data for analysis
 - **JSON**: Full playlist object for backup/migration
@@ -336,6 +365,7 @@ Integrate with other DJ software and music services.
 ---
 
 ### 🛠️ Bulk Playlist Operations
+
 **Priority**: Medium | **Complexity**: Low | **Dependencies**: None
 
 Efficient operations for power users.
@@ -348,6 +378,7 @@ Efficient operations for power users.
 - **Batch delete**: Clean up old playlists in bulk
 
 **Merge Operations**:
+
 ```javascript
 // Union: All tracks from A and B (no duplicates)
 const union = [...new Set([...playlistA.tracks, ...playlistB.tracks])];
@@ -365,6 +396,7 @@ const append = [...playlistA.tracks, ...playlistB.tracks];
 ---
 
 ### 📊 Comparative Analytics
+
 **Priority**: Medium | **Complexity**: Medium | **Dependencies**: Statistics engine
 
 Understand relationships between playlists.
@@ -376,6 +408,7 @@ Understand relationships between playlists.
 - **Playlist clustering**: Auto-group similar playlists
 
 **Similarity Algorithm**:
+
 ```javascript
 // Jaccard similarity for track overlap
 const similarity = (playlistA, playlistB) => {
@@ -385,7 +418,7 @@ const similarity = (playlistA, playlistB) => {
   const intersection = [...tracksA].filter(id => tracksB.has(id)).length;
   const union = new Set([...tracksA, ...tracksB]).size;
 
-  return intersection / union;  // 0-1 score
+  return intersection / union; // 0-1 score
 };
 
 // Feature-based similarity (key, BPM, energy profiles)
@@ -394,18 +427,20 @@ const featureSimilarity = (playlistA, playlistB) => {
   const bpmSimilarity = calculateBPMDistributionSimilarity(playlistA, playlistB);
   const energySimilarity = calculateEnergyProfileSimilarity(playlistA, playlistB);
 
-  return (keyOverlap * 0.3 + bpmSimilarity * 0.3 + energySimilarity * 0.4);
+  return keyOverlap * 0.3 + bpmSimilarity * 0.3 + energySimilarity * 0.4;
 };
 ```
 
 ---
 
 ## Tier 3: Nice-to-Have Features
+
 **Timeline**: Phase 10+ (Long-term enhancements)
 
 Features that enhance the user experience but are not critical.
 
 ### 🎪 Live Set Mode
+
 **Priority**: Low | **Complexity**: Medium | **Dependencies**: Real-time tracking system
 
 Track performance in real-time during live sets.
@@ -418,6 +453,7 @@ Track performance in real-time during live sets.
 - **Live reordering**: Adjust playlist on-the-fly based on crowd
 
 **Live Set Schema**:
+
 ```sql
 CREATE TABLE live_set_sessions (
   id INTEGER PRIMARY KEY,
@@ -445,6 +481,7 @@ CREATE TABLE live_set_tracks (
 ---
 
 ### 🎨 Set Preparation Tools
+
 **Priority**: Low | **Complexity**: Medium | **Dependencies**: Audio server integration (future)
 
 Tools to rehearse and refine sets.
@@ -456,6 +493,7 @@ Tools to rehearse and refine sets.
 - **Risk assessment**: Flag risky tracks (new, untested, experimental)
 
 **Transition Notes Schema**:
+
 ```sql
 CREATE TABLE playlist_track_transitions (
   id INTEGER PRIMARY KEY,
@@ -473,6 +511,7 @@ CREATE TABLE playlist_track_transitions (
 ---
 
 ### 🏢 Venue & Context Tagging
+
 **Priority**: Low | **Complexity**: Medium | **Dependencies**: Venue database
 
 Associate playlists with performance context.
@@ -486,6 +525,7 @@ Associate playlists with performance context.
 - **Venue-specific auto-suggestions**: "You're playing Club XYZ - load these playlists"
 
 **Venue Schema**:
+
 ```sql
 CREATE TABLE venues (
   id INTEGER PRIMARY KEY,
@@ -514,6 +554,7 @@ CREATE TABLE playlist_venue_performance (
 ---
 
 ### 📈 Personal Performance Metrics
+
 **Priority**: Low | **Complexity**: Medium | **Dependencies**: Usage tracking
 
 Analytics on DJ behavior and playlist usage.
@@ -526,6 +567,7 @@ Analytics on DJ behavior and playlist usage.
 - **Favorite track combinations**: Learn which tracks you often play together
 
 **Metrics Examples**:
+
 ```javascript
 {
   "most_played_playlists": [
@@ -544,6 +586,7 @@ Analytics on DJ behavior and playlist usage.
 ---
 
 ### 🔄 Version Control for Playlists
+
 **Priority**: Low | **Complexity**: High | **Dependencies**: Git-like system
 
 Advanced playlist history and branching.
@@ -556,6 +599,7 @@ Advanced playlist history and branching.
 - **Change annotations**: Note why you made each change
 
 **Version Control Operations**:
+
 ```sql
 -- Track all changes to playlists
 CREATE TABLE playlist_changes (
@@ -585,6 +629,7 @@ CREATE TABLE playlist_branches (
 ---
 
 ### 🤝 Collaboration & Sharing
+
 **Priority**: Low | **Complexity**: High | **Dependencies**: User system, sharing infrastructure
 
 Multi-user playlist features.
@@ -596,6 +641,7 @@ Multi-user playlist features.
 - **Public setlists**: Export anonymous setlists for sharing (hide file paths)
 
 **Collaboration Schema**:
+
 ```sql
 CREATE TABLE playlist_collaborators (
   id INTEGER PRIMARY KEY,
@@ -620,11 +666,13 @@ CREATE TABLE playlist_track_claims (
 ---
 
 ## Tier 4: Future/Experimental Ideas
+
 **Timeline**: Phase 12+ (Experimental/R&D)
 
 Cutting-edge, experimental, or just-for-fun features.
 
 ### 🤖 Predictive & AI Features
+
 **Priority**: Experimental | **Complexity**: Very High | **Dependencies**: ML models, training data
 
 Machine learning-powered playlist generation and optimization.
@@ -636,12 +684,14 @@ Machine learning-powered playlist generation and optimization.
 - **Smart re-ordering**: AI optimally arranges tracks for best flow
 
 **ML Approaches**:
+
 1. **Embeddings**: Train model on audio features to create track embeddings
 2. **Sequence Learning**: LSTM/Transformer to learn playlist sequencing patterns
 3. **Recommendation**: Collaborative filtering based on DJ behavior
 4. **Clustering**: K-means on track features to find natural groupings
 
 **Tech Stack**:
+
 - TensorFlow.js for browser-based inference
 - Python backend for model training
 - Vector database (e.g., Pinecone, Qdrant) for similarity search
@@ -649,6 +699,7 @@ Machine learning-powered playlist generation and optimization.
 ---
 
 ### ⏰ Weather & Time-Based Smart Features
+
 **Priority**: Fun/Experimental | **Complexity**: Low | **Dependencies**: External APIs
 
 Context-aware playlist suggestions.
@@ -660,6 +711,7 @@ Context-aware playlist suggestions.
 - **Weather-based suggestions**: "Rainy day = deeper vibes" (optional fun feature)
 
 **Implementation**:
+
 - Use external weather API (OpenWeatherMap)
 - Time/date-based rules engine
 - Fuzzy matching for "mood" to weather conditions
@@ -667,6 +719,7 @@ Context-aware playlist suggestions.
 ---
 
 ### 🎮 Playlist Games & Challenges
+
 **Priority**: Fun/Experimental | **Complexity**: Medium | **Dependencies**: Challenge system
 
 Gamify playlist creation to encourage exploration and creativity.
@@ -678,6 +731,7 @@ Gamify playlist creation to encourage exploration and creativity.
 - **"Blind set builder"**: System picks tracks, you arrange them (test your skills)
 
 **Challenge Schema**:
+
 ```sql
 CREATE TABLE playlist_challenges (
   id INTEGER PRIMARY KEY,
@@ -702,6 +756,7 @@ CREATE TABLE challenge_completions (
 ---
 
 ### 🌐 Social & Community Features
+
 **Priority**: Experimental | **Complexity**: Very High | **Dependencies**: User system, social infrastructure
 
 Community-driven playlist features.
@@ -713,6 +768,7 @@ Community-driven playlist features.
 - **Collaborative curation**: Community votes on track additions
 
 **Privacy Considerations**:
+
 - Never expose file paths publicly
 - Share only metadata (BPM, key, energy, genre)
 - Option to share as "abstract playlist" (structure only)
@@ -720,6 +776,7 @@ Community-driven playlist features.
 ---
 
 ### 🪄 "Magic" Features (AI-Powered)
+
 **Priority**: Experimental | **Complexity**: Very High | **Dependencies**: Advanced ML models
 
 Experimental AI features for creative playlist generation.
@@ -731,6 +788,7 @@ Experimental AI features for creative playlist generation.
 - **"Find the gems"**: AI highlights underplayed tracks that fit playlist vibe
 
 **AI Model Requirements**:
+
 - Audio feature embeddings for similarity
 - Playlist quality scoring model
 - Energy/mood transfer learning
@@ -741,6 +799,7 @@ Experimental AI features for creative playlist generation.
 ## Implementation Priorities
 
 ### Phase 6: Core Intelligence (Tier 1)
+
 **Focus**: Must-have features that enhance DJ workflow
 
 1. Harmonic Mixing Intelligence
@@ -754,6 +813,7 @@ Experimental AI features for creative playlist generation.
 ---
 
 ### Phase 7: Workflow Enhancement (Tier 1 continued)
+
 **Focus**: Statistics and insights
 
 1. Playlist Statistics Dashboard
@@ -765,6 +825,7 @@ Experimental AI features for creative playlist generation.
 ---
 
 ### Phase 8: Power User Tools (Tier 2)
+
 **Focus**: Advanced filtering and operations
 
 1. Advanced Smart Playlist Criteria
@@ -776,6 +837,7 @@ Experimental AI features for creative playlist generation.
 ---
 
 ### Phase 9: Analytics & Insights (Tier 2 continued)
+
 **Focus**: Learning and improvement
 
 1. Version History
@@ -787,6 +849,7 @@ Experimental AI features for creative playlist generation.
 ---
 
 ### Phase 10+: Nice-to-Have & Experimental
+
 **Focus**: Live performance and experimental features
 
 - Tier 3 features as time permits
@@ -876,6 +939,7 @@ components/
 5. **Indexed Queries**: Ensure all filter criteria use database indexes
 
 **Scalability Targets**:
+
 - Playlist with 500 tracks: Energy arc renders in < 500ms
 - Smart playlist with complex criteria: Query completes in < 1s
 - Transition score calculation: < 100ms per transition
@@ -901,6 +965,7 @@ components/
 ### Data Requirements
 
 All features require:
+
 - ✅ Basic track metadata (title, artist, album, genre)
 - ✅ Analysis data (BPM, key, energy, arousal)
 - ✅ File paths and durations
@@ -913,18 +978,21 @@ All features require:
 ## Success Metrics
 
 ### Tier 1 Success Criteria
+
 - 90% of playlists have valid energy arcs
 - Transition warnings reduce bad transitions by 50%
 - DJs spend 30% less time manually arranging tracks
 - Prep quality score adoption rate > 80%
 
 ### Tier 2 Success Criteria
+
 - Mission completion rate > 60%
 - Smart playlist usage increases by 40%
 - Average playlist diversity score > 0.7
 - Import/export adoption rate > 30%
 
 ### Tier 3 Success Criteria
+
 - Live set mode used in 25% of performances
 - Venue tracking adoption rate > 50%
 - Playlist branching used by power users (10%+)
@@ -941,11 +1009,13 @@ This document represents a comprehensive roadmap for enhancing the Mismo DJ play
 4. **User Adoption**: Will DJs actually use it?
 
 The tier system allows us to:
+
 - Focus on high-impact features first (Tier 1)
 - Build toward more advanced features (Tier 2-3)
 - Experiment with cutting-edge ideas (Tier 4)
 
 **Next Steps**:
+
 1. Review and prioritize Tier 1 features
 2. Create detailed design docs for selected features
 3. Integrate into Phase 6+ planning
@@ -957,3 +1027,16 @@ The tier system allows us to:
 **Document Version**: 1.0
 **Last Updated**: 2025-10-23
 **Maintained By**: Chester + Claude
+
+## future ideas moved from our plan doucment -
+
+we chose to move all these ideas to future stage
+My suggestion: Skip for now, add in Phase 6 2. Session Auto-Start - Should sessions auto-start when you load a track, or require manual "start session"?
+Design doc suggests auto-start on first track play
+My suggestion: Start with manual, add auto-start in Phase 6 3. Multiple Temporary Playlists - One global "Thinking Playlist" or multiple?
+Design doc recommends Option A (single global) for MVP
+I agree 4. Smart Playlist Nested Criteria - Support complex AND/OR logic like (Genre = House OR Genre = Techno) AND BPM > 128?
+Design doc mentions this as an open question
+My suggestion: Start with simple AND logic, add OR/nesting later 5. M3U Import/Export - Export only, or also import?
+Design doc suggests export only for now
+I agree
