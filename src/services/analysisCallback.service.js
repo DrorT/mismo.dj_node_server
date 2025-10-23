@@ -56,6 +56,8 @@ export async function handleBasicFeatures(jobId, data) {
     const downbeats = data.downbeats || [];
     const firstBeatOffset = data.firstBeatOffset;
     const firstPhraseBeatNo = data.firstPhraseBeatNo;
+    const audibleStartTime = data.audibleStartTime;
+    const audibleEndTime = data.audibleEndTime;
 
     // Log what we extracted
     logger.info(`Extracted basic features:`, {
@@ -63,7 +65,9 @@ export async function handleBasicFeatures(jobId, data) {
       beats_count: beats.length,
       downbeats_count: downbeats.length,
       firstBeatOffset,
-      firstPhraseBeatNo
+      firstPhraseBeatNo,
+      audibleStartTime,
+      audibleEndTime
     });
 
     // Prepare track updates
@@ -74,6 +78,8 @@ export async function handleBasicFeatures(jobId, data) {
     if (mode !== undefined) trackUpdates.mode = mode;
     if (firstBeatOffset !== undefined) trackUpdates.first_beat_offset = firstBeatOffset;
     if (firstPhraseBeatNo !== undefined) trackUpdates.first_phrase_beat_no = firstPhraseBeatNo;
+    if (audibleStartTime !== undefined) trackUpdates.audible_start_time = audibleStartTime;
+    if (audibleEndTime !== undefined) trackUpdates.audible_end_time = audibleEndTime;
 
     // Store beats and downbeats as JSON BLOBs if present
     if (beats && beats.length > 0) {

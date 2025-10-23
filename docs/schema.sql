@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
 -- Initial version
 INSERT OR IGNORE INTO schema_version (version, description) VALUES (1, 'Initial MVP schema');
 INSERT OR IGNORE INTO schema_version (version, description) VALUES (2, 'Added multi-directory library support, duplicate detection, and file operations');
+INSERT OR IGNORE INTO schema_version (version, description) VALUES (11, 'Added audible time fields (audible_start_time, audible_end_time)');
 
 -- ============================================================================
 -- Library Directories Table (Updated to UUID - Migration 008)
@@ -106,6 +107,8 @@ CREATE TABLE IF NOT EXISTS tracks (
     downbeats_data BLOB,
     first_beat_offset REAL,                 -- Time offset in seconds to first beat
     first_phrase_beat_no INTEGER,           -- Beat number where first musical phrase starts
+    audible_start_time REAL,                -- Time in seconds when audible content begins
+    audible_end_time REAL,                  -- Time in seconds when audible content ends
     stems_path TEXT,
 
     -- Audio features (from Essentia)
