@@ -74,6 +74,7 @@ import watcherRoutes from './routes/watcher.routes.js';
 import tracksRoutes from './routes/tracks.routes.js';
 import duplicatesRoutes from './routes/duplicates.routes.js';
 import analysisRoutes from './routes/analysis.routes.js';
+import playlistRoutes from './routes/playlist.routes.js';
 
 app.use('/api/settings', settingsRoutes);
 app.use('/api/library/directories', libraryDirectoryRoutes);
@@ -82,6 +83,7 @@ app.use('/api/watcher', watcherRoutes);
 app.use('/api/tracks', tracksRoutes);
 app.use('/api/duplicates', duplicatesRoutes);
 app.use('/api/analysis', analysisRoutes);
+app.use('/api/playlists', playlistRoutes);
 
 // Import services for startup scan and file watching
 import * as libraryDirService from './services/libraryDirectory.service.js';

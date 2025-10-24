@@ -1,0 +1,1532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Phase 5: Playlists Test Client</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: #00bcd4;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #888;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .config-panel {
+            background: #252525;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 30px;
+        }
+
+        .config-panel h3 {
+            color: #00bcd4;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+
+        .config-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        label {
+            color: #aaa;
+            min-width: 100px;
+        }
+
+        input, select, textarea {
+            background: #1a1a1a;
+            border: 1px solid #444;
+            color: #e0e0e0;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            flex: 1;
+        }
+
+        input:focus, select:focus, textarea:focus {
+            outline: none;
+            border-color: #00bcd4;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #333;
+        }
+
+        .tab {
+            background: #252525;
+            border: 1px solid #333;
+            border-bottom: none;
+            color: #aaa;
+            padding: 12px 24px;
+            cursor: pointer;
+            border-radius: 8px 8px 0 0;
+            transition: all 0.2s;
+        }
+
+        .tab:hover {
+            background: #2a2a2a;
+            color: #e0e0e0;
+        }
+
+        .tab.active {
+            background: #00bcd4;
+            color: #1a1a1a;
+            font-weight: 600;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .section {
+            background: #252525;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .section h3 {
+            color: #00bcd4;
+            margin-bottom: 15px;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .section-description {
+            color: #888;
+            margin-bottom: 20px;
+            font-size: 13px;
+            line-height: 1.5;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        button {
+            background: #00bcd4;
+            color: #1a1a1a;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+
+        button:hover {
+            background: #00acc1;
+            transform: translateY(-1px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.secondary {
+            background: #555;
+            color: #e0e0e0;
+        }
+
+        button.secondary:hover {
+            background: #666;
+        }
+
+        button.danger {
+            background: #f44336;
+            color: white;
+        }
+
+        button.danger:hover {
+            background: #e53935;
+        }
+
+        button:disabled {
+            background: #333;
+            color: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .result.success {
+            border-left: 4px solid #4caf50;
+        }
+
+        .result.error {
+            border-left: 4px solid #f44336;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .status-badge.success {
+            background: #4caf50;
+            color: white;
+        }
+
+        .status-badge.error {
+            background: #f44336;
+            color: white;
+        }
+
+        .status-badge.info {
+            background: #2196f3;
+            color: white;
+        }
+
+        .playlist-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .playlist-card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 8px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .playlist-card:hover {
+            border-color: #00bcd4;
+            transform: translateY(-2px);
+        }
+
+        .playlist-card.selected {
+            border-color: #00bcd4;
+            background: #252525;
+        }
+
+        .playlist-card h4 {
+            color: #00bcd4;
+            margin-bottom: 8px;
+            font-size: 16px;
+        }
+
+        .playlist-card .meta {
+            color: #888;
+            font-size: 12px;
+            margin-bottom: 5px;
+        }
+
+        .playlist-card .type-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-right: 5px;
+        }
+
+        .type-static { background: #4caf50; color: white; }
+        .type-smart { background: #ff9800; color: white; }
+        .type-session { background: #9c27b0; color: white; }
+        .type-temp { background: #607d8b; color: white; }
+
+        .track-list {
+            margin-top: 15px;
+        }
+
+        .track-item {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 12px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .track-item .position {
+            color: #666;
+            font-weight: 600;
+            min-width: 30px;
+        }
+
+        .track-item .info {
+            flex: 1;
+        }
+
+        .track-item .title {
+            color: #e0e0e0;
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .track-item .artist {
+            color: #888;
+            font-size: 13px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            color: #aaa;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+        }
+
+        .form-group textarea {
+            min-height: 100px;
+            resize: vertical;
+            font-family: 'Courier New', monospace;
+        }
+
+        .criteria-builder {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 15px;
+            margin-top: 10px;
+        }
+
+        .criteria-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+        }
+
+        .criteria-row select,
+        .criteria-row input {
+            flex: 1;
+        }
+
+        .log {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+
+        .log-entry {
+            padding: 5px 0;
+            border-bottom: 1px solid #222;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-entry .timestamp {
+            color: #666;
+            margin-right: 10px;
+        }
+
+        .log-entry.success { color: #4caf50; }
+        .log-entry.error { color: #f44336; }
+        .log-entry.info { color: #2196f3; }
+
+        code {
+            background: #1a1a1a;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #00bcd4;
+            font-size: 12px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .stat-card {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .stat-card .value {
+            color: #00bcd4;
+            font-size: 32px;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .stat-card .label {
+            color: #888;
+            font-size: 13px;
+        }
+
+        .json-preview {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            border-radius: 4px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Phase 5: Playlists Test Client</h1>
+        <p class="subtitle">Comprehensive test interface for playlist management API</p>
+
+        <!-- Configuration Panel -->
+        <div class="config-panel">
+            <h3>⚙️ Configuration</h3>
+            <div class="config-row">
+                <label>API Base URL:</label>
+                <input type="text" id="apiBase" value="http://localhost:12047/api">
+                <button onclick="testConnection()">Test Connection</button>
+            </div>
+            <div id="connectionStatus"></div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <div class="tab active" data-tab="browse">📁 Browse</div>
+            <div class="tab" data-tab="create">➕ Create</div>
+            <div class="tab" data-tab="manage">🔧 Manage</div>
+            <div class="tab" data-tab="smart">🧠 Smart Playlists</div>
+            <div class="tab" data-tab="sessions">🎧 Sessions</div>
+            <div class="tab" data-tab="thinking">💭 Thinking</div>
+            <div class="tab" data-tab="utilities">🛠️ Utilities</div>
+            <div class="tab" data-tab="log">📝 Log</div>
+        </div>
+
+        <!-- Browse Tab -->
+        <div id="tab-browse" class="tab-content active">
+            <div class="section">
+                <h3>📁 Browse Playlists</h3>
+                <p class="section-description">
+                    View all playlists with filtering options. Click on a playlist to select it for operations.
+                </p>
+
+                <div class="form-group">
+                    <label>Filter by Type:</label>
+                    <select id="filterType">
+                        <option value="">All Types</option>
+                        <option value="static">Static</option>
+                        <option value="smart">Smart</option>
+                        <option value="session">Session</option>
+                        <option value="temp">Temporary</option>
+                    </select>
+                </div>
+
+                <div class="button-group">
+                    <button onclick="loadAllPlaylists()">🔄 Refresh</button>
+                    <button class="secondary" onclick="loadFavorites()">⭐ Favorites Only</button>
+                    <button class="secondary" onclick="searchPlaylists()">🔍 Search</button>
+                </div>
+
+                <div id="playlistsContainer" class="playlist-list"></div>
+                <div id="playlistDetails" class="result" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- Create Tab -->
+        <div id="tab-create" class="tab-content">
+            <div class="section">
+                <h3>➕ Create New Playlist</h3>
+                <p class="section-description">
+                    Create static, smart, or session playlists with custom metadata.
+                </p>
+
+                <div class="form-group">
+                    <label>Playlist Type:</label>
+                    <select id="createType" onchange="toggleCriteriaBuilder()">
+                        <option value="static">Static (Manual)</option>
+                        <option value="smart">Smart (Auto-populated)</option>
+                        <option value="session">Session (DJ Performance)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Name:</label>
+                    <input type="text" id="createName" placeholder="My Awesome Playlist">
+                </div>
+
+                <div class="form-group">
+                    <label>Description:</label>
+                    <textarea id="createDescription" placeholder="Optional description"></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Color:</label>
+                    <input type="color" id="createColor" value="#00bcd4">
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="createFavorite"> Mark as Favorite
+                    </label>
+                </div>
+
+                <div id="criteriaBuilder" style="display: none;">
+                    <h4 style="color: #00bcd4; margin-bottom: 15px;">Smart Playlist Criteria</h4>
+                    <div class="criteria-builder">
+                        <div class="criteria-row">
+                            <label>BPM Min:</label>
+                            <input type="number" id="bpmMin" placeholder="120">
+                            <label>BPM Max:</label>
+                            <input type="number" id="bpmMax" placeholder="135">
+                        </div>
+                        <div class="criteria-row">
+                            <label>Key:</label>
+                            <select id="keySelect">
+                                <option value="">Any</option>
+                                <option value="0">C</option>
+                                <option value="1">C#/Db</option>
+                                <option value="2">D</option>
+                                <option value="3">D#/Eb</option>
+                                <option value="4">E</option>
+                                <option value="5">F</option>
+                                <option value="6">F#/Gb</option>
+                                <option value="7">G</option>
+                                <option value="8">G#/Ab</option>
+                                <option value="9">A</option>
+                                <option value="10">A#/Bb</option>
+                                <option value="11">B</option>
+                            </select>
+                            <label>Mode:</label>
+                            <select id="modeSelect">
+                                <option value="">Any</option>
+                                <option value="0">Minor</option>
+                                <option value="1">Major</option>
+                            </select>
+                        </div>
+                        <div class="criteria-row">
+                            <label>Energy Min:</label>
+                            <input type="number" step="0.1" id="energyMin" placeholder="0.6">
+                            <label>Danceability Min:</label>
+                            <input type="number" step="0.1" id="danceabilityMin" placeholder="0.7">
+                        </div>
+                        <div class="criteria-row">
+                            <label>Genres (comma-separated):</label>
+                            <input type="text" id="genres" placeholder="House, Techno, Trance">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="button-group" style="margin-top: 20px;">
+                    <button onclick="createPlaylist()">✅ Create Playlist</button>
+                    <button class="secondary" onclick="clearCreateForm()">🔄 Clear</button>
+                </div>
+
+                <div id="createResult"></div>
+            </div>
+        </div>
+
+        <!-- Manage Tab -->
+        <div id="tab-manage" class="tab-content">
+            <div class="section">
+                <h3>🔧 Manage Playlist</h3>
+                <p class="section-description">
+                    <strong>Selected:</strong> <span id="selectedPlaylistName">None</span>
+                </p>
+
+                <div class="button-group">
+                    <button onclick="loadPlaylistTracks()">📋 Load Tracks</button>
+                    <button onclick="getPlaylistStats()">📊 View Stats</button>
+                    <button onclick="updatePlaylistForm()">✏️ Edit Info</button>
+                    <button class="danger" onclick="deletePlaylist()">🗑️ Delete</button>
+                </div>
+
+                <div id="updateForm" style="display: none; margin-top: 20px;">
+                    <h4 style="color: #00bcd4; margin-bottom: 15px;">Update Playlist Info</h4>
+                    <div class="form-group">
+                        <label>Name:</label>
+                        <input type="text" id="updateName">
+                    </div>
+                    <div class="form-group">
+                        <label>Description:</label>
+                        <textarea id="updateDescription"></textarea>
+                    </div>
+                    <div class="button-group">
+                        <button onclick="updatePlaylist()">💾 Save Changes</button>
+                        <button class="secondary" onclick="cancelUpdate()">❌ Cancel</button>
+                    </div>
+                </div>
+
+                <div id="tracksContainer"></div>
+                <div id="statsContainer"></div>
+                <div id="manageResult"></div>
+            </div>
+
+            <div class="section">
+                <h3>🎵 Track Operations</h3>
+                <p class="section-description">
+                    Add, remove, and reorder tracks in the selected playlist.
+                </p>
+
+                <div class="form-group">
+                    <label>Track IDs (comma-separated UUIDs):</label>
+                    <input type="text" id="trackIds" placeholder="uuid1, uuid2, uuid3">
+                    <button class="secondary" onclick="loadAvailableTracks()" style="margin-top: 10px;">
+                        📋 Load From Library
+                    </button>
+                </div>
+
+                <div class="button-group">
+                    <button onclick="addTracks()">➕ Add Tracks</button>
+                    <button onclick="removeTrack()">➖ Remove Track</button>
+                    <button onclick="reorderTracks()">↕️ Reorder</button>
+                </div>
+
+                <div id="trackOpsResult"></div>
+            </div>
+        </div>
+
+        <!-- Smart Playlists Tab -->
+        <div id="tab-smart" class="tab-content">
+            <div class="section">
+                <h3>🧠 Smart Playlist Operations</h3>
+                <p class="section-description">
+                    <strong>Selected:</strong> <span id="smartSelectedName">None</span>
+                </p>
+
+                <div class="button-group">
+                    <button onclick="refreshSmartPlaylist()">🔄 Refresh</button>
+                    <button onclick="explainCriteria()">📖 Explain Criteria</button>
+                    <button onclick="convertToStatic()">🔒 Convert to Static</button>
+                </div>
+
+                <div id="smartResult"></div>
+            </div>
+        </div>
+
+        <!-- Sessions Tab -->
+        <div id="tab-sessions" class="tab-content">
+            <div class="section">
+                <h3>🎧 DJ Session Management</h3>
+                <p class="section-description">
+                    Start sessions, log track plays, and finalize performances.
+                </p>
+
+                <div class="form-group">
+                    <label>Venue:</label>
+                    <input type="text" id="sessionVenue" placeholder="Club XYZ">
+                </div>
+
+                <div class="button-group">
+                    <button onclick="startSession()">▶️ Start Session</button>
+                    <button onclick="loadActiveSessions()">📋 Load Active Sessions</button>
+                </div>
+
+                <div id="activeSessionsContainer"></div>
+            </div>
+
+            <div class="section">
+                <h3>📝 Log Track Play</h3>
+                <p class="section-description">
+                    <strong>Current Session:</strong> <span id="currentSessionName">None</span>
+                </p>
+
+                <div class="form-group">
+                    <label>Track ID:</label>
+                    <input type="text" id="playTrackId" placeholder="track-uuid">
+                </div>
+
+                <div class="form-group">
+                    <label>Notes:</label>
+                    <input type="text" id="playNotes" placeholder="Great crowd response!">
+                </div>
+
+                <div class="button-group">
+                    <button onclick="logTrackPlay()">📼 Log Play</button>
+                    <button class="danger" onclick="finalizeSession()">🏁 Finalize Session</button>
+                </div>
+
+                <div id="sessionResult"></div>
+            </div>
+        </div>
+
+        <!-- Thinking Tab -->
+        <div id="tab-thinking" class="tab-content">
+            <div class="section">
+                <h3>💭 Thinking Playlist</h3>
+                <p class="section-description">
+                    The thinking playlist is a temporary workspace for exploring and organizing tracks.
+                    Add tracks, experiment, then promote to a permanent playlist or clear it.
+                </p>
+
+                <div class="button-group">
+                    <button onclick="loadThinkingPlaylist()">🔄 Load Thinking Playlist</button>
+                    <button onclick="clearThinkingPlaylist()">🗑️ Clear All Tracks</button>
+                </div>
+
+                <div id="thinkingContainer"></div>
+            </div>
+
+            <div class="section">
+                <h3>⬆️ Promote to Static</h3>
+                <p class="section-description">
+                    Convert the thinking playlist to a permanent static playlist.
+                    The thinking playlist will be cleared and ready for new exploration.
+                </p>
+
+                <div class="form-group">
+                    <label>New Playlist Name:</label>
+                    <input type="text" id="promoteName" placeholder="My New Playlist">
+                </div>
+
+                <div class="button-group">
+                    <button onclick="promoteThinkingPlaylist()">⬆️ Promote</button>
+                </div>
+
+                <div id="thinkingResult"></div>
+            </div>
+        </div>
+
+        <!-- Utilities Tab -->
+        <div id="tab-utilities" class="tab-content">
+            <div class="section">
+                <h3>🛠️ Utility Operations</h3>
+                <p class="section-description">
+                    <strong>Selected:</strong> <span id="utilSelectedName">None</span>
+                </p>
+
+                <div class="form-group">
+                    <label>Search Query:</label>
+                    <input type="text" id="searchQuery" placeholder="Search playlists...">
+                </div>
+
+                <div class="button-group">
+                    <button onclick="searchPlaylistsUtil()">🔍 Search</button>
+                    <button onclick="duplicatePlaylist()">📋 Duplicate</button>
+                    <button onclick="exportPlaylist()">💾 Export M3U</button>
+                </div>
+
+                <div id="utilResult"></div>
+            </div>
+        </div>
+
+        <!-- Log Tab -->
+        <div id="tab-log" class="tab-content">
+            <div class="section">
+                <h3>📝 Activity Log</h3>
+                <p class="section-description">
+                    Real-time log of all API operations and responses.
+                </p>
+                <div class="button-group">
+                    <button onclick="clearLog()">🗑️ Clear Log</button>
+                    <button class="secondary" onclick="exportLog()">💾 Export Log</button>
+                </div>
+                <div id="activityLog" class="log"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let API_BASE = 'http://localhost:12047/api';
+        let selectedPlaylistId = null;
+        let selectedPlaylistName = null;
+        let currentSessionId = null;
+        let currentSessionName = null;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            API_BASE = document.getElementById('apiBase').value;
+            setupTabs();
+            testConnection();
+            log('info', 'Test client loaded successfully');
+        });
+
+        // Tab management
+        function setupTabs() {
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const tabName = tab.dataset.tab;
+
+                    // Update tab styles
+                    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+
+                    // Update content
+                    document.querySelectorAll('.tab-content').forEach(content => {
+                        content.classList.remove('active');
+                    });
+                    document.getElementById(`tab-${tabName}`).classList.add('active');
+
+                    log('info', `Switched to ${tabName} tab`);
+                });
+            });
+        }
+
+        // Logging
+        function log(type, message, data = null) {
+            const logDiv = document.getElementById('activityLog');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+
+            const timestamp = new Date().toLocaleTimeString();
+            entry.innerHTML = `<span class="timestamp">${timestamp}</span> ${message}`;
+
+            if (data) {
+                entry.innerHTML += `<br><pre style="margin-top: 5px; color: #666;">${JSON.stringify(data, null, 2)}</pre>`;
+            }
+
+            logDiv.insertBefore(entry, logDiv.firstChild);
+        }
+
+        function clearLog() {
+            document.getElementById('activityLog').innerHTML = '';
+            log('info', 'Log cleared');
+        }
+
+        function exportLog() {
+            const logContent = document.getElementById('activityLog').innerText;
+            const blob = new Blob([logContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `playlist-test-log-${Date.now()}.txt`;
+            a.click();
+            log('success', 'Log exported');
+        }
+
+        // API helpers
+        async function apiCall(method, endpoint, body = null) {
+            API_BASE = document.getElementById('apiBase').value;
+            const url = `${API_BASE}${endpoint}`;
+
+            log('info', `${method} ${endpoint}`, body);
+
+            try {
+                const options = {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                };
+
+                if (body) {
+                    options.body = JSON.stringify(body);
+                }
+
+                const response = await fetch(url, options);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    log('error', `API Error: ${response.status}`, data);
+                    return { success: false, error: data };
+                }
+
+                log('success', `${method} ${endpoint} succeeded`, data);
+                return { success: true, data };
+            } catch (error) {
+                log('error', `Network Error: ${error.message}`);
+                return { success: false, error: error.message };
+            }
+        }
+
+        function showResult(containerId, success, message, data = null) {
+            const container = document.getElementById(containerId);
+            container.style.display = 'block';
+            container.className = `result ${success ? 'success' : 'error'}`;
+
+            let html = `<div class="status-badge ${success ? 'success' : 'error'}">${success ? '✓ Success' : '✗ Error'}</div>`;
+            html += `<p style="margin: 10px 0;">${message}</p>`;
+
+            if (data) {
+                html += `<div class="json-preview">${JSON.stringify(data, null, 2)}</div>`;
+            }
+
+            container.innerHTML = html;
+        }
+
+        // Connection test
+        async function testConnection() {
+            const result = await apiCall('GET', '/tracks?limit=1');
+            const statusDiv = document.getElementById('connectionStatus');
+
+            if (result.success) {
+                statusDiv.innerHTML = '<span class="status-badge success">✓ Connected</span>';
+            } else {
+                statusDiv.innerHTML = '<span class="status-badge error">✗ Connection Failed</span>';
+            }
+        }
+
+        // Browse functions
+        async function loadAllPlaylists() {
+            const filterType = document.getElementById('filterType').value;
+            const endpoint = filterType ? `/playlists?type=${filterType}` : '/playlists';
+
+            const result = await apiCall('GET', endpoint);
+
+            if (result.success) {
+                displayPlaylists(result.data.playlists);
+                showResult('playlistsContainer', true, `Loaded ${result.data.count} playlists`);
+            }
+        }
+
+        function displayPlaylists(playlists) {
+            const container = document.getElementById('playlistsContainer');
+
+            if (!playlists || playlists.length === 0) {
+                container.innerHTML = '<p style="color: #888; text-align: center; padding: 40px;">No playlists found</p>';
+                return;
+            }
+
+            container.innerHTML = playlists.map(playlist => `
+                <div class="playlist-card ${playlist.id === selectedPlaylistId ? 'selected' : ''}"
+                     onclick="selectPlaylist('${playlist.id}', '${playlist.name.replace(/'/g, "\\'")}')">
+                    <h4>${playlist.name}</h4>
+                    <div class="meta">
+                        <span class="type-badge type-${playlist.type}">${playlist.type.toUpperCase()}</span>
+                        ${playlist.is_favorite ? '⭐' : ''}
+                        ${playlist.is_readonly ? '🔒' : ''}
+                    </div>
+                    <div class="meta">${playlist.track_count || 0} tracks</div>
+                    ${playlist.description ? `<div class="meta" style="margin-top: 8px;">${playlist.description}</div>` : ''}
+                </div>
+            `).join('');
+        }
+
+        function selectPlaylist(id, name) {
+            selectedPlaylistId = id;
+            selectedPlaylistName = name;
+
+            // Update all selected playlist displays
+            document.getElementById('selectedPlaylistName').textContent = name;
+            document.getElementById('smartSelectedName').textContent = name;
+            document.getElementById('utilSelectedName').textContent = name;
+
+            // Update card highlighting
+            document.querySelectorAll('.playlist-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            event.target.closest('.playlist-card').classList.add('selected');
+
+            log('info', `Selected playlist: ${name}`);
+
+            // Load details
+            loadPlaylistDetails(id);
+        }
+
+        async function loadPlaylistDetails(id) {
+            const result = await apiCall('GET', `/playlists/${id}`);
+
+            if (result.success) {
+                const detailsDiv = document.getElementById('playlistDetails');
+                detailsDiv.style.display = 'block';
+                detailsDiv.className = 'result success';
+                detailsDiv.innerHTML = `<div class="json-preview">${JSON.stringify(result.data, null, 2)}</div>`;
+            }
+        }
+
+        async function loadFavorites() {
+            const result = await apiCall('GET', '/playlists?is_favorite=true');
+
+            if (result.success) {
+                displayPlaylists(result.data.playlists);
+            }
+        }
+
+        async function searchPlaylists() {
+            const query = prompt('Enter search query:');
+            if (!query) return;
+
+            const result = await apiCall('GET', `/playlists/search?q=${encodeURIComponent(query)}`);
+
+            if (result.success) {
+                displayPlaylists(result.data.playlists);
+            }
+        }
+
+        // Create functions
+        function toggleCriteriaBuilder() {
+            const type = document.getElementById('createType').value;
+            document.getElementById('criteriaBuilder').style.display = type === 'smart' ? 'block' : 'none';
+        }
+
+        async function createPlaylist() {
+            const type = document.getElementById('createType').value;
+            const name = document.getElementById('createName').value;
+
+            if (!name) {
+                alert('Please enter a playlist name');
+                return;
+            }
+
+            const data = {
+                name,
+                type,
+                description: document.getElementById('createDescription').value || null,
+                color: document.getElementById('createColor').value,
+                is_favorite: document.getElementById('createFavorite').checked,
+            };
+
+            if (type === 'smart') {
+                const criteria = {};
+
+                const bpmMin = document.getElementById('bpmMin').value;
+                const bpmMax = document.getElementById('bpmMax').value;
+                if (bpmMin) criteria.bpm_min = parseFloat(bpmMin);
+                if (bpmMax) criteria.bpm_max = parseFloat(bpmMax);
+
+                const key = document.getElementById('keySelect').value;
+                if (key) criteria.key = parseInt(key);
+
+                const mode = document.getElementById('modeSelect').value;
+                if (mode) criteria.mode = parseInt(mode);
+
+                const energyMin = document.getElementById('energyMin').value;
+                if (energyMin) criteria.energy_min = parseFloat(energyMin);
+
+                const danceabilityMin = document.getElementById('danceabilityMin').value;
+                if (danceabilityMin) criteria.danceability_min = parseFloat(danceabilityMin);
+
+                const genres = document.getElementById('genres').value;
+                if (genres) criteria.genres = genres.split(',').map(g => g.trim());
+
+                data.criteria = criteria;
+            }
+
+            const result = await apiCall('POST', '/playlists', data);
+
+            if (result.success) {
+                showResult('createResult', true, 'Playlist created successfully!', result.data);
+                clearCreateForm();
+                loadAllPlaylists(); // Refresh browse tab
+            } else {
+                showResult('createResult', false, 'Failed to create playlist', result.error);
+            }
+        }
+
+        function clearCreateForm() {
+            document.getElementById('createName').value = '';
+            document.getElementById('createDescription').value = '';
+            document.getElementById('createFavorite').checked = false;
+            document.getElementById('bpmMin').value = '';
+            document.getElementById('bpmMax').value = '';
+            document.getElementById('keySelect').value = '';
+            document.getElementById('modeSelect').value = '';
+            document.getElementById('energyMin').value = '';
+            document.getElementById('danceabilityMin').value = '';
+            document.getElementById('genres').value = '';
+        }
+
+        // Manage functions
+        async function loadPlaylistTracks() {
+            if (!selectedPlaylistId) {
+                alert('Please select a playlist first');
+                return;
+            }
+
+            const result = await apiCall('GET', `/playlists/${selectedPlaylistId}`);
+
+            if (result.success && result.data.tracks) {
+                const container = document.getElementById('tracksContainer');
+                container.innerHTML = '<h4 style="color: #00bcd4; margin: 20px 0 15px;">Tracks</h4>';
+                container.innerHTML += '<div class="track-list">' + result.data.tracks.map((item, index) => `
+                    <div class="track-item">
+                        <div class="position">${index + 1}</div>
+                        <div class="info">
+                            <div class="title">${item.track.title || 'Unknown Title'}</div>
+                            <div class="artist">${item.track.artist || 'Unknown Artist'}</div>
+                        </div>
+                        <div class="meta" style="color: #666;">${item.track.duration_seconds}s</div>
+                    </div>
+                `).join('') + '</div>';
+            }
+        }
+
+        async function getPlaylistStats() {
+            if (!selectedPlaylistId) {
+                alert('Please select a playlist first');
+                return;
+            }
+
+            const result = await apiCall('GET', `/playlists/${selectedPlaylistId}/stats`);
+
+            if (result.success) {
+                const container = document.getElementById('statsContainer');
+                const stats = result.data;
+
+                container.innerHTML = `
+                    <h4 style="color: #00bcd4; margin: 20px 0 15px;">Statistics</h4>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="value">${stats.track_count}</div>
+                            <div class="label">Tracks</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="value">${Math.floor(stats.total_duration / 60)}m</div>
+                            <div class="label">Duration</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="value">${stats.avg_bpm ? stats.avg_bpm.toFixed(1) : 'N/A'}</div>
+                            <div class="label">Avg BPM</div>
+                        </div>
+                    </div>
+                    <div class="json-preview" style="margin-top: 15px;">${JSON.stringify(stats, null, 2)}</div>
+                `;
+            }
+        }
+
+        function updatePlaylistForm() {
+            if (!selectedPlaylistId) {
+                alert('Please select a playlist first');
+                return;
+            }
+
+            document.getElementById('updateForm').style.display = 'block';
+            document.getElementById('updateName').value = selectedPlaylistName;
+        }
+
+        function cancelUpdate() {
+            document.getElementById('updateForm').style.display = 'none';
+        }
+
+        async function updatePlaylist() {
+            if (!selectedPlaylistId) return;
+
+            const data = {
+                name: document.getElementById('updateName').value,
+                description: document.getElementById('updateDescription').value || null,
+            };
+
+            const result = await apiCall('PUT', `/playlists/${selectedPlaylistId}`, data);
+
+            if (result.success) {
+                showResult('manageResult', true, 'Playlist updated successfully!', result.data);
+                selectedPlaylistName = data.name;
+                document.getElementById('selectedPlaylistName').textContent = data.name;
+                cancelUpdate();
+                loadAllPlaylists();
+            } else {
+                showResult('manageResult', false, 'Failed to update playlist', result.error);
+            }
+        }
+
+        async function deletePlaylist() {
+            if (!selectedPlaylistId) {
+                alert('Please select a playlist first');
+                return;
+            }
+
+            if (!confirm(`Are you sure you want to delete "${selectedPlaylistName}"?`)) {
+                return;
+            }
+
+            const result = await apiCall('DELETE', `/playlists/${selectedPlaylistId}`);
+
+            if (result.success) {
+                showResult('manageResult', true, 'Playlist deleted successfully!');
+                selectedPlaylistId = null;
+                selectedPlaylistName = null;
+                loadAllPlaylists();
+            } else {
+                showResult('manageResult', false, 'Failed to delete playlist', result.error);
+            }
+        }
+
+        async function loadAvailableTracks() {
+            const result = await apiCall('GET', '/tracks?limit=10');
+
+            if (result.success && result.data.data) {
+                const trackIds = result.data.data.map(t => t.id).join(', ');
+                document.getElementById('trackIds').value = trackIds;
+                log('success', `Loaded ${result.data.data.length} track IDs`);
+            }
+        }
+
+        async function addTracks() {
+            if (!selectedPlaylistId) {
+                alert('Please select a playlist first');
+                return;
+            }
+
+            const trackIdsStr = document.getElementById('trackIds').value;
+            if (!trackIdsStr) {
+                alert('Please enter track IDs');
+                return;
+            }
+
+            const trackIds = trackIdsStr.split(',').map(id => id.trim());
+
+            const result = await apiCall('POST', `/playlists/${selectedPlaylistId}/tracks`, {
+                track_ids: trackIds,
+            });
+
+            if (result.success) {
+                showResult('trackOpsResult', true, `Added ${result.data.added_count} tracks!`);
+                loadPlaylistTracks();
+            } else {
+                showResult('trackOpsResult', false, 'Failed to add tracks', result.error);
+            }
+        }
+
+        async function removeTrack() {
+            if (!selectedPlaylistId) {
+                alert('Please select a playlist first');
+                return;
+            }
+
+            const trackId = prompt('Enter track ID to remove:');
+            if (!trackId) return;
+
+            const result = await apiCall('DELETE', `/playlists/${selectedPlaylistId}/tracks/${trackId.trim()}`);
+
+            if (result.success) {
+                showResult('trackOpsResult', true, 'Track removed successfully!');
+                loadPlaylistTracks();
+            } else {
+                showResult('trackOpsResult', false, 'Failed to remove track', result.error);
+            }
+        }
+
+        async function reorderTracks() {
+            if (!selectedPlaylistId) {
+                alert('Please select a playlist first');
+                return;
+            }
+
+            const trackIdsStr = prompt('Enter track IDs in new order (comma-separated):');
+            if (!trackIdsStr) return;
+
+            const trackIds = trackIdsStr.split(',').map(id => id.trim());
+
+            const result = await apiCall('PUT', `/playlists/${selectedPlaylistId}/tracks/reorder`, {
+                track_ids: trackIds,
+            });
+
+            if (result.success) {
+                showResult('trackOpsResult', true, 'Tracks reordered successfully!');
+                loadPlaylistTracks();
+            } else {
+                showResult('trackOpsResult', false, 'Failed to reorder tracks', result.error);
+            }
+        }
+
+        // Smart playlist functions
+        async function refreshSmartPlaylist() {
+            if (!selectedPlaylistId) {
+                alert('Please select a playlist first');
+                return;
+            }
+
+            const result = await apiCall('POST', `/playlists/${selectedPlaylistId}/refresh`);
+
+            if (result.success) {
+                showResult('smartResult', true,
+                    `Refreshed: ${result.data.total} tracks (${result.data.added} added, ${result.data.removed} removed)`,
+                    result.data);
+            } else {
+                showResult('smartResult', false, 'Failed to refresh smart playlist', result.error);
+            }
+        }
+
+        async function explainCriteria() {
+            if (!selectedPlaylistId) {
+                alert('Please select a playlist first');
+                return;
+            }
+
+            const result = await apiCall('GET', `/playlists/${selectedPlaylistId}/explain`);
+
+            if (result.success) {
+                showResult('smartResult', true, result.data.explanation, result.data.criteria);
+            } else {
+                showResult('smartResult', false, 'Failed to explain criteria', result.error);
+            }
+        }
+
+        async function convertToStatic() {
+            if (!selectedPlaylistId) {
+                alert('Please select a playlist first');
+                return;
+            }
+
+            if (!confirm('Convert this smart playlist to static? This cannot be undone.')) {
+                return;
+            }
+
+            const result = await apiCall('POST', `/playlists/${selectedPlaylistId}/convert`);
+
+            if (result.success) {
+                showResult('smartResult', true, `Converted to static with ${result.data.track_count} tracks`);
+                loadAllPlaylists();
+            } else {
+                showResult('smartResult', false, 'Failed to convert playlist', result.error);
+            }
+        }
+
+        // Session functions
+        async function startSession() {
+            const venue = document.getElementById('sessionVenue').value;
+
+            const result = await apiCall('POST', '/playlists/sessions/start', {
+                venue: venue || null,
+            });
+
+            if (result.success) {
+                currentSessionId = result.data.id;
+                currentSessionName = result.data.name;
+                document.getElementById('currentSessionName').textContent = currentSessionName;
+                showResult('sessionResult', true, 'Session started!', result.data);
+            } else {
+                showResult('sessionResult', false, 'Failed to start session', result.error);
+            }
+        }
+
+        async function loadActiveSessions() {
+            const result = await apiCall('GET', '/playlists/sessions/active');
+
+            if (result.success) {
+                const container = document.getElementById('activeSessionsContainer');
+
+                if (result.data.sessions.length === 0) {
+                    container.innerHTML = '<p style="color: #888; margin-top: 15px;">No active sessions</p>';
+                } else {
+                    container.innerHTML = '<h4 style="color: #00bcd4; margin: 20px 0 15px;">Active Sessions</h4>' +
+                        '<div class="playlist-list">' + result.data.sessions.map(session => `
+                            <div class="playlist-card" onclick="selectSession('${session.id}', '${session.name.replace(/'/g, "\\'")}')">
+                                <h4>${session.name}</h4>
+                                <div class="meta">
+                                    <span class="type-badge type-session">SESSION</span>
+                                </div>
+                                <div class="meta">${session.track_count || 0} tracks played</div>
+                                ${session.session_venue ? `<div class="meta">📍 ${session.session_venue}</div>` : ''}
+                            </div>
+                        `).join('') + '</div>';
+                }
+            }
+        }
+
+        function selectSession(id, name) {
+            currentSessionId = id;
+            currentSessionName = name;
+            document.getElementById('currentSessionName').textContent = name;
+            log('info', `Selected session: ${name}`);
+        }
+
+        async function logTrackPlay() {
+            if (!currentSessionId) {
+                alert('Please start or select a session first');
+                return;
+            }
+
+            const trackId = document.getElementById('playTrackId').value.trim();
+            if (!trackId) {
+                alert('Please enter a track ID');
+                return;
+            }
+
+            const result = await apiCall('POST', `/playlists/sessions/${currentSessionId}/track`, {
+                track_id: trackId,
+                notes: document.getElementById('playNotes').value || null,
+            });
+
+            if (result.success) {
+                showResult('sessionResult', true, 'Track play logged!');
+                document.getElementById('playTrackId').value = '';
+                document.getElementById('playNotes').value = '';
+            } else {
+                showResult('sessionResult', false, 'Failed to log track play', result.error);
+            }
+        }
+
+        async function finalizeSession() {
+            if (!currentSessionId) {
+                alert('Please start or select a session first');
+                return;
+            }
+
+            if (!confirm('Finalize this session? It will become read-only.')) {
+                return;
+            }
+
+            const result = await apiCall('POST', `/playlists/sessions/${currentSessionId}/finalize`);
+
+            if (result.success) {
+                showResult('sessionResult', true, `Session finalized! Duration: ${result.data.session_duration}s`);
+                currentSessionId = null;
+                currentSessionName = null;
+                document.getElementById('currentSessionName').textContent = 'None';
+                loadActiveSessions();
+            } else {
+                showResult('sessionResult', false, 'Failed to finalize session', result.error);
+            }
+        }
+
+        // Thinking playlist functions
+        async function loadThinkingPlaylist() {
+            const result = await apiCall('GET', '/playlists/thinking');
+
+            if (result.success) {
+                const container = document.getElementById('thinkingContainer');
+                container.innerHTML = `
+                    <h4 style="color: #00bcd4; margin: 20px 0 15px;">${result.data.name}</h4>
+                    <p style="color: #888; margin-bottom: 15px;">ID: ${result.data.id}</p>
+                    <div class="json-preview">${JSON.stringify(result.data, null, 2)}</div>
+                `;
+
+                // Select it for operations
+                selectPlaylist(result.data.id, result.data.name);
+            }
+        }
+
+        async function clearThinkingPlaylist() {
+            const result = await apiCall('GET', '/playlists/thinking');
+
+            if (result.success) {
+                // Delete all tracks
+                const thinkingId = result.data.id;
+
+                if (result.data.tracks && result.data.tracks.length > 0) {
+                    for (const item of result.data.tracks) {
+                        await apiCall('DELETE', `/playlists/${thinkingId}/tracks/${item.track_id}`);
+                    }
+                    showResult('thinkingResult', true, 'Thinking playlist cleared!');
+                } else {
+                    showResult('thinkingResult', true, 'Thinking playlist is already empty');
+                }
+            }
+        }
+
+        async function promoteThinkingPlaylist() {
+            const name = document.getElementById('promoteName').value.trim();
+            if (!name) {
+                alert('Please enter a name for the new playlist');
+                return;
+            }
+
+            const result = await apiCall('POST', '/playlists/thinking/promote', { name });
+
+            if (result.success) {
+                showResult('thinkingResult', true, 'Thinking playlist promoted!', result.data);
+                document.getElementById('promoteName').value = '';
+                loadAllPlaylists();
+            } else {
+                showResult('thinkingResult', false, 'Failed to promote playlist', result.error);
+            }
+        }
+
+        // Utility functions
+        async function searchPlaylistsUtil() {
+            const query = document.getElementById('searchQuery').value.trim();
+            if (!query) {
+                alert('Please enter a search query');
+                return;
+            }
+
+            const result = await apiCall('GET', `/playlists/search?q=${encodeURIComponent(query)}`);
+
+            if (result.success) {
+                showResult('utilResult', true, `Found ${result.data.count} playlists`, result.data.playlists);
+            } else {
+                showResult('utilResult', false, 'Search failed', result.error);
+            }
+        }
+
+        async function duplicatePlaylist() {
+            if (!selectedPlaylistId) {
+                alert('Please select a playlist first');
+                return;
+            }
+
+            const name = prompt(`Enter name for duplicate of "${selectedPlaylistName}":`, `Copy of ${selectedPlaylistName}`);
+            if (!name) return;
+
+            const result = await apiCall('POST', `/playlists/${selectedPlaylistId}/duplicate`, { name });
+
+            if (result.success) {
+                showResult('utilResult', true, 'Playlist duplicated!', result.data);
+                loadAllPlaylists();
+            } else {
+                showResult('utilResult', false, 'Failed to duplicate playlist', result.error);
+            }
+        }
+
+        async function exportPlaylist() {
+            if (!selectedPlaylistId) {
+                alert('Please select a playlist first');
+                return;
+            }
+
+            const url = `${API_BASE}/playlists/${selectedPlaylistId}/export?format=m3u`;
+            window.open(url, '_blank');
+            log('success', `Opened export URL: ${url}`);
+        }
+    </script>
+</body>
+</html>

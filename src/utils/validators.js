@@ -145,7 +145,7 @@ export const schemas = {
     priority: Joi.string().valid('low', 'normal', 'high').default('normal'),
   }),
 
-  // Playlist
+  // Playlist (legacy - keeping for backward compatibility)
   playlist: Joi.object({
     name: Joi.string().required(),
     description: Joi.string().allow('', null),
@@ -155,7 +155,93 @@ export const schemas = {
     icon: Joi.string().allow('', null),
   }),
 
-  // Playlist tracks
+  // Phase 5: Playlist schemas
+  playlistId: Joi.object({
+    id: uuidValidator.required(),
+  }),
+
+  playlistTrackParams: Joi.object({
+    id: uuidValidator.required(),
+    trackId: uuidValidator.required(),
+  }),
+
+  playlistQuery: Joi.object({
+    type: Joi.string().valid('static', 'smart', 'session', 'temp'),
+    is_favorite: Joi.boolean(),
+    is_temporary: Joi.boolean(),
+    search: Joi.string().max(200),
+  }),
+
+  createPlaylist: Joi.object({
+    name: Joi.string().min(1).max(200).required(),
+    type: Joi.string().valid('static', 'smart', 'session', 'temp').default('static'),
+    description: Joi.string().max(1000).allow('', null),
+    color: Joi.string().pattern(/^#[0-9A-Fa-f]{6}$/).allow('', null),
+    icon: Joi.string().max(50).allow('', null),
+    criteria: Joi.object().when('type', {
+      is: 'smart',
+      then: Joi.required(),
+      otherwise: Joi.forbidden(),
+    }),
+    session_venue: Joi.string().max(200).allow('', null),
+    session_date: Joi.number().integer().allow(null),
+    is_favorite: Joi.boolean().default(false),
+  }),
+
+  updatePlaylist: Joi.object({
+    name: Joi.string().min(1).max(200),
+    description: Joi.string().max(1000).allow('', null),
+    color: Joi.string().pattern(/^#[0-9A-Fa-f]{6}$/).allow('', null),
+    icon: Joi.string().max(50).allow('', null),
+    is_favorite: Joi.boolean(),
+  }),
+
+  addTracks: Joi.object({
+    track_ids: Joi.array().items(uuidValidator).min(1).required(),
+    position: Joi.number().integer().min(0).allow(null),
+    notes: Joi.string().max(1000).allow('', null),
+  }),
+
+  reorderTracks: Joi.object({
+    track_ids: Joi.array().items(uuidValidator).min(1).required(),
+  }),
+
+  updateTrackMetadata: Joi.object({
+    notes: Joi.string().max(1000).allow('', null),
+    cue_in: Joi.number().integer().min(0).allow(null),
+    cue_out: Joi.number().integer().min(0).allow(null),
+    rating_in_context: Joi.number().integer().min(1).max(5).allow(null),
+  }),
+
+  startSession: Joi.object({
+    venue: Joi.string().max(200).allow('', null),
+    date: Joi.number().integer().allow(null),
+  }),
+
+  logTrackPlay: Joi.object({
+    track_id: uuidValidator.required(),
+    played_at: Joi.number().integer().allow(null),
+    duration: Joi.number().integer().min(0).allow(null),
+    notes: Joi.string().max(1000).allow('', null),
+  }),
+
+  duplicatePlaylist: Joi.object({
+    name: Joi.string().min(1).max(200).required(),
+  }),
+
+  exportPlaylist: Joi.object({
+    format: Joi.string().valid('m3u', 'json').default('m3u'),
+  }),
+
+  searchPlaylists: Joi.object({
+    q: Joi.string().min(1).max(200).required(),
+  }),
+
+  promoteThinkingPlaylist: Joi.object({
+    name: Joi.string().min(1).max(200).required(),
+  }),
+
+  // Playlist tracks (legacy - keeping for backward compatibility)
   playlistTracks: Joi.object({
     track_ids: Joi.array().items(Joi.number().integer().positive()).min(1).required(),
     position: Joi.number().integer().min(0),
