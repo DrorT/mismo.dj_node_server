@@ -2123,7 +2123,125 @@ Following `CLAUDE.md` guidelines:
 
 As documented in `docs/playlists-future-enhancements.md`:
 
-### Tier 1 - Must-Have Extensions (Phase 6)
+### Phase 6 - Immediate Next Priority
+
+**Status**: Deferred from Phase 5 MVP
+
+#### 1. **Playlist Folders & Organization**
+   - Hierarchical folder structure for playlist organization
+   - Drag-and-drop folder management
+   - Folder-based filtering and search
+   - Nested folders with unlimited depth
+   - Folder metadata (color, icon, description)
+   - Move/copy playlists between folders
+   - Smart folders (folders that auto-group playlists based on criteria)
+   - Folder permissions (future multi-user support)
+
+#### 2. **M3U Import** (Currently Export-Only)
+   - Import M3U/M3U8 playlists from DJ software
+   - Auto-match tracks by:
+     - File path (absolute and relative)
+     - Metadata matching (artist + title + duration)
+     - Audio fingerprinting (future)
+   - Import conflict resolution UI
+   - Support for various M3U formats:
+     - Standard M3U
+     - Extended M3U (#EXTINF tags)
+     - Rekordbox XML
+     - Serato crates
+     - Traktor NML
+   - Import preview (show matches/conflicts before importing)
+   - Batch import multiple playlists
+
+#### 3. **Playlist Templates**
+   - Pre-defined playlist structures
+   - Template categories:
+     - Genre-based templates (House warm-up, Techno peak time, etc.)
+     - Event type templates (Festival opener, Club closing, Wedding reception)
+     - Duration templates (1 hour warm-up, 2 hour peak, etc.)
+   - Template metadata:
+     - Suggested BPM progression
+     - Key flow patterns
+     - Energy arc shape
+     - Track count recommendations
+   - Create custom templates from existing playlists
+   - Template marketplace (future community feature)
+   - Apply template to new playlist (auto-populate with matching tracks)
+   - Template versioning and updates
+
+#### 4. **Auto-Session Detection**
+   - Automatic session start detection:
+     - When first track is loaded to deck
+     - When playback begins
+     - Based on time gap between plays (> 30 min = new session)
+   - Auto-venue detection from:
+     - Geolocation (if available)
+     - Calendar integration
+     - Manual venue presets
+   - Intelligent session merging:
+     - Combine sessions with < 15 min gap
+     - Manual merge/split tools
+   - Session metadata auto-fill:
+     - Date/time from first track
+     - Venue from last used location
+     - Duration from play history
+   - Session detection rules configuration (user preferences)
+   - Background session finalization (after X hours of inactivity)
+
+#### 5. **Collaborative Playlists** (Multi-User)
+   - Share playlists with other users
+   - Permission levels:
+     - View only
+     - Add tracks
+     - Edit (add/remove/reorder)
+     - Full control (delete, share with others)
+   - Real-time collaboration (multiple users editing simultaneously)
+   - Change tracking:
+     - Who added/removed each track
+     - Change history timeline
+     - Revert changes
+   - Comments & discussion per playlist
+   - Track-level comments ("This would be perfect here!")
+   - Notification system:
+     - New track added
+     - Playlist shared with you
+     - Comments on your playlists
+   - Collaborative workflow:
+     - Suggestions (tracks that need approval before adding)
+     - Voting system (upvote/downvote tracks)
+     - Moderator role (approve/reject changes)
+
+#### 6. **Playlist Analytics Dashboard**
+   - Comprehensive statistics visualization:
+     - Key distribution pie chart
+     - BPM histogram with range highlighting
+     - Genre breakdown donut chart
+     - Energy heatmap over time
+     - Era/year distribution timeline
+     - Arousal vs Valence scatter plot (mood quadrants)
+     - Danceability trend line
+   - Playlist health metrics:
+     - Key compatibility score
+     - Energy flow smoothness
+     - BPM progression rating
+     - Genre diversity index
+     - Track quality average (based on bitrate, analysis confidence)
+   - Comparative analytics:
+     - Compare two playlists side-by-side
+     - Playlist similarity score
+     - Track overlap detection
+     - Genre crossover analysis
+   - Export analytics:
+     - PDF report generation
+     - CSV data export
+     - Share analytics via link
+   - Historical analytics:
+     - Track play count trends
+     - Most played tracks in playlists
+     - Average playlist length over time
+     - Genre trends in your playlists
+
+### Tier 1 - Must-Have Extensions (Phase 7)
 
 1. **Harmonic Mixing Intelligence**
    - Auto-arrange playlist by Camelot Wheel rules
@@ -2159,38 +2277,33 @@ As documented in `docs/playlists-future-enhancements.md`:
    - Custom prep standards
    - Prep checklist per track
 
-6. **Playlist Statistics Dashboard**
-   - Key distribution chart
-   - BPM histogram
-   - Genre breakdown
-   - Energy heatmap
-   - Era/year distribution
-
-### Tier 2 - Should-Have Enhancements (Phase 7-8)
+### Tier 2 - Should-Have Enhancements (Phase 8-9)
 
 - Mission system (orphan tracks, overused tracks, quality missions)
 - Pattern recognition (artist/genre diversity scoring)
 - Advanced smart playlist criteria (nested OR logic)
-- Import/export (Rekordbox, Serato, Traktor)
+- Import/export for additional DJ software formats
 - Bulk operations (merge, arithmetic, batch updates)
 - Comparative analytics (playlist similarity, overlap detection)
 
-### Tier 3 - Nice-to-Have Features (Phase 9+)
+### Tier 3 - Nice-to-Have Features (Phase 10+)
 
 - Live set mode (real-time tracking during performance)
 - Set preparation tools (transition notes, alternative tracks)
 - Venue & context tagging
 - Personal performance metrics
-- Version control for playlists
-- Collaboration & sharing
+- Version control for playlists (git-like branching/merging)
+- Playlist backup and restore
 
-### Tier 4 - Future/Experimental (Phase 10+)
+### Tier 4 - Future/Experimental (Phase 11+)
 
 - AI-powered playlist generation
 - Weather & time-based suggestions
 - Playlist games & challenges
 - Social & community features
 - ML-based track recommendations
+- Integration with streaming services (Spotify, Apple Music)
+- Live audience feedback integration (crowdsourced requests)
 
 ---
 
