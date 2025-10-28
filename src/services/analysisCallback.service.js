@@ -221,25 +221,27 @@ export async function handleStems(jobId, data) {
       return;
     }
 
-    // Validate data
-    if (!data || !data.stems_path) {
-      logger.error(`Invalid stems data for job ${jobId}: missing stems_path`);
-      throw new Error('Invalid stems data: missing stems_path');
+    // Validate data - Python server sends:
+    // { delivery_mode: 'path', stems: { bass: '/path/to/bass.wav', ... }, processing_time: 45.3 }
+    if (!data || data.delivery_mode !== 'path' || !data.stems) {
+      logger.error(`Invalid stems data for job ${jobId}:`, data);
+      throw new Error('Invalid stems data: expected delivery_mode=path with stems object');
     }
 
-    // Update track with stems path
-    trackService.updateTrackMetadata(job.track_id, {
-      stems_path: data.stems_path,
-    });
+    logger.info(`Received stem paths for job ${jobId}:`, data.stems);
 
-    logger.info(`Updated track ${job.track_id} with stems path: ${data.stems_path}`);
+    // DO NOT store stems in database - analysis server will clean up old jobs to save space
+    // Stems are ephemeral - we only forward them to the audio engine immediately
 
     // Update job progress
     analysisJobService.updateJobProgress(jobId, 'stems');
 
-    // Check if there's a callback to notify (e.g., audio server)
-    if (job.callback_metadata) {
+    // Forward stems directly to audio engine (if this request came from audio engine)
+    if (job.callback_metadata && job.callback_metadata.type === 'audio_server_stems') {
       await handleCallback(job, data);
+      logger.info(`✓ Forwarded stems to audio engine for job ${jobId}`);
+    } else {
+      logger.warn(`Stems generated for job ${jobId} but no audio_server_stems callback - stems will not be delivered`);
     }
 
   } catch (error) {
@@ -410,15 +412,15 @@ async function handleCallback(job, data = null) {
 
       case 'audio_server_stems':
         // Notify audio server that stems are ready
-        if (data && data.stems_path) {
+        if (data && (data.stems || data.stems_path)) {
           await audioServerClientService.sendStemsReady(
             callback_metadata.trackId,
-            data.stems_path,
+            data,  // Pass the entire stems data object
             callback_metadata.requestId
           );
           logger.info(`✓ Notified audio server that stems are ready for track ${callback_metadata.trackId}`);
         } else {
-          logger.warn(`Stems callback for job ${job.job_id} has no stems_path in data`);
+          logger.warn(`Stems callback for job ${job.job_id} has no stems data`);
         }
         break;
 

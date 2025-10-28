@@ -356,18 +356,17 @@ class AudioServerClientService {
         return;
       }
 
-      // Check if stems are requested and not available
-      if (stems && !track.stems_path) {
-        logger.info(
-          `Stems requested for track ${trackId} but not available, creating stem separation job`
-        );
+      // Check if stems are requested - always request fresh stems
+      // We don't store stems in DB because analysis server cleans up old jobs
+      if (stems) {
+        logger.info(`Stems requested for track ${trackId}, creating stem separation job`);
 
-        // Create stem separation job with callback metadata
+        // Create high-priority stem separation job with callback metadata
         try {
           await this.analysisQueueService.requestAnalysis(
             track.id,
             { stems: true, basic_features: false, characteristics: false },
-            'normal', // Normal priority for stem separation (it's slow)
+            'high', // High priority for audio server requests - should not be delayed by background analysis
             {
               type: 'audio_server_stems',
               trackId: trackId,
@@ -382,11 +381,11 @@ class AudioServerClientService {
           logger.error(`Failed to create stem separation job for track ${trackId}:`, error);
         }
 
-        // Note: We don't return here - we still send the track info without stems
-        // The audio server will receive stems later via a separate notification
+        // Note: We don't wait - we send track info immediately without stems
+        // The audio server will receive stems later via a separate 'stemsReady' notification
       }
 
-      // Send success response
+      // Send success response (always without stems - they come via separate notification)
       const response = {
         success: true,
         requestId: message.requestId,
@@ -397,19 +396,6 @@ class AudioServerClientService {
         mode: String(track.mode),
         firstBeatOffset: track.first_beat_offset || 0,
         firstPhraseBeatNo: track.first_phrase_beat_no || 0,
-      };
-
-      // Include stems if requested and available
-      if (stems) {
-        if (track.stems_path) {
-          // Stems are available - include the path
-          response.stems_path = track.stems_path;
-          logger.info(`Including stems path for track ${trackId}: ${track.stems_path}`);
-        } else {
-          // Stems not available yet (job created above)
-          response.stems_path = null;
-          logger.info(`Stems not available for track ${trackId}, job created`);
-        }
       }
 
       this.send(response);
@@ -597,28 +583,38 @@ class AudioServerClientService {
 
   /**
    * Send stems notification to audio server (called after stem separation completes)
+   *
+   * Forwards stem file paths from analysis server to audio engine.
+   * Stems are ephemeral - analysis server will clean them up after some time.
+   *
    * @param {string} trackId - Track UUID
-   * @param {string} stemsPath - Path to stems directory
+   * @param {Object} stemsData - Stems data from analysis server: { delivery_mode: 'path', stems: {...} }
    * @param {string} requestId - Original request ID (optional)
    */
-  async sendStemsReady(trackId, stemsPath, requestId = null) {
+  async sendStemsReady(trackId, stemsData, requestId = null) {
     try {
       if (!this.isConnected()) {
         logger.warn(`Cannot send stems notification: not connected to audio server`);
         return;
       }
 
-      // Send notification that stems are ready
+      // Validate stems data format
+      if (!stemsData || stemsData.delivery_mode !== 'path' || !stemsData.stems) {
+        logger.error(`Invalid stems data for track ${trackId}:`, stemsData);
+        return;
+      }
+
+      // Forward stems to audio engine
       const response = {
         success: true,
         type: 'stemsReady',
         requestId: requestId,
         trackId: trackId,
-        stems_path: stemsPath,
+        stems: stemsData.stems,  // { bass: '/path/...', drums: '/path/...', other: '/path/...', vocals: '/path/...' }
       };
 
       this.send(response);
-      logger.info(`✓ Notified audio server that stems are ready for track ${trackId}`);
+      logger.info(`✓ Notified audio server that stems are ready for track ${trackId}`, stemsData.stems);
     } catch (error) {
       logger.error(`Error sending stems notification for ${trackId}:`, error);
     }
