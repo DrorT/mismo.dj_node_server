@@ -73,13 +73,7 @@ router.get('/', validate(schemas.trackQuery, 'query'), async (req, res) => {
  */
 router.get('/search', validate(schemas.trackQuery, 'query'), async (req, res) => {
   try {
-    const {
-      q,
-      page = 1,
-      limit = 50,
-      sort = 'date_added',
-      order = 'DESC',
-    } = req.query;
+    const { q, page = 1, limit = 50, sort = 'date_added', order = 'DESC' } = req.query;
 
     const filters = { search: q };
     const pagination = {
@@ -180,67 +174,72 @@ router.get('/stats', async (req, res) => {
  * - 400 Bad Request: Invalid zoom level (must be 0-2)
  * - 500 Internal Server Error: Database error
  */
-router.get('/:id/waveform', validate(schemas.trackId, 'params'), validate(schemas.waveformQuery, 'query'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { zoom } = req.query;
+router.get(
+  '/:id/waveform',
+  validate(schemas.trackId, 'params'),
+  validate(schemas.waveformQuery, 'query'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { zoom } = req.query;
 
-    // Check if track exists
-    const track = trackService.getTrackById(id);
-    if (!track) {
-      return res.status(404).json({
+      // Check if track exists
+      const track = trackService.getTrackById(id);
+      if (!track) {
+        return res.status(404).json({
+          success: false,
+          error: 'Track not found',
+          message: `Track with ID ${id} does not exist`,
+        });
+      }
+
+      // If zoom level specified, return single waveform
+      if (zoom !== undefined) {
+        const zoomLevel = parseInt(zoom);
+        const waveform = waveformService.getWaveform(id, zoomLevel);
+
+        if (!waveform) {
+          return res.status(404).json({
+            success: false,
+            error: 'Waveform not found',
+            message: `No waveform data available for track ${id} at zoom level ${zoomLevel}`,
+          });
+        }
+
+        res.json({
+          success: true,
+          data: waveform,
+        });
+      } else {
+        // Return all waveforms for this track
+        const waveforms = waveformService.getAllWaveforms(id);
+
+        if (!waveforms || waveforms.length === 0) {
+          return res.status(404).json({
+            success: false,
+            error: 'Waveform not found',
+            message: `No waveform data available for track ${id}`,
+          });
+        }
+
+        res.json({
+          success: true,
+          data: {
+            file_hash: track.file_hash,
+            waveforms: waveforms,
+          },
+        });
+      }
+    } catch (error) {
+      logger.error(`Error getting waveform for track ${req.params.id}:`, error);
+      res.status(500).json({
         success: false,
-        error: 'Track not found',
-        message: `Track with ID ${id} does not exist`,
+        error: 'Failed to get waveform',
+        message: error.message,
       });
     }
-
-    // If zoom level specified, return single waveform
-    if (zoom !== undefined) {
-      const zoomLevel = parseInt(zoom);
-      const waveform = waveformService.getWaveform(id, zoomLevel);
-
-      if (!waveform) {
-        return res.status(404).json({
-          success: false,
-          error: 'Waveform not found',
-          message: `No waveform data available for track ${id} at zoom level ${zoomLevel}`,
-        });
-      }
-
-      res.json({
-        success: true,
-        data: waveform,
-      });
-    } else {
-      // Return all waveforms for this track
-      const waveforms = waveformService.getAllWaveforms(id);
-
-      if (!waveforms || waveforms.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Waveform not found',
-          message: `No waveform data available for track ${id}`,
-        });
-      }
-
-      res.json({
-        success: true,
-        data: {
-          file_hash: track.file_hash,
-          waveforms: waveforms,
-        },
-      });
-    }
-  } catch (error) {
-    logger.error(`Error getting waveform for track ${req.params.id}:`, error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get waveform',
-      message: error.message,
-    });
   }
-});
+);
 
 /**
  * GET /api/tracks/:id/stems/waveform
@@ -294,66 +293,71 @@ router.get('/:id/waveform', validate(schemas.trackId, 'params'), validate(schema
  * - 404 Not Found: Track doesn't exist or has no stem waveform data
  * - 500 Internal Server Error: Database or server error
  */
-router.get('/:id/stems/waveform', validate(schemas.trackId, 'params'), validate(schemas.waveformQuery, 'query'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { zoom } = req.query;
+router.get(
+  '/:id/stems/waveform',
+  validate(schemas.trackId, 'params'),
+  validate(schemas.waveformQuery, 'query'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { zoom } = req.query;
 
-    // Check if track exists
-    const track = trackService.getTrackById(id);
-    if (!track) {
-      return res.status(404).json({
+      // Check if track exists
+      const track = trackService.getTrackById(id);
+      if (!track) {
+        return res.status(404).json({
+          success: false,
+          error: 'Not Found',
+          message: `Track with ID ${id} not found`,
+        });
+      }
+
+      // If zoom level specified, return single stem waveform
+      if (zoom !== undefined) {
+        const zoomLevel = parseInt(zoom, 10);
+        const waveform = waveformService.getStemWaveform(id, zoomLevel);
+
+        if (!waveform) {
+          return res.status(404).json({
+            success: false,
+            error: 'Not Found',
+            message: `No stem waveform data available for track ${id} at zoom level ${zoomLevel}`,
+          });
+        }
+
+        return res.json({
+          success: true,
+          data: waveform,
+        });
+      } else {
+        // Return all stem waveforms for this track
+        const waveforms = waveformService.getAllStemWaveforms(id);
+
+        if (!waveforms || waveforms.length === 0) {
+          return res.status(404).json({
+            success: false,
+            error: 'Not Found',
+            message: `No stem waveform data available for track ${id}`,
+          });
+        }
+
+        return res.json({
+          success: true,
+          data: {
+            waveforms: waveforms,
+          },
+        });
+      }
+    } catch (error) {
+      logger.error(`Error getting stem waveform for track ${req.params.id}:`, error);
+      res.status(500).json({
         success: false,
-        error: 'Not Found',
-        message: `Track with ID ${id} not found`,
+        error: 'Failed to get stem waveform',
+        message: error.message,
       });
     }
-
-    // If zoom level specified, return single stem waveform
-    if (zoom !== undefined) {
-      const zoomLevel = parseInt(zoom, 10);
-      const waveform = waveformService.getStemWaveform(id, zoomLevel);
-
-      if (!waveform) {
-        return res.status(404).json({
-          success: false,
-          error: 'Not Found',
-          message: `No stem waveform data available for track ${id} at zoom level ${zoomLevel}`,
-        });
-      }
-
-      return res.json({
-        success: true,
-        data: waveform,
-      });
-    } else {
-      // Return all stem waveforms for this track
-      const waveforms = waveformService.getAllStemWaveforms(id);
-
-      if (!waveforms || waveforms.length === 0) {
-        return res.status(404).json({
-          success: false,
-          error: 'Not Found',
-          message: `No stem waveform data available for track ${id}`,
-        });
-      }
-
-      return res.json({
-        success: true,
-        data: {
-          waveforms: waveforms,
-        },
-      });
-    }
-  } catch (error) {
-    logger.error(`Error getting stem waveform for track ${req.params.id}:`, error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get stem waveform',
-      message: error.message,
-    });
   }
-});
+);
 
 /**
  * GET /api/tracks/:id/verify
@@ -454,31 +458,36 @@ router.post('/:id/mark-found', validate(schemas.trackId, 'params'), async (req, 
  *   "library_directory_id": 2 (optional)
  * }
  */
-router.post('/:id/move', validate(schemas.trackId, 'params'), validate(schemas.fileMove, 'body'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { destination_path, library_directory_id } = req.body;
+router.post(
+  '/:id/move',
+  validate(schemas.trackId, 'params'),
+  validate(schemas.fileMove, 'body'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { destination_path, library_directory_id } = req.body;
 
-    const updatedTrack = await fileOpsService.moveTrack(
-      id,
-      destination_path,
-      library_directory_id ? parseInt(library_directory_id) : null
-    );
+      const updatedTrack = await fileOpsService.moveTrack(
+        id,
+        destination_path,
+        library_directory_id ? parseInt(library_directory_id) : null
+      );
 
-    res.json({
-      success: true,
-      data: updatedTrack,
-      message: 'Track moved successfully',
-    });
-  } catch (error) {
-    logger.error(`Error moving track ${req.params.id}:`, error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to move track',
-      message: error.message,
-    });
+      res.json({
+        success: true,
+        data: updatedTrack,
+        message: 'Track moved successfully',
+      });
+    } catch (error) {
+      logger.error(`Error moving track ${req.params.id}:`, error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to move track',
+        message: error.message,
+      });
+    }
   }
-});
+);
 
 /**
  * POST /api/tracks/:id/rename
@@ -489,57 +498,67 @@ router.post('/:id/move', validate(schemas.trackId, 'params'), validate(schemas.f
  *   "new_name": "new-filename.mp3"
  * }
  */
-router.post('/:id/rename', validate(schemas.trackId, 'params'), validate(schemas.fileRename, 'body'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { new_name } = req.body;
+router.post(
+  '/:id/rename',
+  validate(schemas.trackId, 'params'),
+  validate(schemas.fileRename, 'body'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { new_name } = req.body;
 
-    const updatedTrack = await fileOpsService.renameTrack(id, new_name);
+      const updatedTrack = await fileOpsService.renameTrack(id, new_name);
 
-    res.json({
-      success: true,
-      data: updatedTrack,
-      message: 'Track renamed successfully',
-    });
-  } catch (error) {
-    logger.error(`Error renaming track ${req.params.id}:`, error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to rename track',
-      message: error.message,
-    });
+      res.json({
+        success: true,
+        data: updatedTrack,
+        message: 'Track renamed successfully',
+      });
+    } catch (error) {
+      logger.error(`Error renaming track ${req.params.id}:`, error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to rename track',
+        message: error.message,
+      });
+    }
   }
-});
+);
 
 /**
  * DELETE /api/tracks/:id/file
  * Delete track file from disk
  * Requires confirmation in body: { "confirm": true }
  */
-router.delete('/:id/file', validate(schemas.trackId, 'params'), validate(schemas.fileDelete, 'body'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { confirm } = req.body;
+router.delete(
+  '/:id/file',
+  validate(schemas.trackId, 'params'),
+  validate(schemas.fileDelete, 'body'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { confirm } = req.body;
 
-    const result = await fileOpsService.deleteTrack(id, confirm, {
-      deleteFile: true,
-      removeFromPlaylists: true,
-    });
+      const result = await fileOpsService.deleteTrack(id, confirm, {
+        deleteFile: true,
+        removeFromPlaylists: true,
+      });
 
-    res.json({
-      success: true,
-      data: result,
-      message: 'Track deleted successfully',
-    });
-  } catch (error) {
-    logger.error(`Error deleting track file ${req.params.id}:`, error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to delete track',
-      message: error.message,
-    });
+      res.json({
+        success: true,
+        data: result,
+        message: 'Track deleted successfully',
+      });
+    } catch (error) {
+      logger.error(`Error deleting track file ${req.params.id}:`, error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to delete track',
+        message: error.message,
+      });
+    }
   }
-});
+);
 
 /**
  * GET /api/tracks/:id/beats
@@ -636,6 +655,101 @@ router.get('/:id/downbeats', validate(schemas.trackId, 'params'), async (req, re
 });
 
 /**
+ * POST /api/tracks/:id/first-beat-offset
+ * Update first beat offset for a track
+ *
+ * Body:
+ * {
+ *   "first_beat_offset": 0.123 (number, seconds)
+ * }
+ *
+ * This endpoint updates the first beat offset in the database and notifies
+ * the audio engine via WebSocket so it can update its internal state.
+ *
+ * Response: 200 OK
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "id": "track-uuid",
+ *     "first_beat_offset": 0.123,
+ *     ...other track fields
+ *   },
+ *   "message": "First beat offset updated"
+ * }
+ *
+ * Error Responses:
+ * - 404 Not Found: Track doesn't exist
+ * - 400 Bad Request: Invalid first_beat_offset value
+ * - 500 Internal Server Error: Database error
+ */
+router.post(
+  '/:id/first-beat-offset',
+  validate(schemas.trackId, 'params'),
+  validate(schemas.firstBeatOffsetUpdate, 'body'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { first_beat_offset } = req.body;
+
+      // Check if track exists
+      const track = trackService.getTrackById(id);
+      if (!track) {
+        return res.status(404).json({
+          success: false,
+          error: 'Track not found',
+          message: `Track with ID ${id} does not exist`,
+        });
+      }
+
+      // Update the first beat offset in the database
+      const updatedTrack = trackService.updateTrackMetadata(id, {
+        first_beat_offset: first_beat_offset,
+      });
+
+      // Notify audio engine via WebSocket
+      try {
+        const audioServerClientService = (await import('../services/audioServerClient.service.js'))
+          .default;
+
+        if (audioServerClientService.isConnected()) {
+          audioServerClientService.send({
+            command: 'updateFirstBeatOffset',
+            trackId: id,
+            firstBeatOffset: first_beat_offset,
+          });
+          logger.info(
+            `✓ Notified audio engine of first beat offset update for track ${id}: ${first_beat_offset}s`
+          );
+        } else {
+          logger.warn(
+            `Audio engine not connected, skipping notification for track ${id} first beat offset update`
+          );
+        }
+      } catch (error) {
+        logger.error(
+          `Error notifying audio engine of first beat offset update for track ${id}:`,
+          error
+        );
+        // Don't fail the request if notification fails - the DB update succeeded
+      }
+
+      res.json({
+        success: true,
+        data: updatedTrack,
+        message: 'First beat offset updated',
+      });
+    } catch (error) {
+      logger.error(`Error updating first beat offset for track ${req.params.id}:`, error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to update first beat offset',
+        message: error.message,
+      });
+    }
+  }
+);
+
+/**
  * GET /api/tracks/:id
  * Get single track by ID
  */
@@ -707,37 +821,42 @@ router.post('/', validate(schemas.trackCreate, 'body'), async (req, res) => {
  * PUT /api/tracks/:id
  * Update track metadata
  */
-router.put('/:id', validate(schemas.trackId, 'params'), validate(schemas.trackUpdate, 'body'), async (req, res) => {
-  try {
-    const { id } = req.params;
-    const updates = req.body;
+router.put(
+  '/:id',
+  validate(schemas.trackId, 'params'),
+  validate(schemas.trackUpdate, 'body'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
 
-    // Check if track exists
-    const existingTrack = trackService.getTrackById(id);
-    if (!existingTrack) {
-      return res.status(404).json({
+      // Check if track exists
+      const existingTrack = trackService.getTrackById(id);
+      if (!existingTrack) {
+        return res.status(404).json({
+          success: false,
+          error: 'Track not found',
+          message: `Track with ID ${id} does not exist`,
+        });
+      }
+
+      const updatedTrack = trackService.updateTrackMetadata(id, updates);
+
+      res.json({
+        success: true,
+        data: updatedTrack,
+        message: 'Track updated successfully',
+      });
+    } catch (error) {
+      logger.error(`Error updating track ${req.params.id}:`, error);
+      res.status(500).json({
         success: false,
-        error: 'Track not found',
-        message: `Track with ID ${id} does not exist`,
+        error: 'Failed to update track',
+        message: error.message,
       });
     }
-
-    const updatedTrack = trackService.updateTrackMetadata(id, updates);
-
-    res.json({
-      success: true,
-      data: updatedTrack,
-      message: 'Track updated successfully',
-    });
-  } catch (error) {
-    logger.error(`Error updating track ${req.params.id}:`, error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update track',
-      message: error.message,
-    });
   }
-});
+);
 
 /**
  * DELETE /api/tracks/:id

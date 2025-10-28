@@ -341,6 +341,11 @@ export const schemas = {
   waveformQuery: Joi.object({
     zoom: Joi.number().integer().min(0).max(2).optional(),
   }),
+
+  // First beat offset update
+  firstBeatOffsetUpdate: Joi.object({
+    first_beat_offset: Joi.number().min(0).required(),
+  }),
 };
 
 /**
