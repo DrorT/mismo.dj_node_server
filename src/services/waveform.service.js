@@ -98,6 +98,89 @@ export function storeWaveforms(fileHash, waveforms) {
 }
 
 /**
+ * Store stem waveforms by file hash
+ * Stems contain waveforms for vocals, drums, bass, and other
+ * @param {string} fileHash - Audio file hash
+ * @param {Array<Object>} waveforms - Array of stem waveform objects
+ * @returns {number} Number of waveforms stored
+ */
+export function storeStemWaveforms(fileHash, waveforms) {
+  try {
+    if (!Array.isArray(waveforms) || waveforms.length === 0) {
+      logger.warn(`No stem waveforms provided for hash ${fileHash}`);
+      return 0;
+    }
+
+    const db = getDatabase();
+    let stored = 0;
+
+    // Use transaction for atomic update
+    db.transaction(() => {
+      // Delete existing stem waveforms for this hash (is_stems = 1)
+      const deleteStmt = db.prepare('DELETE FROM waveforms WHERE file_hash = ? AND is_stems = 1');
+      deleteStmt.run(fileHash);
+
+      // Insert new stem waveforms
+      const insertStmt = db.prepare(`
+        INSERT OR REPLACE INTO waveforms (
+          file_hash,
+          zoom_level,
+          is_stems,
+          sample_rate,
+          samples_per_point,
+          num_points,
+          data
+        ) VALUES (?, ?, 1, ?, ?, ?, ?)
+      `);
+
+      for (const waveform of waveforms) {
+        // Stem waveform structure from analysis server:
+        // {
+        //   zoom_level,
+        //   samples_per_pixel,
+        //   num_pixels,
+        //   vocals_amplitude, vocals_intensity,
+        //   drums_amplitude, drums_intensity,
+        //   bass_amplitude, bass_intensity,
+        //   other_amplitude, other_intensity
+        // }
+
+        // Store waveform data as JSON BLOB containing all 4 stems
+        const stemWaveformData = {
+          vocals_amplitude: waveform.vocals_amplitude,
+          vocals_intensity: waveform.vocals_intensity,
+          drums_amplitude: waveform.drums_amplitude,
+          drums_intensity: waveform.drums_intensity,
+          bass_amplitude: waveform.bass_amplitude,
+          bass_intensity: waveform.bass_intensity,
+          other_amplitude: waveform.other_amplitude,
+          other_intensity: waveform.other_intensity,
+        };
+
+        const dataBlob = Buffer.from(JSON.stringify(stemWaveformData));
+
+        insertStmt.run(
+          fileHash,
+          waveform.zoom_level,
+          waveform.sample_rate || null,
+          waveform.samples_per_pixel,
+          waveform.num_pixels,
+          dataBlob
+        );
+
+        stored++;
+      }
+    })();
+
+    logger.info(`Stored ${stored} stem waveforms for hash ${fileHash}`);
+    return stored;
+  } catch (error) {
+    logger.error(`Error storing stem waveforms for hash ${fileHash}:`, error);
+    throw error;
+  }
+}
+
+/**
  * Get waveform by file hash at a specific zoom level
  * @param {string} fileHash - Audio file hash
  * @param {number} zoomLevel - Zoom level (0-2)
@@ -412,6 +495,7 @@ export function copyWaveforms(fromTrackId, toTrackId) {
 
 export default {
   storeWaveforms,
+  storeStemWaveforms,
   getWaveform,
   getWaveformByHash,
   getAllWaveforms,

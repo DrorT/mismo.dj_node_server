@@ -80,32 +80,41 @@ class AnalysisQueueService extends EventEmitter {
       // Use track hash as job ID
       const jobId = track.file_hash;
 
-      // Check if job already exists
-      let job = analysisJobService.getJobById(jobId);
+      // Check if an incomplete job already exists for this track
+      // Note: After migration 013, job_id is not unique - multiple jobs can exist per track
+      let job = analysisJobService.getIncompleteJobById(jobId);
 
       if (job) {
-        // Job exists - check status
-        if (job.status === 'queued' || job.status === 'processing') {
-          logger.info(`Analysis job already queued/processing: ${jobId}`);
-          return job;
-        }
+        // Incomplete job exists (queued or processing)
+        logger.info(`Analysis job already queued/processing: ${jobId}`, {
+          status: job.status,
+          job_db_id: job.id
+        });
+        return job;
+      }
 
-        if (job.status === 'completed') {
-          if (force) {
-            logger.info(`Force re-analyzing completed track: ${jobId}`);
-            analysisJobService.deleteJob(jobId);
-          } else {
-            logger.info(`Track already analyzed: ${jobId}`);
-            return job;
-          }
-        }
+      // No incomplete job exists - check if we should create a new one
+      // For stems and other ephemeral features, always allow new jobs
+      // For persistent features (BPM, key), only create if forced or never analyzed
+      const requestedStems = options.stems === true;
 
-        // If failed or cancelled, allow retry by deleting old job
-        if (job.status === 'failed' || job.status === 'cancelled') {
-          logger.info(`Retrying failed/cancelled analysis: ${jobId}`);
-          analysisJobService.deleteJob(jobId);
+      if (!requestedStems && !force) {
+        // Check if this feature was already analyzed
+        const completedJob = analysisJobService.getCompletedJobById(jobId);
+        if (completedJob) {
+          logger.info(`Track already analyzed: ${jobId}`, {
+            job_db_id: completedJob.id,
+            completed_at: completedJob.completed_at
+          });
+          return completedJob;
         }
       }
+
+      // Create new job (old jobs are kept for history)
+      logger.info(`Creating new analysis job: ${jobId}`, {
+        stems: requestedStems,
+        force: force
+      });
 
       // Default options for Phase 4
       const analysisOptions = {

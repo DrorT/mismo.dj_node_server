@@ -222,7 +222,7 @@ export async function handleStems(jobId, data) {
     }
 
     // Validate data - Python server sends:
-    // { delivery_mode: 'path', stems: { bass: '/path/to/bass.wav', ... }, processing_time: 45.3 }
+    // { delivery_mode: 'path', stems: {...}, waveforms: [...], processing_time: 45.3 }
     if (!data || data.delivery_mode !== 'path' || !data.stems) {
       logger.error(`Invalid stems data for job ${jobId}:`, data);
       throw new Error('Invalid stems data: expected delivery_mode=path with stems object');
@@ -230,16 +230,36 @@ export async function handleStems(jobId, data) {
 
     logger.info(`Received stem paths for job ${jobId}:`, data.stems);
 
-    // DO NOT store stems in database - analysis server will clean up old jobs to save space
-    // Stems are ephemeral - we only forward them to the audio engine immediately
+    // Store waveform data in database (always replace old data)
+    // File paths are ephemeral, but waveforms can be served to the UI
+    if (data.waveforms && Array.isArray(data.waveforms) && data.waveforms.length > 0) {
+      const track = trackService.getTrackById(job.track_id);
+      if (track && track.file_hash) {
+        logger.info(`Storing ${data.waveforms.length} zoom levels of stem waveforms for track ${job.track_id}`);
+
+        // Store all stem waveforms in a single transaction
+        waveformService.storeStemWaveforms(track.file_hash, data.waveforms);
+      }
+    } else {
+      logger.warn(`No waveforms received with stems for job ${jobId}`);
+    }
 
     // Update job progress
     analysisJobService.updateJobProgress(jobId, 'stems');
 
-    // Forward stems directly to audio engine (if this request came from audio engine)
+    // Forward ONLY file paths to audio engine (not waveforms)
+    // Waveforms are for the UI, not the audio engine
     if (job.callback_metadata && job.callback_metadata.type === 'audio_server_stems') {
-      await handleCallback(job, data);
-      logger.info(`✓ Forwarded stems to audio engine for job ${jobId}`);
+      // Create data object with only file paths
+      const audioEngineData = {
+        delivery_mode: data.delivery_mode,
+        stems: data.stems,
+        processing_time: data.processing_time
+        // Note: waveforms intentionally excluded
+      };
+
+      await handleCallback(job, audioEngineData);
+      logger.info(`✓ Forwarded stem paths to audio engine for job ${jobId}`);
     } else {
       logger.warn(`Stems generated for job ${jobId} but no audio_server_stems callback - stems will not be delivered`);
     }

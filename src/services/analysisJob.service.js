@@ -66,15 +66,18 @@ export function createJob({ job_id, track_id, file_path, options, priority = 'no
 }
 
 /**
- * Get job by job ID
+ * Get job by job ID (returns any job, regardless of status)
  * @param {string} jobId - Job ID (track hash)
  * @returns {Object|null} Job data or null if not found
+ * @deprecated Use getIncompleteJobById or getCompletedJobById instead
  */
 export function getJobById(jobId) {
   try {
     const db = getDatabase();
     const stmt = db.prepare(`
       SELECT * FROM analysis_jobs WHERE job_id = ?
+      ORDER BY created_at DESC
+      LIMIT 1
     `);
 
     const job = stmt.get(jobId);
@@ -90,6 +93,74 @@ export function getJobById(jobId) {
     return job;
   } catch (error) {
     logger.error(`Error getting job ${jobId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get incomplete job by job ID
+ * Finds the most recent job that is queued or processing
+ * @param {string} jobId - Job ID (track hash)
+ * @returns {Object|null} Job data or null if not found
+ */
+export function getIncompleteJobById(jobId) {
+  try {
+    const db = getDatabase();
+    // Use compound index (job_id, status) for fast lookup
+    const stmt = db.prepare(`
+      SELECT * FROM analysis_jobs
+      WHERE job_id = ? AND status IN ('queued', 'processing')
+      ORDER BY created_at DESC
+      LIMIT 1
+    `);
+
+    const job = stmt.get(jobId);
+    if (!job) return null;
+
+    // Parse JSON fields
+    job.options = JSON.parse(job.options);
+    job.stages_completed = JSON.parse(job.stages_completed || '[]');
+    if (job.callback_metadata) {
+      job.callback_metadata = JSON.parse(job.callback_metadata);
+    }
+
+    return job;
+  } catch (error) {
+    logger.error(`Error getting incomplete job ${jobId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get completed job by job ID
+ * Finds the most recent completed job
+ * @param {string} jobId - Job ID (track hash)
+ * @returns {Object|null} Job data or null if not found
+ */
+export function getCompletedJobById(jobId) {
+  try {
+    const db = getDatabase();
+    // Use compound index (job_id, status) for fast lookup
+    const stmt = db.prepare(`
+      SELECT * FROM analysis_jobs
+      WHERE job_id = ? AND status = 'completed'
+      ORDER BY created_at DESC
+      LIMIT 1
+    `);
+
+    const job = stmt.get(jobId);
+    if (!job) return null;
+
+    // Parse JSON fields
+    job.options = JSON.parse(job.options);
+    job.stages_completed = JSON.parse(job.stages_completed || '[]');
+    if (job.callback_metadata) {
+      job.callback_metadata = JSON.parse(job.callback_metadata);
+    }
+
+    return job;
+  } catch (error) {
+    logger.error(`Error getting completed job ${jobId}:`, error);
     throw error;
   }
 }
@@ -436,6 +507,8 @@ export function cleanupOldJobs(olderThanDays = 7) {
 export default {
   createJob,
   getJobById,
+  getIncompleteJobById,
+  getCompletedJobById,
   getJobByTrackId,
   getQueuedJobs,
   getProcessingJobs,
