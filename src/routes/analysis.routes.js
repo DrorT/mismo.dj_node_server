@@ -387,6 +387,18 @@ router.post('/callback', async (req, res) => {
       });
     }
 
+    // Debug: Log full request body with multiple approaches
+    // logger.info('=== CALLBACK DEBUG START ===');
+    // logger.info(`Body keys: ${Object.keys(req.body).join(', ')}`);
+    // logger.info(`Body type: ${typeof req.body}`);
+    // logger.info(`Body constructor: ${req.body?.constructor?.name}`);
+    // logger.info(`Body stringify: ${JSON.stringify(req.body)}`);
+    // logger.info(`Data keys: ${data ? Object.keys(data).join(', ') : 'no data'}`);
+    // logger.info(`Data type: ${typeof data}`);
+    // if (data) {
+    //   logger.info(`Data stringify: ${JSON.stringify(data)}`);
+    // }
+    // logger.info('=== CALLBACK DEBUG END ===');
     logger.info(`Received callback for job ${job_id}, stage: ${stage}, status: ${status}`);
 
     // Route to appropriate handler

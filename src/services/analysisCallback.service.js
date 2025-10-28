@@ -30,7 +30,7 @@ export async function handleBasicFeatures(jobId, data) {
       hasKeyName: 'key_name' in data,
       hasTempo: 'tempo' in data,
       hasBeats: 'beats' in data,
-      sample: JSON.stringify(data).substring(0, 300)
+      sample: JSON.stringify(data).substring(0, 300),
     });
 
     // Get job
@@ -61,13 +61,17 @@ export async function handleBasicFeatures(jobId, data) {
 
     // Log what we extracted
     logger.info(`Extracted basic features:`, {
-      tempo, key, keyName, mode, modeName,
+      tempo,
+      key,
+      keyName,
+      mode,
+      modeName,
       beats_count: beats.length,
       downbeats_count: downbeats.length,
       firstBeatOffset,
       firstPhraseBeatNo,
       audibleStartTime,
-      audibleEndTime
+      audibleEndTime,
     });
 
     // Prepare track updates
@@ -113,7 +117,6 @@ export async function handleBasicFeatures(jobId, data) {
     if (job.callback_metadata) {
       await handleCallback(job, data);
     }
-
   } catch (error) {
     logger.error(`Error handling basic_features for job ${jobId}:`, error);
     throw error;
@@ -186,7 +189,6 @@ export async function handleCharacteristics(jobId, data) {
       logger.info(`All analysis stages complete for job ${jobId}`);
       await analysisQueueService.handleJobCompletion(jobId);
     }
-
   } catch (error) {
     logger.error(`Error handling characteristics for job ${jobId}:`, error);
     throw error;
@@ -235,7 +237,9 @@ export async function handleStems(jobId, data) {
     if (data.waveforms && Array.isArray(data.waveforms) && data.waveforms.length > 0) {
       const track = trackService.getTrackById(job.track_id);
       if (track && track.file_hash) {
-        logger.info(`Storing ${data.waveforms.length} zoom levels of stem waveforms for track ${job.track_id}`);
+        logger.info(
+          `Storing ${data.waveforms.length} zoom levels of stem waveforms for track ${job.track_id}`
+        );
 
         // Store all stem waveforms in a single transaction
         waveformService.storeStemWaveforms(track.file_hash, data.waveforms);
@@ -254,16 +258,17 @@ export async function handleStems(jobId, data) {
       const audioEngineData = {
         delivery_mode: data.delivery_mode,
         stems: data.stems,
-        processing_time: data.processing_time
+        processing_time: data.processing_time,
         // Note: waveforms intentionally excluded
       };
 
       await handleCallback(job, audioEngineData);
       logger.info(`✓ Forwarded stem paths to audio engine for job ${jobId}`);
     } else {
-      logger.warn(`Stems generated for job ${jobId} but no audio_server_stems callback - stems will not be delivered`);
+      logger.warn(
+        `Stems generated for job ${jobId} but no audio_server_stems callback - stems will not be delivered`
+      );
     }
-
   } catch (error) {
     logger.error(`Error handling stems for job ${jobId}:`, error);
     throw error;
@@ -310,7 +315,6 @@ export async function handleAnalysisError(jobId, errorMessage) {
 
     // Let the queue service handle retry logic
     await analysisQueueService.handleJobFailure(job, errorMessage);
-
   } catch (error) {
     logger.error(`Error handling analysis error for job ${jobId}:`, error);
   }
@@ -335,7 +339,6 @@ export async function handleJobCompleted(jobId, data) {
 
     // Mark job as completed
     await analysisQueueService.handleJobCompletion(jobId);
-
   } catch (error) {
     logger.error(`Error handling job completion for ${jobId}:`, error);
   }
@@ -353,8 +356,15 @@ function validateBasicFeatures(data) {
 
   // Required fields
   const requiredFields = [
-    'key', 'key_name', 'mode', 'mode_name', 'tempo',
-    'beats', 'downbeats', 'num_beats', 'num_downbeats'
+    'key',
+    'key_name',
+    'mode',
+    'mode_name',
+    'tempo',
+    'beats',
+    'downbeats',
+    'num_beats',
+    'num_downbeats',
   ];
 
   for (const field of requiredFields) {
@@ -385,8 +395,13 @@ function validateCharacteristics(data) {
 
   // Required fields
   const requiredFields = [
-    'danceability', 'valence', 'arousal', 'energy',
-    'loudness', 'acousticness', 'instrumentalness'
+    'danceability',
+    'valence',
+    'arousal',
+    'energy',
+    'loudness',
+    'acousticness',
+    'instrumentalness',
   ];
 
   for (const field of requiredFields) {
@@ -435,10 +450,12 @@ async function handleCallback(job, data = null) {
         if (data && (data.stems || data.stems_path)) {
           await audioServerClientService.sendStemsReady(
             callback_metadata.trackId,
-            data,  // Pass the entire stems data object
+            data, // Pass the entire stems data object
             callback_metadata.requestId
           );
-          logger.info(`✓ Notified audio server that stems are ready for track ${callback_metadata.trackId}`);
+          logger.info(
+            `✓ Notified audio server that stems are ready for track ${callback_metadata.trackId}`
+          );
         } else {
           logger.warn(`Stems callback for job ${job.job_id} has no stems data`);
         }

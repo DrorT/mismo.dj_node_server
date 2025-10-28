@@ -7,6 +7,23 @@ import logger from '../utils/logger.js';
  */
 
 /**
+ * Safely parse JSON with fallback for corrupted data
+ * @param {string} jsonString - JSON string to parse
+ * @param {*} fallback - Fallback value if parsing fails
+ * @returns {*} Parsed JSON or fallback
+ */
+function safeJSONParse(jsonString, fallback) {
+  if (!jsonString) return fallback;
+
+  try {
+    return JSON.parse(jsonString);
+  } catch (error) {
+    logger.warn(`Failed to parse JSON: ${jsonString.substring(0, 50)}...`, error.message);
+    return fallback;
+  }
+}
+
+/**
  * Create a new analysis job
  * @param {Object} jobData - Job data
  * @param {string} jobData.job_id - Unique job ID (track hash)
@@ -83,14 +100,18 @@ export function getJobById(jobId) {
     const job = stmt.get(jobId);
     if (!job) return null;
 
-    // Parse JSON fields
-    job.options = JSON.parse(job.options);
-    job.stages_completed = JSON.parse(job.stages_completed || '[]');
-    if (job.callback_metadata) {
-      job.callback_metadata = JSON.parse(job.callback_metadata);
+    // Parse JSON fields with safe fallbacks for corrupted data
+    try {
+      job.options = safeJSONParse(job.options, {});
+      job.stages_completed = safeJSONParse(job.stages_completed, []);
+      if (job.callback_metadata) {
+        job.callback_metadata = safeJSONParse(job.callback_metadata, null);
+      }
+      return job;
+    } catch (parseError) {
+      logger.warn(`Job ${jobId} has corrupted data, returning null:`, parseError.message);
+      return null;
     }
-
-    return job;
   } catch (error) {
     logger.error(`Error getting job ${jobId}:`, error);
     throw error;
@@ -117,14 +138,18 @@ export function getIncompleteJobById(jobId) {
     const job = stmt.get(jobId);
     if (!job) return null;
 
-    // Parse JSON fields
-    job.options = JSON.parse(job.options);
-    job.stages_completed = JSON.parse(job.stages_completed || '[]');
-    if (job.callback_metadata) {
-      job.callback_metadata = JSON.parse(job.callback_metadata);
+    // Parse JSON fields with safe fallbacks for corrupted data
+    try {
+      job.options = safeJSONParse(job.options, {});
+      job.stages_completed = safeJSONParse(job.stages_completed, []);
+      if (job.callback_metadata) {
+        job.callback_metadata = safeJSONParse(job.callback_metadata, null);
+      }
+      return job;
+    } catch (parseError) {
+      logger.warn(`Incomplete job ${jobId} has corrupted data, returning null:`, parseError.message);
+      return null;
     }
-
-    return job;
   } catch (error) {
     logger.error(`Error getting incomplete job ${jobId}:`, error);
     throw error;
@@ -220,13 +245,20 @@ export function getQueuedJobs(limit = 100) {
 
     const jobs = stmt.all(limit);
 
-    // Parse JSON fields
-    return jobs.map(job => ({
-      ...job,
-      options: JSON.parse(job.options),
-      stages_completed: JSON.parse(job.stages_completed || '[]'),
-      callback_metadata: job.callback_metadata ? JSON.parse(job.callback_metadata) : null,
-    }));
+    // Parse JSON fields with safe fallbacks for corrupted data
+    return jobs.map(job => {
+      try {
+        return {
+          ...job,
+          options: safeJSONParse(job.options, {}),
+          stages_completed: safeJSONParse(job.stages_completed, []),
+          callback_metadata: job.callback_metadata ? safeJSONParse(job.callback_metadata, null) : null,
+        };
+      } catch (error) {
+        logger.warn(`Skipping job ${job.job_id} due to corrupted data:`, error.message);
+        return null;
+      }
+    }).filter(job => job !== null); // Remove corrupted jobs
   } catch (error) {
     logger.error('Error getting queued jobs:', error);
     throw error;
@@ -248,13 +280,20 @@ export function getProcessingJobs() {
 
     const jobs = stmt.all();
 
-    // Parse JSON fields
-    return jobs.map(job => ({
-      ...job,
-      options: JSON.parse(job.options),
-      stages_completed: JSON.parse(job.stages_completed || '[]'),
-      callback_metadata: job.callback_metadata ? JSON.parse(job.callback_metadata) : null,
-    }));
+    // Parse JSON fields with safe fallbacks for corrupted data
+    return jobs.map(job => {
+      try {
+        return {
+          ...job,
+          options: safeJSONParse(job.options, {}),
+          stages_completed: safeJSONParse(job.stages_completed, []),
+          callback_metadata: job.callback_metadata ? safeJSONParse(job.callback_metadata, null) : null,
+        };
+      } catch (error) {
+        logger.warn(`Skipping job ${job.job_id} due to corrupted data:`, error.message);
+        return null;
+      }
+    }).filter(job => job !== null); // Remove corrupted jobs
   } catch (error) {
     logger.error('Error getting processing jobs:', error);
     throw error;

@@ -19,7 +19,44 @@ const logFormat = winston.format.combine(
 
     // Add metadata if present
     if (Object.keys(meta).length > 0) {
-      log += ` ${JSON.stringify(meta)}`;
+      try {
+        const seen = new WeakSet();
+
+        // Use a circular reference replacer to avoid JSON.stringify crashes
+        log += ` ${JSON.stringify(meta, (_key, value) => {
+          // Handle null/undefined
+          if (value === null || value === undefined) {
+            return value;
+          }
+
+          // Handle circular references for objects
+          if (typeof value === 'object') {
+            if (seen.has(value)) {
+              return '[Circular]';
+            }
+            seen.add(value);
+          }
+
+          // Handle Error objects (including AxiosError)
+          if (value instanceof Error) {
+            return {
+              name: value.name,
+              message: value.message,
+              code: value.code,
+              ...(value.response && {
+                status: value.response.status,
+                statusText: value.response.statusText,
+                data: value.response.data,
+              }),
+            };
+          }
+
+          return value;
+        })}`;
+      } catch (err) {
+        // Fallback if JSON.stringify still fails
+        log += ` [Complex object - could not stringify: ${err.message}]`;
+      }
     }
 
     // Add stack trace for errors
