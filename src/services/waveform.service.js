@@ -181,6 +181,130 @@ export function storeStemWaveforms(fileHash, waveforms) {
 }
 
 /**
+ * Get stem waveforms by file hash at a specific zoom level
+ * @param {string} fileHash - Audio file hash
+ * @param {number} zoomLevel - Zoom level (0-2)
+ * @returns {Object|null} Stem waveform data or null if not found
+ */
+export function getStemWaveformByHash(fileHash, zoomLevel) {
+  try {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+      SELECT * FROM waveforms
+      WHERE file_hash = ? AND zoom_level = ? AND is_stems = 1
+    `);
+
+    const row = stmt.get(fileHash, zoomLevel);
+    if (!row) {
+      return null;
+    }
+
+    // Decode BLOB data (contains all 4 stems: vocals, drums, bass, other)
+    const stemData = JSON.parse(row.data.toString());
+
+    return {
+      file_hash: row.file_hash,
+      zoom_level: row.zoom_level,
+      sample_rate: row.sample_rate,
+      samples_per_pixel: row.samples_per_point,
+      num_pixels: row.num_points,
+      is_stems: true,
+      ...stemData, // vocals_amplitude, vocals_intensity, drums_amplitude, etc.
+    };
+  } catch (error) {
+    logger.error(`Error getting stem waveform for hash ${fileHash}, zoom ${zoomLevel}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get stem waveforms for a track at a specific zoom level
+ * @param {string} trackId - Track UUID
+ * @param {number} zoomLevel - Zoom level (0-2)
+ * @returns {Object|null} Stem waveform data or null if not found
+ */
+export function getStemWaveform(trackId, zoomLevel) {
+  try {
+    const db = getDatabase();
+
+    // Get file_hash for the track
+    const trackStmt = db.prepare('SELECT file_hash FROM tracks WHERE id = ?');
+    const track = trackStmt.get(trackId);
+
+    if (!track) {
+      logger.warn(`Track ${trackId} not found`);
+      return null;
+    }
+
+    return getStemWaveformByHash(track.file_hash, zoomLevel);
+  } catch (error) {
+    logger.error(`Error getting stem waveform for track ${trackId}, zoom ${zoomLevel}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get all stem waveforms by file hash
+ * @param {string} fileHash - Audio file hash
+ * @returns {Array<Object>} Array of stem waveform objects
+ */
+export function getAllStemWaveformsByHash(fileHash) {
+  try {
+    const db = getDatabase();
+    const stmt = db.prepare(`
+      SELECT * FROM waveforms
+      WHERE file_hash = ? AND is_stems = 1
+      ORDER BY zoom_level ASC
+    `);
+
+    const rows = stmt.all(fileHash);
+
+    return rows.map(row => {
+      // Decode BLOB data (contains all 4 stems)
+      const stemData = JSON.parse(row.data.toString());
+
+      return {
+        file_hash: row.file_hash,
+        zoom_level: row.zoom_level,
+        sample_rate: row.sample_rate,
+        samples_per_pixel: row.samples_per_point,
+        num_pixels: row.num_points,
+        is_stems: true,
+        ...stemData,
+      };
+    });
+  } catch (error) {
+    logger.error(`Error getting all stem waveforms for hash ${fileHash}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get all stem waveforms for a track
+ * @param {string} trackId - Track UUID
+ * @returns {Array<Object>} Array of stem waveform objects
+ */
+export function getAllStemWaveforms(trackId) {
+  try {
+    const db = getDatabase();
+
+    // Get file_hash for the track
+    const trackStmt = db.prepare('SELECT file_hash FROM tracks WHERE id = ?');
+    const track = trackStmt.get(trackId);
+
+    if (!track) {
+      logger.warn(`Track ${trackId} not found`);
+      return [];
+    }
+
+    return getAllStemWaveformsByHash(track.file_hash);
+  } catch (error) {
+    logger.error(`Error getting all stem waveforms for track ${trackId}:`, error);
+    throw error;
+  }
+}
+
+/**
  * Get waveform by file hash at a specific zoom level
  * @param {string} fileHash - Audio file hash
  * @param {number} zoomLevel - Zoom level (0-2)
@@ -191,7 +315,7 @@ export function getWaveformByHash(fileHash, zoomLevel) {
     const db = getDatabase();
     const stmt = db.prepare(`
       SELECT * FROM waveforms
-      WHERE file_hash = ? AND zoom_level = ?
+      WHERE file_hash = ? AND zoom_level = ? AND is_stems = 0
     `);
 
     const row = stmt.get(fileHash, zoomLevel);
@@ -252,7 +376,7 @@ export function getAllWaveformsByHash(fileHash) {
     const db = getDatabase();
     const stmt = db.prepare(`
       SELECT * FROM waveforms
-      WHERE file_hash = ?
+      WHERE file_hash = ? AND is_stems = 0
       ORDER BY zoom_level ASC
     `);
 

@@ -243,6 +243,119 @@ router.get('/:id/waveform', validate(schemas.trackId, 'params'), validate(schema
 });
 
 /**
+ * GET /api/tracks/:id/stems/waveform
+ * Get stem waveform data for a track
+ *
+ * Query Parameters:
+ * - zoom: (optional) Zoom level (0=overview, 1=normal, 2=detailed)
+ *
+ * Response contains waveform data for all 4 stems (vocals, drums, bass, other).
+ * If zoom parameter is provided, returns waveform for that specific zoom level.
+ * If zoom parameter is omitted, returns all available stem waveforms for the track.
+ *
+ * Each waveform object contains:
+ * - zoom_level: 0 (overview), 1 (normal), or 2 (detailed)
+ * - sample_rate: Audio sample rate
+ * - samples_per_pixel: Number of audio samples per pixel
+ * - num_pixels: Total number of pixels in the waveform
+ * - vocals_amplitude: Float32 array of vocal stem amplitudes
+ * - vocals_intensity: Float32 array of vocal stem intensities
+ * - drums_amplitude: Float32 array of drum stem amplitudes
+ * - drums_intensity: Float32 array of drum stem intensities
+ * - bass_amplitude: Float32 array of bass stem amplitudes
+ * - bass_intensity: Float32 array of bass stem intensities
+ * - other_amplitude: Float32 array of other stem amplitudes
+ * - other_intensity: Float32 array of other stem intensities
+ *
+ * Success Response:
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "zoom_level": 1,
+ *     "sample_rate": 44100,
+ *     "samples_per_pixel": 512,
+ *     "num_pixels": 2048,
+ *     "is_stems": true,
+ *     "vocals_amplitude": [...],
+ *     "vocals_intensity": [...],
+ *     ...
+ *   }
+ * }
+ *
+ * OR when zoom is omitted:
+ * {
+ *   "success": true,
+ *   "data": {
+ *     "waveforms": [...]
+ *   }
+ * }
+ *
+ * Error Responses:
+ * - 404 Not Found: Track doesn't exist or has no stem waveform data
+ * - 500 Internal Server Error: Database or server error
+ */
+router.get('/:id/stems/waveform', validate(schemas.trackId, 'params'), validate(schemas.waveformQuery, 'query'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { zoom } = req.query;
+
+    // Check if track exists
+    const track = trackService.getTrackById(id);
+    if (!track) {
+      return res.status(404).json({
+        success: false,
+        error: 'Not Found',
+        message: `Track with ID ${id} not found`,
+      });
+    }
+
+    // If zoom level specified, return single stem waveform
+    if (zoom !== undefined) {
+      const zoomLevel = parseInt(zoom, 10);
+      const waveform = waveformService.getStemWaveform(id, zoomLevel);
+
+      if (!waveform) {
+        return res.status(404).json({
+          success: false,
+          error: 'Not Found',
+          message: `No stem waveform data available for track ${id} at zoom level ${zoomLevel}`,
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: waveform,
+      });
+    } else {
+      // Return all stem waveforms for this track
+      const waveforms = waveformService.getAllStemWaveforms(id);
+
+      if (!waveforms || waveforms.length === 0) {
+        return res.status(404).json({
+          success: false,
+          error: 'Not Found',
+          message: `No stem waveform data available for track ${id}`,
+        });
+      }
+
+      return res.json({
+        success: true,
+        data: {
+          waveforms: waveforms,
+        },
+      });
+    }
+  } catch (error) {
+    logger.error(`Error getting stem waveform for track ${req.params.id}:`, error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get stem waveform',
+      message: error.message,
+    });
+  }
+});
+
+/**
  * GET /api/tracks/:id/verify
  * Verify track file exists and is accessible
  */
