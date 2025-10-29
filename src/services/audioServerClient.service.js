@@ -164,7 +164,17 @@ class AudioServerClientService {
         logger.info(`Received message from audio server: ${data}`);
 
       if (message.event) {
-        // TODO: in the future deal with server event messages, at the moment ignore
+        // Handle event messages from audio server
+        switch (message.event) {
+          case 'cuePointRemoved':
+            await this.handleCuePointRemoved(message);
+            break;
+          default:
+            // Other events can be logged or ignored
+            if (message.event !== 'deckStateUpdate') {
+              logger.debug(`Received event: ${message.event}`);
+            }
+        }
         return;
       }
 
@@ -194,6 +204,9 @@ class AudioServerClientService {
       switch (message.command) {
         case 'getTrackInfo':
           await this.handleGetTrackInfo(message);
+          break;
+        case 'deck.setCue':
+          await this.handleSetCue(message);
           break;
         default:
           logger.warn(`Unknown command: ${message.command}`);
@@ -385,6 +398,10 @@ class AudioServerClientService {
         // The audio server will receive stems later via a separate 'stemsReady' notification
       }
 
+      // Get hot cues for this track (minimal data for audio engine)
+      const hotCueService = await import('./hotCue.service.js');
+      const hotCues = hotCueService.getHotCuesForAudioEngine(trackId);
+
       // Send success response (always without stems - they come via separate notification)
       const response = {
         success: true,
@@ -396,13 +413,82 @@ class AudioServerClientService {
         mode: String(track.mode),
         firstBeatOffset: track.first_beat_offset || 0,
         firstPhraseBeatNo: track.first_phrase_beat_no || 0,
+        hotCues: hotCues, // Include hot cues (index, position, isLoop, loopEnd)
       }
 
       this.send(response);
-      logger.info(`✓ Sent track info for ${trackId} (${track.title} by ${track.artist})`);
+      logger.info(`✓ Sent track info for ${trackId} (${track.title} by ${track.artist}), ${hotCues.length} hot cues`);
     } catch (error) {
       logger.error(`Error handling getTrackInfo for ${trackId}:`, error);
       this.sendError(trackId, 'Internal server error');
+    }
+  }
+
+  /**
+   * Handle deck.setCue command from audio server
+   * This is called when the audio server sets a hot cue
+   * @param {Object} message - Message object
+   * @param {string} message.deck - Deck ID (A or B)
+   * @param {number} message.index - Cue index (0-7)
+   * @param {number} message.position - Position in seconds
+   */
+  async handleSetCue(message) {
+    const { deck, index, position } = message;
+
+    if (!deck || index === undefined || position === undefined) {
+      logger.warn('deck.setCue request missing required fields (deck, index, position)');
+      return;
+    }
+
+    try {
+      // Get the currently loaded track ID for this deck
+      // We need to query the audio server for current deck state or maintain state here
+      // For now, log the request - full implementation requires deck state tracking
+      logger.info(`Received deck.setCue: deck=${deck}, index=${index}, position=${position}`);
+
+      // TODO: Implement deck state tracking to know which track is loaded on each deck
+      // Once we have trackId, we can:
+      // const hotCueService = await import('./hotCue.service.js');
+      // await hotCueService.setHotCue(trackId, index, { position, source: 'audio_engine' });
+
+      logger.warn('deck.setCue handler not fully implemented - need deck state tracking');
+    } catch (error) {
+      logger.error(`Error handling deck.setCue:`, error);
+    }
+  }
+
+  /**
+   * Handle cuePointRemoved event from audio server
+   * This is called when the audio server removes a hot cue
+   * @param {Object} message - Message object
+   * @param {string} message.deck - Deck ID (A or B)
+   * @param {number} message.index - Cue index (0-7)
+   * @param {boolean} message.success - Whether removal was successful
+   */
+  async handleCuePointRemoved(message) {
+    const { deck, index, success } = message;
+
+    if (!deck || index === undefined) {
+      logger.warn('cuePointRemoved event missing required fields (deck, index)');
+      return;
+    }
+
+    if (!success) {
+      logger.warn(`cuePointRemoved failed: deck=${deck}, index=${index}`);
+      return;
+    }
+
+    try {
+      logger.info(`Received cuePointRemoved: deck=${deck}, index=${index}`);
+
+      // TODO: Implement deck state tracking to know which track is loaded on each deck
+      // Once we have trackId, we can:
+      // const hotCueService = await import('./hotCue.service.js');
+      // await hotCueService.removeHotCue(trackId, index);
+
+      logger.warn('cuePointRemoved handler not fully implemented - need deck state tracking');
+    } catch (error) {
+      logger.error(`Error handling cuePointRemoved:`, error);
     }
   }
 

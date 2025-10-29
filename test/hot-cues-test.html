@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hot Cues Test Client - Mismo DJ</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #1e1e2e 0%, #2d2d44 100%);
+            color: #e0e0e0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #00ff88;
+            text-shadow: 0 0 20px rgba(0, 255, 136, 0.3);
+        }
+
+        .section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .section h2 {
+            margin-bottom: 15px;
+            color: #00ff88;
+            font-size: 1.3em;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #b0b0b0;
+            font-size: 0.9em;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            color: #e0e0e0;
+            font-size: 1em;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #00ff88;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.2);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #00ff88 0%, #00cc6a 100%);
+            color: #1e1e2e;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 1em;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 255, 136, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button.secondary {
+            background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
+            color: #fff;
+        }
+
+        button.danger {
+            background: linear-gradient(135deg, #ff4444 0%, #cc0000 100%);
+            color: #fff;
+        }
+
+        #results {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 500px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .success {
+            color: #00ff88;
+        }
+
+        .error {
+            color: #ff4444;
+        }
+
+        .info {
+            color: #4da6ff;
+        }
+
+        .hot-cue-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #00ff88;
+        }
+
+        .hot-cue-item.loop {
+            border-left-color: #ff9500;
+        }
+
+        .hot-cue-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .hot-cue-index {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #00ff88;
+        }
+
+        .hot-cue-actions {
+            display: flex;
+            gap: 5px;
+        }
+
+        .hot-cue-actions button {
+            padding: 5px 10px;
+            font-size: 0.8em;
+        }
+
+        .hot-cue-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 10px;
+            font-size: 0.9em;
+        }
+
+        .hot-cue-detail {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hot-cue-detail-label {
+            color: #888;
+            font-size: 0.8em;
+            margin-bottom: 3px;
+        }
+
+        .hot-cue-detail-value {
+            color: #e0e0e0;
+            font-weight: 500;
+        }
+
+        .color-preview {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+            vertical-align: middle;
+            margin-left: 5px;
+        }
+
+        #hotCuesList {
+            margin-top: 20px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎵 Hot Cues Test Client</h1>
+
+        <!-- Track Selection -->
+        <div class="section">
+            <h2>1. Select Track</h2>
+            <div class="form-group">
+                <label for="trackId">Track ID (UUID):</label>
+                <input type="text" id="trackId" placeholder="Enter track UUID">
+            </div>
+            <div class="button-group">
+                <button onclick="loadTrackInfo()">Load Track Info</button>
+                <button onclick="loadHotCues()">Load Hot Cues</button>
+            </div>
+        </div>
+
+        <!-- Create/Update Hot Cue -->
+        <div class="section">
+            <h2>2. Create/Update Hot Cue</h2>
+            <div class="form-group">
+                <label for="cueIndex">Cue Index (0-7):</label>
+                <input type="number" id="cueIndex" min="0" max="7" value="0">
+            </div>
+            <div class="form-group">
+                <label for="cuePosition">Position (seconds):</label>
+                <input type="number" id="cuePosition" step="0.01" min="0" value="10.0">
+            </div>
+            <div class="form-group">
+                <label for="cueName">Name (optional):</label>
+                <input type="text" id="cueName" placeholder="e.g., Intro, Drop, Breakdown">
+            </div>
+            <div class="form-group">
+                <label for="cueColor">Color:</label>
+                <input type="color" id="cueColor" value="#ff4444">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="isLoop"> Is Loop
+                </label>
+            </div>
+            <div class="form-group">
+                <label for="loopEnd">Loop End (seconds, if loop):</label>
+                <input type="number" id="loopEnd" step="0.01" min="0" value="20.0">
+            </div>
+            <div class="form-group">
+                <label>
+                    <input type="checkbox" id="autoLoop"> Auto Loop
+                </label>
+            </div>
+            <div class="form-group">
+                <label for="cueSource">Source:</label>
+                <select id="cueSource">
+                    <option value="user">User</option>
+                    <option value="mixedInKey">Mixed In Key</option>
+                    <option value="rekordbox">Rekordbox</option>
+                    <option value="serato">Serato</option>
+                    <option value="virtual dj">Virtual DJ</option>
+                </select>
+            </div>
+            <div class="button-group">
+                <button onclick="createHotCue()">Create/Update Hot Cue</button>
+            </div>
+        </div>
+
+        <!-- Delete Hot Cue -->
+        <div class="section">
+            <h2>3. Delete Hot Cue</h2>
+            <div class="form-group">
+                <label for="deleteIndex">Cue Index (0-7):</label>
+                <input type="number" id="deleteIndex" min="0" max="7" value="0">
+            </div>
+            <div class="button-group">
+                <button class="danger" onclick="deleteHotCue()">Delete Hot Cue</button>
+                <button class="danger" onclick="deleteAllHotCues()">Delete All Hot Cues</button>
+            </div>
+        </div>
+
+        <!-- Hot Cues Display -->
+        <div class="section">
+            <h2>4. Hot Cues for Track</h2>
+            <div id="hotCuesList">
+                <div class="empty-state">Load a track to view hot cues</div>
+            </div>
+        </div>
+
+        <!-- Results Display -->
+        <div class="section">
+            <h2>5. API Response</h2>
+            <div id="results">Ready to test hot cues API...</div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3000/api';
+
+        function log(message, type = 'info') {
+            const results = document.getElementById('results');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            const prefix = type === 'success' ? '✓' : type === 'error' ? '✗' : 'ℹ';
+            results.innerHTML += `<span class="${className}">[${timestamp}] ${prefix} ${message}</span>\n`;
+            results.scrollTop = results.scrollHeight;
+        }
+
+        function getTrackId() {
+            const trackId = document.getElementById('trackId').value.trim();
+            if (!trackId) {
+                log('Please enter a track ID', 'error');
+                return null;
+            }
+            return trackId;
+        }
+
+        async function loadTrackInfo() {
+            const trackId = getTrackId();
+            if (!trackId) return;
+
+            log(`Loading track info for ${trackId}...`);
+
+            try {
+                const response = await fetch(`${API_BASE}/tracks/${trackId}`);
+                const data = await response.json();
+
+                if (data.success) {
+                    log(`Track loaded: ${data.data.title} by ${data.data.artist}`, 'success');
+                    log(`Hot cues: ${data.data.hotCues?.length || 0}`);
+                    log(JSON.stringify(data, null, 2));
+
+                    if (data.data.hotCues) {
+                        displayHotCues(data.data.hotCues);
+                    }
+                } else {
+                    log(`Error: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                log(`Request failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadHotCues() {
+            const trackId = getTrackId();
+            if (!trackId) return;
+
+            log(`Loading hot cues for track ${trackId}...`);
+
+            try {
+                const response = await fetch(`${API_BASE}/tracks/${trackId}/hot-cues`);
+                const data = await response.json();
+
+                if (data.success) {
+                    log(`Loaded ${data.data.length} hot cue(s)`, 'success');
+                    log(JSON.stringify(data, null, 2));
+                    displayHotCues(data.data);
+                } else {
+                    log(`Error: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                log(`Request failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function createHotCue() {
+            const trackId = getTrackId();
+            if (!trackId) return;
+
+            const index = parseInt(document.getElementById('cueIndex').value);
+            const position = parseFloat(document.getElementById('cuePosition').value);
+            const name = document.getElementById('cueName').value.trim() || null;
+            const color = document.getElementById('cueColor').value;
+            const isLoop = document.getElementById('isLoop').checked;
+            const loopEnd = isLoop ? parseFloat(document.getElementById('loopEnd').value) : null;
+            const autoLoop = document.getElementById('autoLoop').checked;
+            const source = document.getElementById('cueSource').value;
+
+            const cueData = {
+                position,
+                name,
+                color,
+                isLoop,
+                loopEnd,
+                autoLoop,
+                source
+            };
+
+            log(`Creating/updating hot cue ${index} at position ${position}s...`);
+
+            try {
+                const response = await fetch(`${API_BASE}/tracks/${trackId}/hot-cues/${index}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(cueData)
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    log(`Hot cue ${index} saved successfully!`, 'success');
+                    log(JSON.stringify(data, null, 2));
+                    loadHotCues(); // Reload the list
+                } else {
+                    log(`Error: ${data.message || data.error}`, 'error');
+                }
+            } catch (error) {
+                log(`Request failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteHotCue() {
+            const trackId = getTrackId();
+            if (!trackId) return;
+
+            const index = parseInt(document.getElementById('deleteIndex').value);
+
+            if (!confirm(`Are you sure you want to delete hot cue ${index}?`)) {
+                return;
+            }
+
+            log(`Deleting hot cue ${index}...`);
+
+            try {
+                const response = await fetch(`${API_BASE}/tracks/${trackId}/hot-cues/${index}`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    log(`Hot cue ${index} deleted successfully!`, 'success');
+                    loadHotCues(); // Reload the list
+                } else {
+                    log(`Error: ${data.message || data.error}`, 'error');
+                }
+            } catch (error) {
+                log(`Request failed: ${error.message}`, 'error');
+            }
+        }
+
+        async function deleteAllHotCues() {
+            const trackId = getTrackId();
+            if (!trackId) return;
+
+            if (!confirm('Are you sure you want to delete ALL hot cues for this track?')) {
+                return;
+            }
+
+            log(`Deleting all hot cues...`);
+
+            try {
+                const response = await fetch(`${API_BASE}/tracks/${trackId}/hot-cues`, {
+                    method: 'DELETE'
+                });
+                const data = await response.json();
+
+                if (data.success) {
+                    log(`${data.message}`, 'success');
+                    loadHotCues(); // Reload the list
+                } else {
+                    log(`Error: ${data.message || data.error}`, 'error');
+                }
+            } catch (error) {
+                log(`Request failed: ${error.message}`, 'error');
+            }
+        }
+
+        function displayHotCues(hotCues) {
+            const container = document.getElementById('hotCuesList');
+
+            if (!hotCues || hotCues.length === 0) {
+                container.innerHTML = '<div class="empty-state">No hot cues found for this track</div>';
+                return;
+            }
+
+            container.innerHTML = hotCues.map(cue => `
+                <div class="hot-cue-item ${cue.is_loop ? 'loop' : ''}">
+                    <div class="hot-cue-header">
+                        <div class="hot-cue-index">Cue ${cue.cue_index}</div>
+                        <div class="hot-cue-actions">
+                            <button class="secondary" onclick="editHotCue(${cue.cue_index}, ${cue.position}, '${cue.name || ''}', '${cue.color || '#ff4444'}', ${cue.is_loop}, ${cue.loop_end || 0}, ${cue.auto_loop}, '${cue.source}')">Edit</button>
+                            <button class="danger" onclick="deleteHotCueById(${cue.cue_index})">Delete</button>
+                        </div>
+                    </div>
+                    <div class="hot-cue-details">
+                        <div class="hot-cue-detail">
+                            <div class="hot-cue-detail-label">Position</div>
+                            <div class="hot-cue-detail-value">${cue.position.toFixed(3)}s</div>
+                        </div>
+                        ${cue.name ? `
+                        <div class="hot-cue-detail">
+                            <div class="hot-cue-detail-label">Name</div>
+                            <div class="hot-cue-detail-value">${cue.name}</div>
+                        </div>
+                        ` : ''}
+                        <div class="hot-cue-detail">
+                            <div class="hot-cue-detail-label">Color</div>
+                            <div class="hot-cue-detail-value">
+                                ${cue.color || '#ff4444'}
+                                <span class="color-preview" style="background-color: ${cue.color || '#ff4444'}"></span>
+                            </div>
+                        </div>
+                        ${cue.is_loop ? `
+                        <div class="hot-cue-detail">
+                            <div class="hot-cue-detail-label">Loop End</div>
+                            <div class="hot-cue-detail-value">${cue.loop_end?.toFixed(3)}s</div>
+                        </div>
+                        <div class="hot-cue-detail">
+                            <div class="hot-cue-detail-label">Auto Loop</div>
+                            <div class="hot-cue-detail-value">${cue.auto_loop ? 'Yes' : 'No'}</div>
+                        </div>
+                        ` : ''}
+                        <div class="hot-cue-detail">
+                            <div class="hot-cue-detail-label">Source</div>
+                            <div class="hot-cue-detail-value">${cue.source || 'user'}</div>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function editHotCue(index, position, name, color, isLoop, loopEnd, autoLoop, source) {
+            document.getElementById('cueIndex').value = index;
+            document.getElementById('cuePosition').value = position;
+            document.getElementById('cueName').value = name;
+            document.getElementById('cueColor').value = color;
+            document.getElementById('isLoop').checked = Boolean(isLoop);
+            document.getElementById('loopEnd').value = loopEnd || 0;
+            document.getElementById('autoLoop').checked = Boolean(autoLoop);
+            document.getElementById('cueSource').value = source || 'user';
+
+            // Scroll to the form
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            log(`Loaded cue ${index} for editing`);
+        }
+
+        function deleteHotCueById(index) {
+            document.getElementById('deleteIndex').value = index;
+            deleteHotCue();
+        }
+
+        // Auto-load hot cues when track ID changes
+        document.getElementById('trackId').addEventListener('blur', function() {
+            if (this.value.trim()) {
+                loadHotCues();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS schema_version (
 INSERT OR IGNORE INTO schema_version (version, description) VALUES (1, 'Initial MVP schema');
 INSERT OR IGNORE INTO schema_version (version, description) VALUES (2, 'Added multi-directory library support, duplicate detection, and file operations');
 INSERT OR IGNORE INTO schema_version (version, description) VALUES (11, 'Added audible time fields (audible_start_time, audible_end_time)');
+INSERT OR IGNORE INTO schema_version (version, description) VALUES (15, 'Add hot_cues table for track cue points');
+INSERT OR IGNORE INTO schema_version (version, description) VALUES (16, 'Allow multiple hot cue sources per cue index');
 
 -- ============================================================================
 -- Library Directories Table (Updated to UUID - Migration 008)
@@ -324,6 +326,50 @@ FROM duplicate_groups dg
 LEFT JOIN tracks t1 ON dg.canonical_track_id = t1.id
 LEFT JOIN tracks t2 ON dg.id = t2.duplicate_group_id AND t2.id != dg.canonical_track_id
 GROUP BY dg.id;
+
+-- ============================================================================
+-- Hot Cues Table (Migration 015)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS hot_cues (
+    id TEXT PRIMARY KEY,                    -- UUID for the hot cue
+    track_id TEXT NOT NULL,                 -- Foreign key to tracks table
+    cue_index INTEGER NOT NULL,             -- Cue index (0-7)
+    position REAL NOT NULL,                 -- Position in seconds
+
+    -- Optional properties
+    name TEXT,                              -- Optional label/name
+    color TEXT,                             -- UI color (hex format)
+
+    -- Loop properties
+    is_loop BOOLEAN DEFAULT 0,              -- Whether this is a loop cue
+    loop_end REAL,                          -- End position if loop (seconds)
+    auto_loop BOOLEAN DEFAULT 0,            -- Auto-activate on trigger
+
+    -- Source metadata
+    source TEXT DEFAULT 'user',             -- Source: 'user', 'mixedInKey', 'rekordbox', 'serato', 'virtual dj'
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    -- Foreign key constraint
+    FOREIGN KEY (track_id) REFERENCES tracks(id) ON DELETE CASCADE,
+
+    -- Constraints
+    CHECK (cue_index >= 0 AND cue_index <= 7),
+    CHECK (position >= 0),
+    CHECK (loop_end IS NULL OR loop_end > position)
+);
+
+-- Indices for fast lookups
+CREATE INDEX IF NOT EXISTS idx_hot_cues_track ON hot_cues(track_id);
+-- Unique constraint: Allow multiple sources for same cue index (Migration 016)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_hot_cues_track_index_source ON hot_cues(track_id, cue_index, source);
+
+-- Trigger to update updated_at timestamp
+CREATE TRIGGER IF NOT EXISTS update_hot_cues_timestamp
+AFTER UPDATE ON hot_cues
+BEGIN
+    UPDATE hot_cues SET updated_at = CURRENT_TIMESTAMP WHERE id = NEW.id;
+END;
 
 -- ============================================================================
 -- Triggers for Data Integrity

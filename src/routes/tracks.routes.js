@@ -2,6 +2,7 @@ import express from 'express';
 import * as trackService from '../services/track.service.js';
 import * as fileOpsService from '../services/fileOperations.service.js';
 import * as waveformService from '../services/waveform.service.js';
+import * as hotCueService from '../services/hotCue.service.js';
 import logger from '../utils/logger.js';
 import { validate, schemas } from '../utils/validators.js';
 
@@ -751,7 +752,7 @@ router.post(
 
 /**
  * GET /api/tracks/:id
- * Get single track by ID
+ * Get single track by ID (includes hot cues for UI)
  */
 router.get('/:id', validate(schemas.trackId, 'params'), async (req, res) => {
   try {
@@ -766,9 +767,15 @@ router.get('/:id', validate(schemas.trackId, 'params'), async (req, res) => {
       });
     }
 
+    // Get hot cues for this track
+    const hotCues = hotCueService.getTrackHotCues(id);
+
     res.json({
       success: true,
-      data: track,
+      data: {
+        ...track,
+        hotCues: hotCues,
+      },
     });
   } catch (error) {
     logger.error(`Error getting track ${req.params.id}:`, error);

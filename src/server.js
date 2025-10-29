@@ -75,11 +75,13 @@ import tracksRoutes from './routes/tracks.routes.js';
 import duplicatesRoutes from './routes/duplicates.routes.js';
 import analysisRoutes from './routes/analysis.routes.js';
 import playlistRoutes from './routes/playlist.routes.js';
+import hotCuesRoutes from './routes/hotCues.routes.js';
 
 app.use('/api/settings', settingsRoutes);
 app.use('/api/library/directories', libraryDirectoryRoutes);
 app.use('/api/scan', scanRoutes);
 app.use('/api/watcher', watcherRoutes);
+app.use('/api/tracks', hotCuesRoutes); // Hot cues mounted under /api/tracks/:id/hot-cues
 app.use('/api/tracks', tracksRoutes);
 app.use('/api/duplicates', duplicatesRoutes);
 app.use('/api/analysis', analysisRoutes);

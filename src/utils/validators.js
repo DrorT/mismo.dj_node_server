@@ -346,6 +346,36 @@ export const schemas = {
   firstBeatOffsetUpdate: Joi.object({
     first_beat_offset: Joi.number().min(0).required(),
   }),
+
+  // Hot cue schemas
+  hotCueIndex: Joi.object({
+    id: uuidValidator.required(),
+    index: Joi.number().integer().min(0).max(7).required(),
+  }),
+
+  hotCueCreate: Joi.object({
+    position: Joi.number().min(0).required(),
+    name: Joi.string().max(100).allow('', null),
+    color: Joi.string().pattern(/^#[0-9A-Fa-f]{6}$/).default('#ff4444'),
+    isLoop: Joi.boolean().default(false),
+    loopEnd: Joi.number().min(0).allow(null).when('isLoop', {
+      is: true,
+      then: Joi.number().min(Joi.ref('position')).required(),
+      otherwise: Joi.allow(null),
+    }),
+    autoLoop: Joi.boolean().default(false),
+    source: Joi.string().valid('user', 'mixedInKey', 'rekordbox', 'serato', 'virtual dj').default('user'),
+  }),
+
+  hotCueUpdate: Joi.object({
+    position: Joi.number().min(0),
+    name: Joi.string().max(100).allow('', null),
+    color: Joi.string().pattern(/^#[0-9A-Fa-f]{6}$/),
+    isLoop: Joi.boolean(),
+    loopEnd: Joi.number().min(0).allow(null),
+    autoLoop: Joi.boolean(),
+    source: Joi.string().valid('user', 'mixedInKey', 'rekordbox', 'serato', 'virtual dj'),
+  }).min(1), // At least one field must be present
 };
 
 /**
