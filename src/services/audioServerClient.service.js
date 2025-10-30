@@ -2,6 +2,7 @@ import WebSocket from 'ws';
 import logger from '../utils/logger.js';
 import path from 'path';
 import audioServerService from './audioServer.service.js';
+import stemCacheService from './stemCache.service.js';
 
 /**
  * Audio Server WebSocket Client Service
@@ -391,35 +392,6 @@ class AudioServerClientService {
         return;
       }
 
-      // Check if stems are requested - always request fresh stems
-      // We don't store stems in DB because analysis server cleans up old jobs
-      if (stems) {
-        logger.info(`Stems requested for track ${trackId}, creating stem separation job`);
-
-        // Create high-priority stem separation job with callback metadata
-        try {
-          await this.analysisQueueService.requestAnalysis(
-            track.id,
-            { stems: true, basic_features: false, characteristics: false },
-            'high', // High priority for audio server requests - should not be delayed by background analysis
-            {
-              type: 'audio_server_stems',
-              trackId: trackId,
-              requestId: message.requestId,
-            }
-          );
-
-          logger.info(
-            `Stem separation job created for track ${trackId}, will notify audio server when ready`
-          );
-        } catch (error) {
-          logger.error(`Failed to create stem separation job for track ${trackId}:`, error);
-        }
-
-        // Note: We don't wait - we send track info immediately without stems
-        // The audio server will receive stems later via a separate 'stemsReady' notification
-      }
-
       // Get hot cues for this track (minimal data for audio engine)
       const hotCueService = await import('./hotCue.service.js');
       const hotCues = hotCueService.getHotCuesForAudioEngine(trackId);
@@ -440,6 +412,51 @@ class AudioServerClientService {
 
       this.send(response);
       logger.info(`✓ Sent track info for ${trackId} (${track.title} by ${track.artist}), ${hotCues.length} hot cues`);
+
+      // NOW handle stems AFTER track info has been sent
+      // This ensures audio engine has the track loaded before receiving stems
+      if (stems) {
+        logger.info(`Stems requested for track ${trackId}`);
+
+        // Check cache first (reduces load on analysis server)
+        const cachedStems = await stemCacheService.get(track.file_hash);
+
+        if (cachedStems) {
+          // Cache hit! Send stems after track info
+          logger.info(`✓ Serving stems from cache for track ${trackId}`);
+
+          const audioEngineData = {
+            delivery_mode: 'path',
+            stems: cachedStems,
+            processing_time: 0, // Cached, no processing time
+          };
+
+          await this.sendStemsReady(trackId, audioEngineData, message.requestId);
+        } else {
+          // Cache miss - request from analysis server
+          logger.info(`Cache miss for track ${trackId}, requesting from analysis server`);
+
+          // Create high-priority stem separation job with callback metadata
+          try {
+            await this.analysisQueueService.requestAnalysis(
+              track.id,
+              { stems: true, basic_features: false, characteristics: false },
+              'high', // High priority for audio server requests - should not be delayed by background analysis
+              {
+                type: 'audio_server_stems',
+                trackId: trackId,
+                requestId: message.requestId,
+              }
+            );
+
+            logger.info(
+              `Stem separation job created for track ${trackId}, will notify audio server when ready`
+            );
+          } catch (error) {
+            logger.error(`Failed to create stem separation job for track ${trackId}:`, error);
+          }
+        }
+      }
     } catch (error) {
       logger.error(`Error handling getTrackInfo for ${trackId}:`, error);
       this.sendError(trackId, 'Internal server error');

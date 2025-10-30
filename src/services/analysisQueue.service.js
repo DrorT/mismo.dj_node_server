@@ -86,11 +86,43 @@ class AnalysisQueueService extends EventEmitter {
 
       if (job) {
         // Incomplete job exists (queued or processing)
-        logger.info(`Analysis job already queued/processing: ${jobId}`, {
-          status: job.status,
-          job_db_id: job.id
-        });
-        return job;
+        // Check if it's stale (stuck processing for too long)
+        const createdAt = new Date(job.created_at).getTime();
+        const now = Date.now();
+        const ageMs = now - createdAt;
+        const timeoutMs = parseInt(process.env.ANALYSIS_TIMEOUT_MS || '300000'); // Default: 5 minutes
+        const gracePeriodMs = 60000; // 1 minute grace period for new jobs
+
+        if (ageMs < gracePeriodMs) {
+          // Job is very recent, don't create duplicate
+          logger.info(`Analysis job created recently (${Math.round(ageMs / 1000)}s ago), returning existing: ${jobId}`, {
+            status: job.status,
+            job_db_id: job.id,
+            created_at: job.created_at,
+          });
+          return job;
+        } else if (ageMs > timeoutMs) {
+          // Job is stale (older than timeout), mark as failed and create new one
+          logger.warn(`Analysis job is stale (${Math.round(ageMs / 1000)}s old), marking as failed: ${jobId}`, {
+            status: job.status,
+            job_db_id: job.id,
+            created_at: job.created_at,
+            timeout_ms: timeoutMs,
+          });
+
+          // Mark stale job as failed
+          analysisJobService.updateJobStatus(jobId, 'failed', 'Job timed out (stale)');
+
+          // Continue to create new job below
+        } else {
+          // Job is within timeout window, return existing
+          logger.info(`Analysis job still active (${Math.round(ageMs / 1000)}s old), returning existing: ${jobId}`, {
+            status: job.status,
+            job_db_id: job.id,
+            created_at: job.created_at,
+          });
+          return job;
+        }
       }
 
       // No incomplete job exists - check if we should create a new one

@@ -10,6 +10,8 @@ data/*.db
 data/*.db-shm
 data/*.db-wal
 
+data/stem_cache/*
+
 # Logs
 logs/*.log
 *.log

@@ -304,9 +304,10 @@ export function getProcessingJobs() {
  * Update job status
  * @param {string} jobId - Job ID
  * @param {string} status - New status
+ * @param {string} errorMessage - Optional error message (for failed status)
  * @returns {boolean} True if updated
  */
-export function updateJobStatus(jobId, status) {
+export function updateJobStatus(jobId, status, errorMessage = null) {
   try {
     const db = getDatabase();
 
@@ -323,6 +324,12 @@ export function updateJobStatus(jobId, status) {
       updates.push('completed_at = CURRENT_TIMESTAMP');
     }
 
+    // Set last_error for failed status
+    if (status === 'failed' && errorMessage) {
+      updates.push('last_error = ?');
+      params.push(errorMessage);
+    }
+
     params.push(jobId);
 
     const stmt = db.prepare(`
@@ -334,7 +341,7 @@ export function updateJobStatus(jobId, status) {
     const result = stmt.run(...params);
 
     if (result.changes > 0) {
-      logger.debug(`Updated job ${jobId} status to ${status}`);
+      logger.debug(`Updated ${result.changes} job(s) ${jobId} status to ${status}`);
       return true;
     }
 

@@ -8,6 +8,7 @@ import * as waveformService from './waveform.service.js';
 import * as analysisJobService from './analysisJob.service.js';
 import analysisQueueService from './analysisQueue.service.js';
 import audioServerClientService from './audioServerClient.service.js';
+import stemCacheService from './stemCache.service.js';
 
 /**
  * Analysis Callback Service
@@ -211,6 +212,40 @@ export async function handleGenre(jobId, data) {
 }
 
 /**
+ * Re-request stems from analysis server (after download failure)
+ * @param {string} jobId - Job ID (file hash)
+ * @param {number} trackId - Track database ID
+ * @param {Object} callbackMetadata - Callback metadata to preserve
+ * @returns {Promise<void>}
+ * @private
+ */
+async function _reRequestStems(jobId, trackId, callbackMetadata) {
+  try {
+    logger.info(`Re-requesting stems from analysis server for job ${jobId}`);
+
+    const track = trackService.getTrackById(trackId);
+    if (!track) {
+      logger.error(`Cannot re-request stems: track ${trackId} not found`);
+      return;
+    }
+
+    // Create new analysis request for stems only
+    // Analysis server likely still has stems in cache
+    await analysisQueueService.requestAnalysis(
+      trackId,
+      { stems: true }, // Only request stems
+      'high', // High priority for retry
+      callbackMetadata, // Preserve original callback metadata
+      true // Force re-analysis
+    );
+
+    logger.info(`✓ Stems re-requested for job ${jobId}`);
+  } catch (error) {
+    logger.error(`Failed to re-request stems for job ${jobId}:`, error);
+  }
+}
+
+/**
  * Handle stems callback
  * @param {string} jobId - Job ID
  * @param {Object} data - Stems data (either paths or base64-encoded audio)
@@ -218,7 +253,11 @@ export async function handleGenre(jobId, data) {
  */
 export async function handleStems(jobId, data) {
   try {
-    logger.info(`Received stems for job: ${jobId}`);
+    logger.info(`=== HANDLE STEMS CALLED ===`, {
+      jobId,
+      hasData: !!data,
+      dataKeys: data ? Object.keys(data) : [],
+    });
 
     // Get job
     const job = analysisJobService.getJobById(jobId);
@@ -227,11 +266,27 @@ export async function handleStems(jobId, data) {
       return;
     }
 
-    // Check if stems stage was already completed (idempotency check)
+    // Check if stems stage was already completed AND job is completed (idempotency check)
+    // We allow reprocessing if the job is still 'processing' (in case previous callback failed partway through)
     if (job.stages_completed && job.stages_completed.includes('stems')) {
-      logger.info(`Stems already processed for job ${jobId}, skipping duplicate callback`);
-      return;
+      if (job.status === 'completed') {
+        logger.warn(`!!! IDEMPOTENCY CHECK: Stems already processed and job completed for ${jobId}, skipping duplicate callback`, {
+          stages_completed: job.stages_completed,
+          job_status: job.status,
+          completed_at: job.completed_at,
+        });
+        return;
+      } else {
+        logger.warn(`⚠ Stems stage marked complete but job still ${job.status} - allowing reprocessing for ${jobId}`, {
+          stages_completed: job.stages_completed,
+          job_status: job.status,
+          reason: 'Previous attempt may have failed before completion',
+        });
+        // Continue processing - previous attempt may have failed
+      }
     }
+
+    logger.info(`Processing stems for job ${jobId}`);
 
     // Validate data structure
     if (!data || !data.delivery_mode || !data.stems) {
@@ -253,9 +308,22 @@ export async function handleStems(jobId, data) {
         // URL MODE: Download FLAC stems from HTTP endpoints
         logger.info(`Downloading stem files from URLs for job ${jobId} (format: ${data.format || 'flac'})`);
 
-        const result = await _downloadStemsFromUrls(jobId, data.stems, data.format || 'flac');
-        stemPaths = result.stemPaths;
-        tempDir = result.tempDir;
+        let result;
+        try {
+          result = await _downloadStemsFromUrls(jobId, data.stems, data.format || 'flac');
+          stemPaths = result.stemPaths;
+          tempDir = result.tempDir;
+        } catch (downloadError) {
+          logger.error(`Fatal error during stem download for job ${jobId}:`, downloadError);
+
+          // Re-request stems from analysis server (likely still in cache)
+          if (job.callback_metadata) {
+            logger.warn(`Requesting stems again from analysis server (cache should make this fast)...`);
+            await _reRequestStems(jobId, job.track_id, job.callback_metadata);
+          }
+
+          throw downloadError;
+        }
 
         // Check if all stems downloaded successfully (all-or-nothing requirement)
         const expectedStemCount = Object.keys(data.stems).length;
@@ -270,7 +338,13 @@ export async function handleStems(jobId, data) {
             await fs.rm(tempDir, { recursive: true, force: true });
           }
 
-          throw new Error(`Incomplete stem download: ${downloadedStemCount}/${expectedStemCount} stems received. All stems required.`);
+          // Re-request stems from analysis server (likely still in cache)
+          if (job.callback_metadata) {
+            logger.warn(`Requesting stems again from analysis server (cache should make this fast)...`);
+            await _reRequestStems(jobId, job.track_id, job.callback_metadata);
+          }
+
+          throw new Error(`Incomplete stem download: ${downloadedStemCount}/${expectedStemCount} stems received. Will retry.`);
         }
 
         logger.info(`✓ Successfully downloaded all ${downloadedStemCount} stems`);
@@ -303,10 +377,12 @@ export async function handleStems(jobId, data) {
       }
     }
 
-    // Update job progress
-    analysisJobService.updateJobProgress(jobId, 'stems');
+    // Cache stems for future requests (before forwarding to audio engine)
+    // This reduces load on analysis server for repeat requests
+    const format = data.format || 'flac';
+    await stemCacheService.set(jobId, stemPaths, format);
 
-    // Forward stem paths to audio engine
+    // Forward stem paths to audio engine (BEFORE marking stage as complete)
     if (job.callback_metadata && job.callback_metadata.type === 'audio_server_stems') {
       // Audio engine always receives paths (even in remote mode, we provide temp file paths)
       const audioEngineData = {
@@ -323,12 +399,18 @@ export async function handleStems(jobId, data) {
 
       logger.info(`✓ Forwarded stem paths to audio engine for job ${jobId}`);
 
+      // Only mark stems stage as complete AFTER successful delivery to audio engine
+      analysisJobService.updateJobProgress(jobId, 'stems');
+      logger.info(`✓ Marked stems stage as complete for job ${jobId}`);
+
       // Schedule cleanup of temp files (if remote mode)
       if (tempDir) {
         _scheduleCleanup(tempDir, 60000); // 60 seconds
       }
     } else {
       logger.warn(`Stems generated for job ${jobId} but no audio_server_stems callback - stems will not be delivered`);
+      // Do NOT mark stems stage as complete if not delivered to audio engine
+      logger.warn(`Not marking stems as complete since they were not delivered`);
 
       // Cleanup temp files immediately if not needed
       if (tempDir) {

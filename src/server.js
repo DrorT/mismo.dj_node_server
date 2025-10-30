@@ -243,6 +243,10 @@ const server = app.listen(config.server.port, config.server.host, async () => {
   logger.info(`Server running on http://${config.server.host}:${config.server.port}`);
   logger.info(`Environment: ${config.server.env}`);
 
+  // Initialize stem cache
+  const stemCacheService = (await import('./services/stemCache.service.js')).default;
+  await stemCacheService.initialize();
+
   // Start analysis server initialization in background (non-blocking)
   const analysisServerInitPromise = (async () => {
     try {

@@ -376,84 +376,99 @@ router.get('/queue', async (req, res) => {
  * }
  */
 router.post('/callback', async (req, res) => {
+  // Log at the very top to confirm callback is received
+  logger.info('=== CALLBACK RECEIVED ===', {
+    hasBody: !!req.body,
+    bodyKeys: req.body ? Object.keys(req.body) : [],
+    url: req.url,
+    method: req.method,
+  });
+
   try {
     const { job_id, stage, data, status } = req.body;
 
     // Validate request
     if (!job_id || !stage) {
+      logger.warn('Invalid callback: missing job_id or stage', {
+        job_id,
+        stage,
+        bodyKeys: Object.keys(req.body),
+      });
       return res.status(400).json({
         error: 'Invalid callback',
         message: 'job_id and stage are required',
       });
     }
 
-    // Debug: Log full request body with multiple approaches
-    // logger.info('=== CALLBACK DEBUG START ===');
-    // logger.info(`Body keys: ${Object.keys(req.body).join(', ')}`);
-    // logger.info(`Body type: ${typeof req.body}`);
-    // logger.info(`Body constructor: ${req.body?.constructor?.name}`);
-    // logger.info(`Body stringify: ${JSON.stringify(req.body)}`);
-    // logger.info(`Data keys: ${data ? Object.keys(data).join(', ') : 'no data'}`);
-    // logger.info(`Data type: ${typeof data}`);
-    // if (data) {
-    //   logger.info(`Data stringify: ${JSON.stringify(data)}`);
-    // }
-    // logger.info('=== CALLBACK DEBUG END ===');
     logger.info(`Received callback for job ${job_id}, stage: ${stage}, status: ${status}`);
 
-    // Route to appropriate handler
-    switch (stage) {
-      case 'basic_features':
-        await analysisCallbackService.handleBasicFeatures(job_id, data);
-        break;
-
-      case 'characteristics':
-        await analysisCallbackService.handleCharacteristics(job_id, data);
-        break;
-
-      case 'genre':
-        await analysisCallbackService.handleGenre(job_id, data);
-        break;
-
-      case 'stems':
-        await analysisCallbackService.handleStems(job_id, data);
-        break;
-
-      case 'segments':
-        await analysisCallbackService.handleSegments(job_id, data);
-        break;
-
-      case 'transitions':
-        await analysisCallbackService.handleTransitions(job_id, data);
-        break;
-
-      case 'job_completed':
-        await analysisCallbackService.handleJobCompleted(job_id, data);
-        break;
-
-      case 'job_failed':
-        await analysisCallbackService.handleAnalysisError(job_id, data?.error || 'Job failed');
-        break;
-
-      case 'error':
-        await analysisCallbackService.handleAnalysisError(job_id, data?.error || 'Unknown error');
-        break;
-
-      default:
-        logger.warn(`Unknown callback stage: ${stage}`);
-        return res.status(400).json({
-          error: 'Invalid callback',
-          message: `Unknown stage: ${stage}`,
-        });
-    }
-
+    // IMPORTANT: Respond to callback IMMEDIATELY to prevent timeout
+    // Process the callback asynchronously in the background
     res.json({
-      message: 'Callback processed successfully',
+      message: 'Callback acknowledged',
       job_id,
       stage,
     });
+
+    // Process callback in background (don't await)
+    // This prevents the analysis server from timing out while waiting for:
+    // - Stem downloads (can be slow)
+    // - Database operations
+    // - Forwarding to audio server
+    setImmediate(async () => {
+      try {
+        // Route to appropriate handler
+        switch (stage) {
+          case 'basic_features':
+            await analysisCallbackService.handleBasicFeatures(job_id, data);
+            break;
+
+          case 'characteristics':
+            await analysisCallbackService.handleCharacteristics(job_id, data);
+            break;
+
+          case 'genre':
+            await analysisCallbackService.handleGenre(job_id, data);
+            break;
+
+          case 'stems':
+            await analysisCallbackService.handleStems(job_id, data);
+            break;
+
+          case 'segments':
+            await analysisCallbackService.handleSegments(job_id, data);
+            break;
+
+          case 'transitions':
+            await analysisCallbackService.handleTransitions(job_id, data);
+            break;
+
+          case 'job_completed':
+            await analysisCallbackService.handleJobCompleted(job_id, data);
+            break;
+
+          case 'job_failed':
+            await analysisCallbackService.handleAnalysisError(job_id, data?.error || 'Job failed');
+            break;
+
+          case 'error':
+            await analysisCallbackService.handleAnalysisError(job_id, data?.error || 'Unknown error');
+            break;
+
+          default:
+            logger.warn(`Unknown callback stage: ${stage}`);
+        }
+
+        logger.info(`✓ Background processing complete for job ${job_id}, stage: ${stage}`);
+      } catch (error) {
+        logger.error(`Error in background callback processing for job ${job_id}, stage ${stage}:`, error);
+        // Note: We can't send error response since we already responded
+        // Errors will be logged and can trigger retry logic in handlers
+      }
+    });
   } catch (error) {
     logger.error('Error processing callback:', error);
+    // This catch block only handles errors BEFORE we send the response
     res.status(500).json({
       error: 'Failed to process callback',
       message: error.message,
