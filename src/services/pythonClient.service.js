@@ -1,4 +1,7 @@
 import axios from 'axios';
+import FormData from 'form-data';
+import fs from 'fs/promises';
+import path from 'path';
 import logger from '../utils/logger.js';
 import config from '../config/settings.js';
 
@@ -15,6 +18,7 @@ class PythonClientService {
     this.serverUrl = process.env.PYTHON_SERVER_URL || 'http://127.0.0.1:8000';
     this.callbackUrl = null; // Will be set based on Node server URL
     this.timeout = parseInt(process.env.PYTHON_REQUEST_TIMEOUT_MS || '30000');
+    this.isRemote = process.env.ANALYSIS_SERVER_REMOTE === 'true';
   }
 
   /**
@@ -23,7 +27,8 @@ class PythonClientService {
    */
   initialize(nodeServerUrl) {
     this.callbackUrl = `${nodeServerUrl}/api/analysis/callback`;
-    logger.info(`Python client initialized with callback URL: ${this.callbackUrl}`);
+    const mode = this.isRemote ? 'REMOTE' : 'LOCAL';
+    logger.info(`Python client initialized in ${mode} mode with callback URL: ${this.callbackUrl}`);
   }
 
   /**
@@ -52,36 +57,19 @@ class PythonClientService {
         transitions: options.transitions || false,
       };
 
-      logger.info(`Requesting analysis for track: ${track_hash}`, {
+      const mode = this.isRemote ? 'REMOTE' : 'LOCAL';
+      logger.info(`Requesting analysis for track: ${track_hash} (${mode} mode)`, {
         file_path,
         options: analysisOptions,
       });
 
-      // Python server uses POST /jobs with JSON body in co-located mode
-      const requestBody = {
-        file_path,
-        track_hash,
-        options: analysisOptions,
-        callback_url: this.callbackUrl,
-        stem_delivery_mode: 'path',
-      };
-
-      const response = await axios.post(
-        `${this.serverUrl}/jobs`,
-        requestBody,
-        {
-          timeout: this.timeout,
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      logger.info(`Analysis request accepted for track: ${track_hash}`, {
-        job_id: response.data.job_id,
-      });
-
-      return response.data;
+      if (this.isRemote) {
+        // REMOTE MODE: Send file content via multipart upload
+        return await this._requestAnalysisRemote(file_path, track_hash, analysisOptions);
+      } else {
+        // LOCAL MODE: Send file path via JSON (existing behavior)
+        return await this._requestAnalysisLocal(file_path, track_hash, analysisOptions);
+      }
     } catch (error) {
       logger.error(`Failed to request analysis for track: ${track_hash}`, {
         error: error.message,
@@ -91,6 +79,96 @@ class PythonClientService {
       });
       throw error;
     }
+  }
+
+  /**
+   * Request analysis in local mode (co-located servers)
+   * Sends file path via JSON request
+   * @private
+   */
+  async _requestAnalysisLocal(file_path, track_hash, analysisOptions) {
+    const requestBody = {
+      file_path,
+      track_hash,
+      options: analysisOptions,
+      callback_url: this.callbackUrl,
+      stem_delivery_mode: 'path', // Use path mode for local
+    };
+
+    const response = await axios.post(
+      `${this.serverUrl}/jobs`,
+      requestBody,
+      {
+        timeout: this.timeout,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    logger.info(`Analysis request accepted for track: ${track_hash} (local mode)`, {
+      job_id: response.data.job_id,
+    });
+
+    return response.data;
+  }
+
+  /**
+   * Request analysis in remote mode (different machines)
+   * Sends file content via multipart upload
+   * @private
+   */
+  async _requestAnalysisRemote(file_path, track_hash, analysisOptions) {
+    // Read file content
+    const fileContent = await fs.readFile(file_path);
+    const filename = path.basename(file_path);
+    const ext = path.extname(filename).toLowerCase();
+
+    // Detect content type from extension
+    const contentTypeMap = {
+      '.mp3': 'audio/mpeg',
+      '.wav': 'audio/wav',
+      '.flac': 'audio/flac',
+      '.m4a': 'audio/mp4',
+      '.aac': 'audio/aac',
+      '.ogg': 'audio/ogg',
+      '.opus': 'audio/opus',
+      '.aif': 'audio/aiff',
+      '.aiff': 'audio/aiff',
+      '.alac': 'audio/mp4',
+    };
+    const contentType = contentTypeMap[ext] || 'application/octet-stream';
+
+    // Create multipart form data
+    const form = new FormData();
+    form.append('file', fileContent, {
+      filename: filename,
+      contentType: contentType,
+    });
+    form.append('track_hash', track_hash);
+    form.append('options', JSON.stringify(analysisOptions));
+    form.append('callback_url', this.callbackUrl);
+    form.append('stem_delivery_mode', 'callback'); // Use callback mode for remote
+
+    logger.info(`Uploading audio file to remote analysis server: ${filename} (${fileContent.length} bytes)`);
+
+    const response = await axios.post(
+      `${this.serverUrl}/jobs`,
+      form,
+      {
+        headers: form.getHeaders(),
+        timeout: 60000, // 60 seconds for file upload
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+      }
+    );
+
+    logger.info(`Analysis request accepted for track: ${track_hash} (remote mode)`, {
+      job_id: response.data.job_id,
+      file_size: fileContent.length,
+    });
+
+    return response.data;
   }
 
   /**

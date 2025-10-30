@@ -1,3 +1,7 @@
+import fs from 'fs/promises';
+import path from 'path';
+import os from 'os';
+import axios from 'axios';
 import logger from '../utils/logger.js';
 import * as trackService from './track.service.js';
 import * as waveformService from './waveform.service.js';
@@ -209,7 +213,7 @@ export async function handleGenre(jobId, data) {
 /**
  * Handle stems callback
  * @param {string} jobId - Job ID
- * @param {Object} data - Stems data with path
+ * @param {Object} data - Stems data (either paths or base64-encoded audio)
  * @returns {Promise<void>}
  */
 export async function handleStems(jobId, data) {
@@ -223,56 +227,263 @@ export async function handleStems(jobId, data) {
       return;
     }
 
-    // Validate data - Python server sends:
-    // { delivery_mode: 'path', stems: {...}, waveforms: [...], processing_time: 45.3 }
-    if (!data || data.delivery_mode !== 'path' || !data.stems) {
-      logger.error(`Invalid stems data for job ${jobId}:`, data);
-      throw new Error('Invalid stems data: expected delivery_mode=path with stems object');
+    // Check if stems stage was already completed (idempotency check)
+    if (job.stages_completed && job.stages_completed.includes('stems')) {
+      logger.info(`Stems already processed for job ${jobId}, skipping duplicate callback`);
+      return;
     }
 
-    logger.info(`Received stem paths for job ${jobId}:`, data.stems);
+    // Validate data structure
+    if (!data || !data.delivery_mode || !data.stems) {
+      logger.error(`Invalid stems data for job ${jobId}:`, data);
+      throw new Error('Invalid stems data: missing delivery_mode or stems');
+    }
 
-    // Store waveform data in database (always replace old data)
-    // File paths are ephemeral, but waveforms can be served to the UI
+    let stemPaths = null;
+    let tempDir = null;
+
+    // Handle different delivery modes
+    if (data.delivery_mode === 'callback') {
+      // CALLBACK MODE: Check if stems are URLs or base64 data
+      const firstStemValue = Object.values(data.stems)[0];
+      const isUrlMode = typeof firstStemValue === 'string' &&
+                        (firstStemValue.startsWith('http://') || firstStemValue.startsWith('https://'));
+
+      if (isUrlMode) {
+        // URL MODE: Download FLAC stems from HTTP endpoints
+        logger.info(`Downloading stem files from URLs for job ${jobId} (format: ${data.format || 'flac'})`);
+
+        const result = await _downloadStemsFromUrls(jobId, data.stems, data.format || 'flac');
+        stemPaths = result.stemPaths;
+        tempDir = result.tempDir;
+
+        // Check if all stems downloaded successfully (all-or-nothing requirement)
+        const expectedStemCount = Object.keys(data.stems).length;
+        const downloadedStemCount = Object.keys(stemPaths).length;
+
+        if (downloadedStemCount < expectedStemCount) {
+          logger.error(`Stem download failed: only ${downloadedStemCount}/${expectedStemCount} stems downloaded successfully`);
+          logger.error(`Failed stems:`, result.metrics.failedStems);
+
+          // Cleanup partial downloads
+          if (tempDir) {
+            await fs.rm(tempDir, { recursive: true, force: true });
+          }
+
+          throw new Error(`Incomplete stem download: ${downloadedStemCount}/${expectedStemCount} stems received. All stems required.`);
+        }
+
+        logger.info(`✓ Successfully downloaded all ${downloadedStemCount} stems`);
+
+      } else {
+        // BASE64 MODE: Decode base64 audio data and save to temp files
+        logger.info(`Processing base64-encoded stems for job ${jobId} (remote mode)`);
+
+        const result = await _decodeStemsToTempFiles(jobId, data.stems);
+        stemPaths = result.stemPaths;
+        tempDir = result.tempDir;
+
+        logger.info(`Decoded ${Object.keys(stemPaths).length} stems to temp files`);
+      }
+
+    } else if (data.delivery_mode === 'path') {
+      // LOCAL MODE: Use file paths directly
+      logger.info(`Received stem file paths for job ${jobId} (local mode):`, data.stems);
+      stemPaths = data.stems;
+    } else {
+      throw new Error(`Unknown delivery_mode: ${data.delivery_mode}`);
+    }
+
+    // Store waveform data in database (for UI visualization)
     if (data.waveforms && Array.isArray(data.waveforms) && data.waveforms.length > 0) {
       const track = trackService.getTrackById(job.track_id);
       if (track && track.file_hash) {
-        logger.info(
-          `Storing ${data.waveforms.length} zoom levels of stem waveforms for track ${job.track_id}`
-        );
-
-        // Store all stem waveforms in a single transaction
         waveformService.storeStemWaveforms(track.file_hash, data.waveforms);
+        logger.info(`Stored ${data.waveforms.length} stem waveform zoom levels`);
       }
-    } else {
-      logger.warn(`No waveforms received with stems for job ${jobId}`);
     }
 
     // Update job progress
     analysisJobService.updateJobProgress(jobId, 'stems');
 
-    // Forward ONLY file paths to audio engine (not waveforms)
-    // Waveforms are for the UI, not the audio engine
+    // Forward stem paths to audio engine
     if (job.callback_metadata && job.callback_metadata.type === 'audio_server_stems') {
-      // Create data object with only file paths
+      // Audio engine always receives paths (even in remote mode, we provide temp file paths)
       const audioEngineData = {
-        delivery_mode: data.delivery_mode,
-        stems: data.stems,
+        delivery_mode: 'path', // Always use path mode for audio engine
+        stems: stemPaths,
         processing_time: data.processing_time,
-        // Note: waveforms intentionally excluded
       };
 
-      await handleCallback(job, audioEngineData);
-      logger.info(`✓ Forwarded stem paths to audio engine for job ${jobId}`);
-    } else {
-      logger.warn(
-        `Stems generated for job ${jobId} but no audio_server_stems callback - stems will not be delivered`
+      await audioServerClientService.sendStemsReady(
+        job.callback_metadata.trackId,
+        audioEngineData,
+        job.callback_metadata.requestId
       );
+
+      logger.info(`✓ Forwarded stem paths to audio engine for job ${jobId}`);
+
+      // Schedule cleanup of temp files (if remote mode)
+      if (tempDir) {
+        _scheduleCleanup(tempDir, 60000); // 60 seconds
+      }
+    } else {
+      logger.warn(`Stems generated for job ${jobId} but no audio_server_stems callback - stems will not be delivered`);
+
+      // Cleanup temp files immediately if not needed
+      if (tempDir) {
+        _scheduleCleanup(tempDir, 5000); // 5 seconds
+      }
     }
   } catch (error) {
     logger.error(`Error handling stems for job ${jobId}:`, error);
     throw error;
   }
+}
+
+/**
+ * Decode base64-encoded stems and save to temp files
+ * @param {string} jobId - Job ID
+ * @param {Object} stems - Object with stem types as keys and base64 data as values
+ * @returns {Promise<{stemPaths: Object, tempDir: string}>}
+ * @private
+ */
+async function _decodeStemsToTempFiles(jobId, stems) {
+  const tempDir = path.join(os.tmpdir(), 'mismo-stems', jobId);
+  await fs.mkdir(tempDir, { recursive: true });
+
+  const stemPaths = {};
+
+  for (const [stemType, base64Data] of Object.entries(stems)) {
+    if (!base64Data) {
+      logger.warn(`Stem ${stemType} is null, skipping`);
+      continue;
+    }
+
+    try {
+      // Decode base64 to buffer
+      const audioBuffer = Buffer.from(base64Data, 'base64');
+
+      // Save to temp file
+      const tempFilePath = path.join(tempDir, `${stemType}.wav`);
+      await fs.writeFile(tempFilePath, audioBuffer);
+
+      stemPaths[stemType] = tempFilePath;
+
+      logger.info(`Saved stem ${stemType} to ${tempFilePath} (${audioBuffer.length} bytes)`);
+    } catch (error) {
+      logger.error(`Failed to decode stem ${stemType}:`, error);
+    }
+  }
+
+  return { stemPaths, tempDir };
+}
+
+/**
+ * Schedule cleanup of temporary stem files
+ * @param {string} tempDir - Directory to clean up
+ * @param {number} delayMs - Delay in milliseconds
+ * @private
+ */
+function _scheduleCleanup(tempDir, delayMs) {
+  setTimeout(async () => {
+    try {
+      await fs.rm(tempDir, { recursive: true, force: true });
+      logger.info(`Cleaned up temp stems directory: ${tempDir}`);
+    } catch (error) {
+      logger.error(`Failed to cleanup temp stems: ${tempDir}`, error);
+    }
+  }, delayMs);
+}
+
+/**
+ * Download stem files from URLs and save to temp directory
+ * Downloads all stems in parallel for maximum speed
+ *
+ * @param {string} jobId - Job ID
+ * @param {Object} stemUrls - Object with stem types as keys and URLs as values
+ * @param {string} format - File format (e.g., 'flac', 'wav')
+ * @returns {Promise<{stemPaths: Object, tempDir: string, metrics: Object}>}
+ * @private
+ */
+async function _downloadStemsFromUrls(jobId, stemUrls, format = 'flac') {
+  const tempDir = path.join(os.tmpdir(), 'mismo-stems', jobId);
+  await fs.mkdir(tempDir, { recursive: true });
+
+  const startTime = Date.now();
+  const metrics = {
+    totalBytes: 0,
+    downloadTime: 0,
+    stemCount: 0,
+    failedStems: [],
+  };
+
+  logger.info(`Starting parallel download of ${Object.keys(stemUrls).length} stems for job ${jobId}`);
+
+  // Download all stems in parallel
+  const downloadPromises = Object.entries(stemUrls).map(async ([stemType, url]) => {
+    if (!url) {
+      logger.warn(`Stem ${stemType} has no URL, skipping`);
+      metrics.failedStems.push({ stem: stemType, reason: 'No URL provided' });
+      return [stemType, null];
+    }
+
+    // Validate URL format
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      logger.error(`Invalid URL for stem ${stemType}: ${url}`);
+      metrics.failedStems.push({ stem: stemType, reason: 'Invalid URL format' });
+      return [stemType, null];
+    }
+
+    const stemStartTime = Date.now();
+
+    try {
+      logger.info(`Downloading stem ${stemType} from ${url}`);
+
+      const response = await axios.get(url, {
+        responseType: 'arraybuffer',
+        timeout: 60000, // 60 second timeout per stem
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+      });
+
+      const audioBuffer = Buffer.from(response.data);
+      const tempFilePath = path.join(tempDir, `${stemType}.${format}`);
+      await fs.writeFile(tempFilePath, audioBuffer);
+
+      const downloadTime = Date.now() - stemStartTime;
+      const sizeMB = (audioBuffer.length / (1024 * 1024)).toFixed(2);
+      const speedMbps = ((audioBuffer.length * 8) / (downloadTime / 1000) / 1000000).toFixed(2);
+
+      metrics.totalBytes += audioBuffer.length;
+      metrics.stemCount++;
+
+      logger.info(`✓ Downloaded stem ${stemType}: ${sizeMB} MB in ${downloadTime}ms (${speedMbps} Mbps) → ${tempFilePath}`);
+
+      return [stemType, tempFilePath];
+    } catch (error) {
+      const downloadTime = Date.now() - stemStartTime;
+      logger.error(`✗ Failed to download stem ${stemType} from ${url} after ${downloadTime}ms:`, error.message);
+      metrics.failedStems.push({ stem: stemType, reason: error.message, url });
+      return [stemType, null];
+    }
+  });
+
+  const results = await Promise.all(downloadPromises);
+  const stemPaths = Object.fromEntries(results.filter(([_, path]) => path !== null));
+
+  metrics.downloadTime = Date.now() - startTime;
+  const totalMB = (metrics.totalBytes / (1024 * 1024)).toFixed(2);
+  const avgSpeedMbps = ((metrics.totalBytes * 8) / (metrics.downloadTime / 1000) / 1000000).toFixed(2);
+
+  // Log summary
+  logger.info(`Download complete: ${metrics.stemCount}/${Object.keys(stemUrls).length} stems succeeded, ${totalMB} MB total in ${metrics.downloadTime}ms (${avgSpeedMbps} Mbps avg)`);
+
+  if (metrics.failedStems.length > 0) {
+    logger.warn(`Failed stems:`, metrics.failedStems);
+  }
+
+  return { stemPaths, tempDir, metrics };
 }
 
 /**

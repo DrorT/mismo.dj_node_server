@@ -24,6 +24,11 @@ class AnalysisServerService {
     this.startupPromise = null;
     this.logStream = null;
     this.logFilePath = 'logs/analysis.log';
+
+    // Remote mode health monitoring
+    this.isRemoteMode = process.env.ANALYSIS_SERVER_REMOTE === 'true';
+    this.healthCheckInterval = null;
+    this.healthCheckIntervalMs = parseInt(process.env.ANALYSIS_SERVER_HEALTH_CHECK_INTERVAL_MS || '10000'); // 10 seconds
   }
 
   /**
@@ -436,6 +441,68 @@ class AnalysisServerService {
 
     logger.info('Library directories changed, restarting analysis server...');
     return await this.restart();
+  }
+
+  /**
+   * Initialize remote mode with health monitoring
+   * Continuously checks health and sets isReady flag accordingly
+   * @returns {Promise<boolean>} True if remote server is initially reachable
+   */
+  async initializeRemoteMode() {
+    logger.info('Initializing remote analysis server monitoring...');
+
+    // Initial health check
+    const isHealthy = await this.checkHealth();
+
+    if (isHealthy) {
+      logger.info('✓ Remote analysis server is reachable');
+      this.isReady = true;
+    } else {
+      logger.warn('⚠ Remote analysis server is not reachable - will retry periodically');
+      this.isReady = false;
+    }
+
+    // Start periodic health monitoring
+    this.startRemoteHealthMonitoring();
+
+    return isHealthy;
+  }
+
+  /**
+   * Start periodic health monitoring for remote server
+   * Automatically updates isReady flag based on health status
+   */
+  startRemoteHealthMonitoring() {
+    if (this.healthCheckInterval) {
+      return; // Already monitoring
+    }
+
+    logger.info(`Starting remote analysis server health monitoring (interval: ${this.healthCheckIntervalMs}ms)`);
+
+    this.healthCheckInterval = setInterval(async () => {
+      const isHealthy = await this.checkHealth();
+
+      if (isHealthy && !this.isReady) {
+        // Server came back online
+        logger.info('✓ Remote analysis server connection restored');
+        this.isReady = true;
+      } else if (!isHealthy && this.isReady) {
+        // Server went offline
+        logger.warn('⚠ Remote analysis server connection lost - will retry');
+        this.isReady = false;
+      }
+    }, this.healthCheckIntervalMs);
+  }
+
+  /**
+   * Stop remote health monitoring
+   */
+  stopRemoteHealthMonitoring() {
+    if (this.healthCheckInterval) {
+      clearInterval(this.healthCheckInterval);
+      this.healthCheckInterval = null;
+      logger.info('Stopped remote analysis server health monitoring');
+    }
   }
 }
 

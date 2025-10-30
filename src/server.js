@@ -36,8 +36,9 @@ app.use(cors({
 }));
 
 // Body parsing
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+// Use large limits to support remote analysis mode with base64-encoded stems (~500MB)
+app.use(express.json({ limit: '500mb' }));
+app.use(express.urlencoded({ extended: true, limit: '500mb' }));
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -245,31 +246,68 @@ const server = app.listen(config.server.port, config.server.host, async () => {
   // Start analysis server initialization in background (non-blocking)
   const analysisServerInitPromise = (async () => {
     try {
-      logger.info('Initializing Python analysis server (background)...');
-      const serverStarted = await analysisServerService.initializeAsync();
-      if (serverStarted) {
-        logger.info('✓ Analysis server ready');
+      const isRemoteMode = process.env.ANALYSIS_SERVER_REMOTE === 'true';
+
+      if (isRemoteMode) {
+        // Remote mode: Don't start local analysis server, monitor remote server health
+        logger.info('Analysis server running in REMOTE mode - skipping local server startup');
 
         // Initialize Python client with callback URL
-        // Use 127.0.0.1 instead of 0.0.0.0 since 0.0.0.0 is not routable for clients
-        const callbackHost = config.server.host === '0.0.0.0' ? '127.0.0.1' : config.server.host;
+        // Use CALLBACK_HOST if set, otherwise fall back to detecting from server.host
+        let callbackHost = process.env.CALLBACK_HOST;
+        if (!callbackHost || callbackHost.trim() === '') {
+          callbackHost = config.server.host === '0.0.0.0' ? '127.0.0.1' : config.server.host;
+          logger.info(`CALLBACK_HOST not set, using auto-detected: ${callbackHost}`);
+        } else {
+          logger.info(`Using configured CALLBACK_HOST: ${callbackHost}`);
+        }
         const nodeServerUrl = `http://${callbackHost}:${config.server.port}`;
         pythonClientService.initialize(nodeServerUrl);
+
+        // Initialize remote mode with health monitoring
+        const isAvailable = await analysisServerService.initializeRemoteMode();
 
         // Initialize analysis queue
         await analysisQueueService.initialize();
         logger.info('✓ Analysis queue initialized');
 
         // Queue all unanalyzed tracks for analysis
-        // Do this after a short delay to let the startup scan complete first
         setTimeout(() => {
           queueUnanalyzedTracks();
-        }, 5000); // Wait 5 seconds for startup scan to start
+        }, 5000);
 
-        return true;
+        return isAvailable;
       } else {
-        logger.warn('⚠ Analysis server not available - analysis features will be disabled');
-        return false;
+        // Local mode: Start and manage local analysis server
+        logger.info('Initializing Python analysis server (background, LOCAL mode)...');
+        const serverStarted = await analysisServerService.initializeAsync();
+        if (serverStarted) {
+          logger.info('✓ Analysis server ready');
+
+          // Initialize Python client with callback URL
+          // Use CALLBACK_HOST if set, otherwise use 127.0.0.1 for local mode
+          let callbackHost = process.env.CALLBACK_HOST;
+          if (!callbackHost || callbackHost.trim() === '') {
+            callbackHost = config.server.host === '0.0.0.0' ? '127.0.0.1' : config.server.host;
+          }
+          const nodeServerUrl = `http://${callbackHost}:${config.server.port}`;
+          pythonClientService.initialize(nodeServerUrl);
+
+          // Initialize analysis queue
+          await analysisQueueService.initialize();
+          logger.info('✓ Analysis queue initialized');
+
+          // Queue all unanalyzed tracks for analysis
+          // Do this after a short delay to let the startup scan complete first
+          setTimeout(() => {
+            queueUnanalyzedTracks();
+          }, 5000); // Wait 5 seconds for startup scan to start
+
+          return true;
+        } else {
+          logger.warn('⚠ Analysis server not available - analysis features will be disabled');
+          return false;
+        }
       }
     } catch (error) {
       logger.error('✗ Failed to initialize analysis server:', error);
@@ -352,11 +390,22 @@ async function gracefulShutdown(signal) {
     }
 
     // Stop analysis server
-    try {
-      await analysisServerService.stop();
-      logger.info('Analysis server stopped');
-    } catch (error) {
-      logger.error('Error stopping analysis server:', error);
+    if (process.env.ANALYSIS_SERVER_REMOTE === 'true') {
+      // Remote mode: Stop health monitoring
+      try {
+        analysisServerService.stopRemoteHealthMonitoring();
+        logger.info('Remote analysis server monitoring stopped');
+      } catch (error) {
+        logger.error('Error stopping remote monitoring:', error);
+      }
+    } else {
+      // Local mode: Stop local server process
+      try {
+        await analysisServerService.stop();
+        logger.info('Analysis server stopped');
+      } catch (error) {
+        logger.error('Error stopping analysis server:', error);
+      }
     }
 
     // Stop file watchers
