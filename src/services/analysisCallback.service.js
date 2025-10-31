@@ -9,6 +9,7 @@ import * as analysisJobService from './analysisJob.service.js';
 import analysisQueueService from './analysisQueue.service.js';
 import audioServerClientService from './audioServerClient.service.js';
 import stemCacheService from './stemCache.service.js';
+import { convertStemsToWav } from '../utils/stemConverter.js';
 
 /**
  * Analysis Callback Service
@@ -377,17 +378,32 @@ export async function handleStems(jobId, data) {
       }
     }
 
+    // Convert FLAC stems to WAV (audio engine needs uncompressed PCM)
+    // This happens before caching so cache stores WAV files
+    const format = data.format || 'flac';
+    if (format === 'flac') {
+      logger.info(`Converting ${Object.keys(stemPaths).length} FLAC stems to WAV for audio engine compatibility...`);
+      try {
+        stemPaths = await convertStemsToWav(stemPaths);
+        logger.info(`✓ Stems converted to WAV format`);
+      } catch (error) {
+        logger.error(`Failed to convert stems to WAV:`, error);
+        // Continue with FLAC files and hope for the best
+        logger.warn(`Proceeding with FLAC files (audio engine may not support them)`);
+      }
+    }
+
     // Cache stems for future requests (before forwarding to audio engine)
     // This reduces load on analysis server for repeat requests
-    const format = data.format || 'flac';
-    await stemCacheService.set(jobId, stemPaths, format);
+    // Note: We cache WAV files (after conversion), so cache hits are instant and audio-engine-ready
+    const cachedPaths = await stemCacheService.set(jobId, stemPaths, 'wav');
 
     // Forward stem paths to audio engine (BEFORE marking stage as complete)
     if (job.callback_metadata && job.callback_metadata.type === 'audio_server_stems') {
-      // Audio engine always receives paths (even in remote mode, we provide temp file paths)
+      // Audio engine always receives cached WAV paths (persistent, never deleted)
       const audioEngineData = {
         delivery_mode: 'path', // Always use path mode for audio engine
-        stems: stemPaths,
+        stems: cachedPaths, // Send cached paths (persistent in data/stem_cache/)
         processing_time: data.processing_time,
       };
 
@@ -397,24 +413,25 @@ export async function handleStems(jobId, data) {
         job.callback_metadata.requestId
       );
 
-      logger.info(`✓ Forwarded stem paths to audio engine for job ${jobId}`);
+      logger.info(`✓ Forwarded cached stem paths to audio engine for job ${jobId}`);
 
       // Only mark stems stage as complete AFTER successful delivery to audio engine
       analysisJobService.updateJobProgress(jobId, 'stems');
       logger.info(`✓ Marked stems stage as complete for job ${jobId}`);
-
-      // Schedule cleanup of temp files (if remote mode)
-      if (tempDir) {
-        _scheduleCleanup(tempDir, 60000); // 60 seconds
-      }
     } else {
       logger.warn(`Stems generated for job ${jobId} but no audio_server_stems callback - stems will not be delivered`);
       // Do NOT mark stems stage as complete if not delivered to audio engine
       logger.warn(`Not marking stems as complete since they were not delivered`);
+    }
 
-      // Cleanup temp files immediately if not needed
-      if (tempDir) {
-        _scheduleCleanup(tempDir, 5000); // 5 seconds
+    // Cleanup temp files immediately after caching (stems are now in persistent cache)
+    if (tempDir) {
+      logger.info(`Cleaning up temp directory: ${tempDir}`);
+      try {
+        await fs.rm(tempDir, { recursive: true, force: true });
+        logger.info(`✓ Cleaned up temp directory`);
+      } catch (error) {
+        logger.error(`Failed to cleanup temp directory ${tempDir}:`, error);
       }
     }
   } catch (error) {
@@ -461,22 +478,6 @@ async function _decodeStemsToTempFiles(jobId, stems) {
   return { stemPaths, tempDir };
 }
 
-/**
- * Schedule cleanup of temporary stem files
- * @param {string} tempDir - Directory to clean up
- * @param {number} delayMs - Delay in milliseconds
- * @private
- */
-function _scheduleCleanup(tempDir, delayMs) {
-  setTimeout(async () => {
-    try {
-      await fs.rm(tempDir, { recursive: true, force: true });
-      logger.info(`Cleaned up temp stems directory: ${tempDir}`);
-    } catch (error) {
-      logger.error(`Failed to cleanup temp stems: ${tempDir}`, error);
-    }
-  }, delayMs);
-}
 
 /**
  * Download stem files from URLs and save to temp directory

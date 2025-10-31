@@ -7,19 +7,20 @@ import logger from '../utils/logger.js';
  * Caches the last N stem sets locally to avoid re-requesting from analysis server
  *
  * Features:
- * - FIFO eviction: oldest stems deleted when cache is full
+ * - LRU eviction: least recently used stems deleted when cache is full
  * - Track hash-based lookup
  * - Automatic cache directory management
  * - Configurable cache size
+ * - Protection for stems loaded in audio engine decks
  *
  * Cache structure:
  * data/stem_cache/
  *   {track_hash}/
- *     vocals.flac
- *     drums.flac
- *     bass.flac
- *     other.flac
- *     .metadata.json  (timestamp, format, etc.)
+ *     vocals.wav
+ *     drums.wav
+ *     bass.wav
+ *     other.wav
+ *     .metadata.json  (timestamp, format, lastAccessed, etc.)
  */
 
 class StemCacheService {
@@ -27,6 +28,22 @@ class StemCacheService {
     this.cacheDir = path.join(process.cwd(), 'data', 'stem_cache');
     this.maxCacheSets = parseInt(process.env.STEM_CACHE_MAX_SETS || '10'); // Cache last 10 stem sets
     this.enabled = process.env.STEM_CACHE_ENABLED !== 'false'; // Enabled by default
+
+    // Services will be injected during initialization
+    this.trackService = null;
+    this.audioServerClientService = null;
+  }
+
+  /**
+   * Initialize with required services
+   * @param {Object} services - Required services
+   * @param {Object} services.trackService - Track service for database queries
+   * @param {Object} services.audioServerClientService - Audio server client for deck state
+   */
+  initialize({ trackService, audioServerClientService }) {
+    this.trackService = trackService;
+    this.audioServerClientService = audioServerClientService;
+    logger.debug('StemCacheService initialized with services');
   }
 
   /**
@@ -187,7 +204,8 @@ class StemCacheService {
   }
 
   /**
-   * Enforce max cache size by removing oldest entries (FIFO)
+   * Enforce max cache size by removing least recently used entries (LRU)
+   * Protects stems that are currently loaded in audio engine decks
    */
   async enforceMaxSize() {
     try {
@@ -213,36 +231,64 @@ class StemCacheService {
             trackHash,
             cachedAt: new Date(metadata.cachedAt).getTime(),
             lastAccessed: new Date(metadata.lastAccessed || metadata.cachedAt).getTime(),
+            isLoaded: this.isLoaded(trackHash), // Check if currently loaded in deck
           });
         } catch (error) {
-          // Invalid/corrupted entry, mark for removal
+          // Invalid/corrupted entry, mark for removal (unless loaded)
           cacheEntries.push({
             trackHash,
             cachedAt: 0,
             lastAccessed: 0,
+            isLoaded: this.isLoaded(trackHash),
           });
         }
       }
 
-      // Sort by cachedAt (oldest first) - FIFO eviction
-      cacheEntries.sort((a, b) => a.cachedAt - b.cachedAt);
+      // Sort by lastAccessed (least recently used first) - LRU eviction
+      // Loaded stems are treated as "accessed now" to prevent eviction
+      cacheEntries.sort((a, b) => {
+        // Loaded stems always come last (most recently used)
+        if (a.isLoaded && !b.isLoaded) return 1;
+        if (!a.isLoaded && b.isLoaded) return -1;
 
-      // Remove oldest entries until we're at max size
+        // Both loaded or both not loaded: sort by lastAccessed
+        return a.lastAccessed - b.lastAccessed;
+      });
+
+      // Remove least recently used entries until we're at max size
+      // Skip loaded stems (they're protected)
       const toRemove = cacheEntries.length - this.maxCacheSets;
       const removed = [];
+      const skipped = [];
 
-      for (let i = 0; i < toRemove; i++) {
+      for (let i = 0; i < cacheEntries.length && removed.length < toRemove; i++) {
         const entry = cacheEntries[i];
+
+        if (entry.isLoaded) {
+          // Skip loaded stems - they're in use by audio engine
+          skipped.push(entry.trackHash);
+          logger.info(`Skipping eviction of loaded stems: ${entry.trackHash}`);
+          continue;
+        }
+
         await this.remove(entry.trackHash);
         removed.push(entry.trackHash);
       }
 
       if (removed.length > 0) {
-        logger.info(`Evicted ${removed.length} old stem sets from cache (FIFO)`, {
+        logger.info(`Evicted ${removed.length} stem sets from cache (LRU)`, {
           removed: removed.slice(0, 3), // Log first 3
+          skipped: skipped.length,
           currentSize: cacheEntries.length - removed.length,
           maxSize: this.maxCacheSets,
         });
+      }
+
+      if (skipped.length > 0 && removed.length < toRemove) {
+        logger.warn(
+          `Cache is over limit but cannot evict loaded stems (${skipped.length} protected). ` +
+          `Consider increasing STEM_CACHE_MAX_SETS or unloading tracks from decks.`
+        );
       }
     } catch (error) {
       logger.error('Error enforcing stem cache max size:', error);
@@ -259,6 +305,42 @@ class StemCacheService {
       logger.info('Stem cache cleared');
     } catch (error) {
       logger.error('Error clearing stem cache:', error);
+    }
+  }
+
+  /**
+   * Check if stems are currently loaded in audio engine
+   * Stems are considered loaded if their track is on deck A or B
+   * @param {string} trackHash - Track file hash
+   * @returns {boolean}
+   */
+  isLoaded(trackHash) {
+    if (!this.trackService || !this.audioServerClientService) {
+      // Services not initialized yet, assume not loaded
+      return false;
+    }
+
+    try {
+      // Get deck state from audio server client
+      const deckState = this.audioServerClientService.deckState;
+      if (!deckState) return false;
+
+      // Check if this track (by hash) is loaded on deck A or B
+      for (const deck of ['A', 'B']) {
+        const trackId = deckState[deck]?.trackId;
+        if (!trackId) continue;
+
+        // Get track by UUID to check file_hash
+        const track = this.trackService.getTrackById(trackId);
+        if (track && track.file_hash === trackHash) {
+          return true; // This track is loaded on this deck
+        }
+      }
+
+      return false;
+    } catch (error) {
+      logger.error(`Error checking if stems are loaded for ${trackHash}:`, error);
+      return false; // Assume not loaded on error
     }
   }
 
@@ -305,12 +387,16 @@ class StemCacheService {
         }
       }
 
+      // Count how many cached stems are currently loaded
+      const loadedCount = cacheEntries.filter(e => this.isLoaded(e.trackHash)).length;
+
       return {
         enabled: this.enabled,
         currentSets: cacheEntries.length,
         maxSets: this.maxCacheSets,
         totalSizeMB: (totalSizeBytes / (1024 * 1024)).toFixed(2),
-        entries: cacheEntries.sort((a, b) => new Date(b.cachedAt) - new Date(a.cachedAt)),
+        loadedStems: loadedCount,
+        entries: cacheEntries.sort((a, b) => new Date(b.lastAccessed || b.cachedAt) - new Date(a.lastAccessed || a.cachedAt)),
       };
     } catch (error) {
       logger.error('Error getting stem cache stats:', error);

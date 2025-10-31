@@ -340,6 +340,14 @@ const server = app.listen(config.server.port, config.server.host, async () => {
           analysisQueueService: analysisQueueService
         });
 
+        // Initialize stem cache service with dependencies
+        const stemCacheService = (await import('./services/stemCache.service.js')).default;
+        stemCacheService.initialize({
+          trackService: trackService,
+          audioServerClientService: audioServerClientService
+        });
+        logger.info('✓ Stem cache service initialized');
+
         // Connect to audio server (will wait for server to be ready)
         try {
           await audioServerClientService.connect();
