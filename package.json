@@ -18,7 +18,10 @@
     "serve:test": "python3 -m http.server 8080",
     "reanalyze:all": "node scripts/reanalyze-tracks.js --all",
     "reanalyze:library": "node scripts/reanalyze-tracks.js --library",
-    "reanalyze:dry-run": "node scripts/reanalyze-tracks.js --all --dry-run"
+    "reanalyze:dry-run": "node scripts/reanalyze-tracks.js --all --dry-run",
+    "check-node": "node -e \"const v=process.version.slice(1).split('.')[0];if(v!=='24'){console.error('Error: Node.js 24.x required (found '+process.version+'). Run: fnm use 24.10.0');process.exit(1)}\"",
+    "postinstall": "npm run rebuild-native",
+    "rebuild-native": "npm rebuild better-sqlite3"
   },
   "repository": {
     "type": "git",

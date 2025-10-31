@@ -9,12 +9,30 @@ This document provides guidelines for effective collaboration between the develo
 ## Project Environment
 
 ### Technology Stack
-- **Runtime**: Node.js v24
+- **Runtime**: Node.js v24.10.0 (managed via fnm)
 - **Language**: JavaScript (ES modules)
 - **Framework**: Express.js
-- **Database**: SQLite
+- **Database**: SQLite (via better-sqlite3 native module)
 - **Audio Formats**: MP3, WAV, FLAC, AAC, OPUS, ALAC, AIF
 - **Architecture**: RESTful API with file system monitoring
+
+### Node.js Version Management
+This project **requires Node.js 24.10.0** and uses `fnm` (Fast Node Manager) for version management.
+
+**IMPORTANT for Claude Code:**
+- Always run `fnm use 24.10.0` before npm commands
+- VSCode is configured to use the correct Node version (see `.vscode/settings.json`)
+- Native modules (better-sqlite3) must be rebuilt when switching Node versions
+- The `postinstall` script automatically rebuilds native modules after `npm install`
+
+**Quick Commands:**
+```bash
+fnm use 24.10.0                    # Switch to required version
+npm run check-node                 # Verify correct version
+npm run rebuild-native             # Rebuild better-sqlite3
+```
+
+See [NODE_VERSION_GUIDE.md](NODE_VERSION_GUIDE.md) for detailed information.
 
 ### Current State
 - **Branch**: main
