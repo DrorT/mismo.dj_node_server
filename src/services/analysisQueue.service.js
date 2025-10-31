@@ -80,6 +80,9 @@ class AnalysisQueueService extends EventEmitter {
       // Use track hash as job ID
       const jobId = track.file_hash;
 
+      // Cleanup stale jobs BEFORE processing this request
+      await this._cleanupStaleJobs();
+
       // Check if an incomplete job already exists for this track
       // Note: After migration 013, job_id is not unique - multiple jobs can exist per track
       let job = analysisJobService.getIncompleteJobById(jobId);
@@ -469,6 +472,86 @@ class AnalysisQueueService extends EventEmitter {
    */
   cleanupOldJobs(olderThanDays = 7) {
     return analysisJobService.cleanupOldJobs(olderThanDays);
+  }
+
+  /**
+   * Clean up stale/irrelevant jobs before processing new requests
+   * Marks jobs as failed if they are:
+   * 1. Processing for too long (stuck)
+   * 2. Queued for too long (stale)
+   *
+   * This ensures the queue doesn't get clogged with abandoned requests
+   * @private
+   */
+  async _cleanupStaleJobs() {
+    try {
+      const now = Date.now();
+      const processingTimeoutMs = parseInt(process.env.ANALYSIS_PROCESSING_TIMEOUT_MS || '600000'); // 10 minutes
+      const queuedTimeoutMs = parseInt(process.env.ANALYSIS_QUEUED_TIMEOUT_MS || '3600000'); // 1 hour
+
+      // Get all incomplete jobs
+      const processingJobs = analysisJobService.getProcessingJobs();
+      const queuedJobs = analysisJobService.getQueuedJobs(1000); // Get all queued jobs
+
+      let staleCount = 0;
+
+      // Check processing jobs for staleness
+      for (const job of processingJobs) {
+        // SQLite CURRENT_TIMESTAMP returns UTC in format: "YYYY-MM-DD HH:MM:SS"
+        // We need to append 'Z' to parse it as UTC, otherwise JavaScript treats it as local time
+        const startedAtStr = job.started_at || job.created_at;
+        const startedAt = new Date(startedAtStr + 'Z').getTime();
+        const ageMs = now - startedAt;
+
+        if (ageMs > processingTimeoutMs) {
+          logger.warn(`Marking stale processing job as failed: ${job.job_id}`, {
+            track_id: job.track_id,
+            age_minutes: Math.round(ageMs / 60000),
+            timeout_minutes: Math.round(processingTimeoutMs / 60000),
+          });
+
+          analysisJobService.updateJobStatus(
+            job.job_id,
+            'failed',
+            `Job timed out after ${Math.round(ageMs / 60000)} minutes (processing timeout: ${Math.round(processingTimeoutMs / 60000)} minutes)`
+          );
+
+          this.processingJobs.delete(job.job_id);
+          staleCount++;
+        }
+      }
+
+      // Check queued jobs for staleness
+      for (const job of queuedJobs) {
+        // SQLite CURRENT_TIMESTAMP returns UTC in format: "YYYY-MM-DD HH:MM:SS"
+        // We need to append 'Z' to parse it as UTC, otherwise JavaScript treats it as local time
+        const createdAt = new Date(job.created_at + 'Z').getTime();
+        const ageMs = now - createdAt;
+
+        if (ageMs > queuedTimeoutMs) {
+          logger.warn(`Marking stale queued job as failed: ${job.job_id}`, {
+            track_id: job.track_id,
+            age_minutes: Math.round(ageMs / 60000),
+            timeout_minutes: Math.round(queuedTimeoutMs / 60000),
+          });
+
+          analysisJobService.updateJobStatus(
+            job.job_id,
+            'failed',
+            `Job timed out after ${Math.round(ageMs / 60000)} minutes (queue timeout: ${Math.round(queuedTimeoutMs / 60000)} minutes)`
+          );
+
+          staleCount++;
+        }
+      }
+
+      if (staleCount > 0) {
+        logger.info(`Cleaned up ${staleCount} stale job(s)`);
+      }
+    } catch (error) {
+      logger.error('Error cleaning up stale jobs:', error);
+      // Don't throw - this is a cleanup operation, shouldn't block new requests
+    }
   }
 }
 

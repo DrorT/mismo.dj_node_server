@@ -332,10 +332,12 @@ export function updateJobStatus(jobId, status, errorMessage = null) {
 
     params.push(jobId);
 
+    // Update only incomplete jobs (queued or processing) with this job_id
+    // This prevents accidentally updating completed/failed jobs from history
     const stmt = db.prepare(`
       UPDATE analysis_jobs
       SET ${updates.join(', ')}
-      WHERE job_id = ?
+      WHERE job_id = ? AND status IN ('queued', 'processing')
     `);
 
     const result = stmt.run(...params);
@@ -345,7 +347,7 @@ export function updateJobStatus(jobId, status, errorMessage = null) {
       return true;
     }
 
-    logger.warn(`Job ${jobId} not found for status update`);
+    logger.warn(`Job ${jobId} not found for status update (or already completed/failed)`);
     return false;
   } catch (error) {
     logger.error(`Error updating job ${jobId} status:`, error);
